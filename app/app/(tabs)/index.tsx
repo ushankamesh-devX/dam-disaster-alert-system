@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View, Text } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -73,6 +73,21 @@ export default function HomeScreen() {
           <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
           <ThemedText type="defaultSemiBold">app-example</ThemedText>.
         </ThemedText>
+      </ThemedView>
+
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Tailwind Buttons</ThemedText>
+        <View className="flex-row gap-4 flex-wrap">
+          <View className="bg-blue-500 px-4 py-2 rounded-lg active:opacity-80">
+            <Text className="text-white font-bold">Primary</Text>
+          </View>
+          <View className="bg-green-500 px-4 py-2 rounded-lg active:opacity-80">
+            <Text className="text-white font-bold">Success</Text>
+          </View>
+          <View className="bg-red-500 px-4 py-2 rounded-lg active:opacity-80">
+            <Text className="text-white font-bold">Danger</Text>
+          </View>
+        </View>
       </ThemedView>
     </ParallaxScrollView>
   );

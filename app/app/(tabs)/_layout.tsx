@@ -41,6 +41,13 @@ export default function TabLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="safe-location/[id]"
+        options={{
+          href: null,
+        }}
+      />
+
     </Tabs>
   );
 }

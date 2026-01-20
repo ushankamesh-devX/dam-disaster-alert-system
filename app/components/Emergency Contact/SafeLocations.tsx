@@ -1,7 +1,21 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+  Linking,
+  Image,
+  StyleSheet,
+  type ImageSourcePropType,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+
+export type SafeLocationsProps = {
+  mapImageSource?: ImageSourcePropType;
+};
 
 type LocationTag = 'Nearby' | 'Emergency' | 'Safe' | 'Shelter';
 
@@ -24,7 +38,7 @@ function getTagStyles(tag: LocationTag) {
     case 'Nearby':
       return { pill: 'bg-green-100', text: 'text-green-700' };
     case 'Emergency':
-      return { pill: 'bg-orange-100', text: 'text-orange-700' };
+      return { pill: 'bg-red-100', text: 'text-red-700' };
     case 'Safe':
       return { pill: 'bg-blue-100', text: 'text-blue-700' };
     case 'Shelter':
@@ -47,7 +61,7 @@ function openDirections(query: string) {
   });
 }
 
-export function SafeLocations() {
+export function SafeLocations({ mapImageSource }: SafeLocationsProps = {}) {
   const router = useRouter();
   const locations: SafeLocation[] = useMemo(
     () => [
@@ -98,7 +112,7 @@ export function SafeLocations() {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Back"
-          onPress={() => router.back()}
+          onPress={() => router.replace('/')}
           className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
         >
           <MaterialCommunityIcons name="arrow-left" size={22} color="#111827" />
@@ -120,6 +134,18 @@ export function SafeLocations() {
 
       {/* Map card (stylized placeholder, no extra deps) */}
       <View className="rounded-3xl overflow-hidden border border-gray-200 bg-slate-100 h-60 relative">
+        {/* Optional real map image behind everything */}
+        {mapImageSource ? (
+          <Image
+            source={mapImageSource}
+            resizeMode="cover"
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
+
+        {/* Soft overlay so markers/text stay readable */}
+        <View className="absolute inset-0 bg-white/20" />
+
         {/* Faux map lines */}
         <View className="absolute inset-0 opacity-60">
           <View className="absolute left-6 top-10 right-6 h-[1px] bg-slate-300" />
@@ -167,8 +193,21 @@ export function SafeLocations() {
           {locations.map((loc) => {
             const tag = getTagStyles(loc.tag);
             return (
-              <View
+              <TouchableOpacity
                 key={loc.id}
+                activeOpacity={0.85}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(tabs)/safe-location/[id]',
+                    params: {
+                      id: loc.id,
+                      name: loc.name,
+                      area: loc.area,
+                      distanceKm: String(loc.distanceKm),
+                      tag: loc.tag,
+                    },
+                  })
+                }
                 className="bg-white border border-gray-200 rounded-2xl px-4 py-3"
               >
                 <View className="flex-row items-start justify-between">
@@ -197,7 +236,7 @@ export function SafeLocations() {
                     <MaterialCommunityIcons name="chevron-right" size={18} color="#2563EB" />
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>

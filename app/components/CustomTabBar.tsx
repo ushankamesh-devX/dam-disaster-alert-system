@@ -8,6 +8,10 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
     <View style={styles.container}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
+
+        const isHiddenRoute = (options as any)?.href === null || route.name.startsWith('safe-location/');
+        if (isHiddenRoute) return null;
+
         const label =
           options.tabBarLabel !== undefined
             ? options.tabBarLabel
@@ -47,7 +51,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                     accessibilityRole="button"
                     accessibilityState={isFocused ? { selected: true } : {}}
                     accessibilityLabel={options.tabBarAccessibilityLabel}
-                    testID={options.tabBarTestID}
+                  testID={(options as any).tabBarTestID}
                     onPress={onPress}
                     onLongPress={onLongPress}
                     style={styles.emergencyButton}
@@ -72,7 +76,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
             accessibilityLabel={options.tabBarAccessibilityLabel}
-            testID={options.tabBarTestID}
+            testID={(options as any).tabBarTestID}
             onPress={onPress}
             onLongPress={onLongPress}
             style={styles.tabItem}

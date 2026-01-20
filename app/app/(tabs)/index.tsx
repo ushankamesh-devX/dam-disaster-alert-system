@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Text, ScrollView } from 'react-native';
 import { ScreenLayout } from '@/components/ScreenLayout';
-import { HazardCard } from '@/components/Dashboard/HazardCard';
+import { HazardCard } from '@/components/pages/Dashboard/HazardCard';
 
 export default function HomeScreen() {
   const [level, setLevel] = useState(75);

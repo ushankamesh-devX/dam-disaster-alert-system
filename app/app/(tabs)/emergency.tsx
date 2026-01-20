@@ -1,7 +1,5 @@
 import { ScreenLayout } from '@/components/ScreenLayout';
-import { SafeLocations } from '@/components/Emergency Contact/SafeLocations';
-
-const mapImage = require('../../assets/images/Emergency Contact/Google map.png');
+import { EmergencySafeLocationFlow } from '@/components/Emergency Contact/EmergencySafeLocationFlow';
 
 export default function EmergencyScreen() {
   return (
@@ -9,7 +7,7 @@ export default function EmergencyScreen() {
       title="Safe Locations" 
       subtitle="Quick access to emergency contacts"
     >
-      <SafeLocations mapImageSource={mapImage} />
+      <EmergencySafeLocationFlow />
     </ScreenLayout>
   );
 }

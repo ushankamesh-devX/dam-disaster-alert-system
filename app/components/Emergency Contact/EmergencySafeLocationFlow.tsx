@@ -13,6 +13,13 @@ type SafeLocation = {
   tag: LocationTag;
 };
 
+type MapMarker = {
+  id: SafeLocation['id'];
+  topPct: number;
+  leftPct: number;
+  color: string;
+};
+
 type FacilityDetail = {
   id: string;
   label: string;
@@ -61,6 +68,16 @@ export function EmergencySafeLocationFlow() {
       { id: '2', name: 'Riverside Community Hall', area: 'Riverside', distanceKm: 3.4, tag: 'Emergency' },
       { id: '3', name: 'Northside School Shelter', area: 'North District', distanceKm: 5.7, tag: 'Safe' },
       { id: '4', name: 'Downtown Safe Zone', area: 'Downtown', distanceKm: 1.8, tag: 'Shelter' },
+    ],
+    [],
+  );
+
+  const markers: MapMarker[] = useMemo(
+    () => [
+      { id: '1', topPct: 54, leftPct: 26, color: '#22C55E' }, // Nearby (green)
+      { id: '2', topPct: 48, leftPct: 62, color: '#EF4444' }, // Emergency (red)
+      { id: '3', topPct: 64, leftPct: 74, color: '#3B82F6' }, // Safe (blue)
+      { id: '4', topPct: 40, leftPct: 52, color: '#8B5CF6' }, // Shelter (purple)
     ],
     [],
   );
@@ -216,8 +233,36 @@ export function EmergencySafeLocationFlow() {
       </View>
 
       <View className="rounded-3xl overflow-hidden border border-gray-200 bg-slate-100 h-60 relative">
-        <Image source={mapImage} resizeMode="cover" className="w-full h-full" />
+        <Image source={mapImage} resizeMode="cover" className="w-full h-full absolute" />
         <View className="absolute inset-0 bg-white/10" />
+
+        {/* Safe location markers */}
+        {markers.map((m) => {
+          const loc = locations.find((l) => l.id === m.id);
+          if (!loc) return null;
+          return (
+            <TouchableOpacity
+              key={m.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${loc.name}`}
+              onPress={() => setSelected(loc)}
+              style={{
+                position: 'absolute',
+                top: `${m.topPct}%`,
+                left: `${m.leftPct}%`,
+                transform: [{ translateX: -16 }, { translateY: -16 }],
+              }}
+              className="h-8 w-8 rounded-full items-center justify-center"
+            >
+              <View
+                className="h-8 w-8 rounded-full items-center justify-center"
+                style={{ backgroundColor: `${m.color}33` }}
+              >
+                <View className="h-4 w-4 rounded-full" style={{ backgroundColor: m.color }} />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
 
         <TouchableOpacity
           accessibilityRole="button"

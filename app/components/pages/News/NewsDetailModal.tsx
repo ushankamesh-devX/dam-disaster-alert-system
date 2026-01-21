@@ -150,10 +150,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   className="w-full h-56"
                   resizeMode="cover"
                 />
-                {/* Category Badge */}
-                <View className="absolute top-3 right-3 bg-blue-600 px-3 py-1.5 rounded-lg shadow-md">
-                  <Text className="text-white text-xs font-bold">DISPLAY</Text>
-                </View>
+               
                 {/* Dam Alert Badge */}
                 <View className="absolute bottom-3 left-3 bg-orange-500 px-3 py-2 rounded-lg shadow-md flex-row items-center">
                   <Text className="text-white text-xs font-bold">⚠ {news.category}</Text>

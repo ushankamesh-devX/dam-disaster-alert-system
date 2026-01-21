@@ -33,10 +33,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
           className="w-full h-48"
           resizeMode="cover"
         />
-        {/* Category Badge */}
-        <View className="absolute top-3 right-3 bg-blue-600 px-3 py-1 rounded-md">
-          <Text className="text-white text-xs font-semibold">DISPLAY</Text>
-        </View>
+       
         {/* Dam Alert Badge */}
         <View className="absolute bottom-3 left-3 bg-orange-500 px-3 py-1.5 rounded-md flex-row items-center">
           <Text className="text-white text-xs font-semibold">⚠ {category}</Text>

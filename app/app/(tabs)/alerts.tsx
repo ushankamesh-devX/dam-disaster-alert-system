@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StatusBar } from 'react-nativ
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AlertCard } from '@/components/AlertCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-
+// project page begin
 export default function AlertsScreen() {
   const alerts = [
     {

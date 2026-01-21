@@ -33,8 +33,8 @@ const hazardLevels: HazardLevel[] = [
   },
 ];
 
-export function FullMapView({ 
-  mapImageUri = 'https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=800&h=600&fit=crop' 
+export function FullMapView({
+  mapImageUri = 'https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=800&h=600&fit=crop'
 }: FullMapViewProps) {
   const [level, setLevel] = useState(75);
   const [hazardValue, setHazardValue] = useState(">1.2 m²s");
@@ -58,12 +58,12 @@ export function FullMapView({
         resizeMode="cover"
         style={{ backgroundColor: Colors.light.headerBackground }}
       />
-      
+
       {/* Map Pin Overlay */}
-      <View 
+      <View
         className="absolute"
-        style={{ 
-          left: '35%', 
+        style={{
+          left: '35%',
           top: '45%',
           width: 20,
           height: 20,
@@ -78,12 +78,12 @@ export function FullMapView({
           elevation: 4,
         }}
       />
-      
+
       {/* Hazard Gauge - Top Right Corner */}
       <View className="absolute top-4 right-4">
         <HazardGauge level={level} hazardValue={hazardValue} />
       </View>
-      
+
       {/* Hazard Legend - Bottom Left Corner */}
       <View className="absolute bottom-4 left-4">
         <HazardLegend hazardLevels={hazardLevels} />

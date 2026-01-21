@@ -113,7 +113,7 @@ export function SafeLocations({ mapImageSource }: SafeLocationsProps = {}) {
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={() => router.replace('/')}
-          className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+          className="h-10 w-10 items-center justify-center rounded-full"
         >
           <MaterialCommunityIcons name="arrow-left" size={22} color="#111827" />
         </TouchableOpacity>

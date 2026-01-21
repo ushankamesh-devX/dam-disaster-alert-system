@@ -2,6 +2,14 @@ import React from 'react';
 import { View, Text, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 // this is my alertcard componenet 
+/**
+ * Props for the AlertCard component.
+ * @property title - The title of the alert (e.g., "CRITICAL WARNING").
+ * @property description - Detailed message explaining the alert.
+ * @property location - The location associated with the alert.
+ * @property timestamp - Time since the alert was issued.
+ * @property imageUrl - (Optional) URL of an image related to the alert.
+ */
 interface AlertCardProps {
     title: string;
     description: string;
@@ -10,6 +18,11 @@ interface AlertCardProps {
     imageUrl?: string;
 }
 
+/**
+ * AlertCard Component
+ * Displays a warning or alert in a card format with an icon, details, and optional image.
+ * Designed to be used in a scrollable list of alerts.
+ */
 export function AlertCard({ title, description, location, timestamp, imageUrl }: AlertCardProps) {
     return (
         <View className="bg-white rounded-2xl mb-4 shadow-sm border border-gray-100">

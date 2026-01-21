@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Modal,
     View,
@@ -9,11 +9,16 @@ import {
     Alert,
     Platform,
     Image,
+    Animated,
+    Dimensions,
+    PanResponder,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { IssueType, DamOption, MediaItem } from './types';
 import { ISSUE_TYPES, DAMS } from './mockData';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface AddReportModalProps {
     visible: boolean;
@@ -32,6 +37,9 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
     const [description, setDescription] = useState('');
     const [showDamPicker, setShowDamPicker] = useState(false);
     const [media, setMedia] = useState<MediaItem[]>([]);
+
+    const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+    const lastGestureDy = useRef(0);
 
     const resetForm = () => {
         setSelectedDam(null);

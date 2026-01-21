@@ -11,6 +11,7 @@ import {
   Dimensions,
   PanResponder,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface NewsDetailModalProps {
   visible: boolean;
@@ -100,7 +101,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
       statusBarTranslucent={true}
     >
       {/* Backdrop */}
-      <TouchableOpacity 
+      <TouchableOpacity
         activeOpacity={1}
         onPress={onClose}
         className="flex-1 bg-black/50"
@@ -113,8 +114,8 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
           }}
           {...panResponder.panHandlers}
         >
-          <TouchableOpacity 
-            activeOpacity={1} 
+          <TouchableOpacity
+            activeOpacity={1}
             className="flex-1 bg-white rounded-t-3xl overflow-hidden"
             onPress={(e) => e.stopPropagation()}
           >
@@ -124,21 +125,14 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             </View>
 
             {/* Header */}
-            <View className="flex-row items-center justify-between px-5 py-3 bg-white border-b border-gray-100">
-              <TouchableOpacity 
-                onPress={onClose} 
-                className="p-2 -ml-2 rounded-full active:bg-gray-100"
-                activeOpacity={0.7}
-              >
-                <Text className="text-2xl text-gray-700">×</Text>
+            <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
+              <Text className="text-xl font-bold text-gray-900">Latest News</Text>
+              <TouchableOpacity onPress={onClose}>
+                <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
-              
-              <Text className="text-lg font-bold text-gray-900">Latest News</Text>
-              
-              <View className="w-10" />
             </View>
 
-            <ScrollView 
+            <ScrollView
               className="flex-1"
               showsVerticalScrollIndicator={false}
               bounces={true}
@@ -150,7 +144,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   className="w-full h-56"
                   resizeMode="cover"
                 />
-               
+
                 {/* Dam Alert Badge */}
                 <View className="absolute bottom-3 left-3 bg-orange-500 px-3 py-2 rounded-lg shadow-md flex-row items-center">
                   <Text className="text-white text-xs font-bold">⚠ {news.category}</Text>
@@ -162,7 +156,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                 <Text className="text-gray-900 text-2xl font-bold mb-4 leading-tight">
                   {news.title}
                 </Text>
-                
+
                 <View className="bg-gray-50 rounded-xl p-4 mb-4">
                   <Text className="text-gray-700 text-base leading-7">
                     {news.fullContent}
@@ -180,7 +174,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   <View className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
                   <Text className="text-gray-500 text-sm">{news.timeAgo}</Text>
                 </View>
-                
+
                 {/* Bottom spacing */}
                 <View className="h-24" />
               </View>
@@ -189,7 +183,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             {/* Bottom Action Bar with gradient */}
             <View className="bg-white border-t border-gray-100 shadow-2xl">
               <View className="px-5 py-4 flex-row gap-3">
-                <TouchableOpacity 
+                <TouchableOpacity
                   className="flex-1 flex-row items-center justify-center gap-2 py-3.5 bg-blue-600 rounded-xl shadow-md active:bg-blue-700"
                   onPress={() => {
                     console.log('Share pressed');

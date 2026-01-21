@@ -130,25 +130,25 @@ export default function NewsScreen() {
     setModalVisible(true);
   };
 
-  const filteredNews = newsData.filter(news => 
+  const filteredNews = newsData.filter(news =>
     activeFilter === 'all' || news.filter === activeFilter
   );
 
   return (
-    <ScreenLayout 
-      title="Latest News" 
+    <ScreenLayout
+      title="Latest News"
       subtitle="Stay informed with live updates on the dam"
     >
-      <View className="flex-1 bg-gray-50">
+      <View className="flex-1 ">
         {/* Filter Tabs */}
-        <NewsFilterTabs 
+        <NewsFilterTabs
           activeFilter={activeFilter}
           onFilterChange={setActiveFilter}
         />
 
         {/* News List */}
-        <ScrollView 
-          className="flex-1 px-4"
+        <ScrollView
+          className="flex-1 px-4 "
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -166,7 +166,7 @@ export default function NewsScreen() {
               onPress={() => handleNewsPress(news)}
             />
           ))}
-          
+
           <View className="h-6" />
         </ScrollView>
 

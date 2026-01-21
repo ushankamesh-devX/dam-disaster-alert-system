@@ -4,6 +4,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AlertCard } from '@/components/AlertCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 // project page begin
+/**
+ * AlertsScreen Component
+ * The central hub for displaying real-time disaster alerts and critical warnings.
+ * 
+ * Features:
+ * - Real-time alert feed
+ * - Sticky header with navigation controls
+ * - Animated content entry
+ * - Dark-themed primary UI with a clean card-based list
+ */
 export default function AlertsScreen() {
   const alerts = [
     {

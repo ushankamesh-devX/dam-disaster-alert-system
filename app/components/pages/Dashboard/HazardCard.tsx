@@ -33,7 +33,7 @@ export function HazardCard({ level = 75, hazardValue = ">1.2 m²s" }: HazardCard
   });
 
   return (
-    <View className="bg-[#5D2E2E] rounded-3xl mx-4 mt-6 overflow-hidden shadow-lg border border-[#7D3E3E]">
+    <View className="bg-[#5D2E2E] rounded-3xl mx- mt- overflow-hidden shadow-lg border border-[#7D3E3E]">
       {/* Header Section */}
       <View className="flex-row items-center p-4 pb-3">
         <View className="mr-3">

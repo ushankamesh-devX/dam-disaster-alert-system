@@ -40,6 +40,13 @@ export default function TabLayout() {
           title: 'Report Issues',
         }}
       />
+      <Tabs.Screen
+        name="hazard-map"
+        options={{
+          title: 'Hazard Map',
+          href: null,
+        }}
+      />
 
     </Tabs>
   );

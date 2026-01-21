@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
+// this is my alertcard componenet 
 interface AlertCardProps {
     title: string;
     description: string;

@@ -11,12 +11,15 @@ interface SearchBarProps {
     onFilterChange: (filter: IssueType | null) => void;
 }
 
+import { useTranslation } from 'react-i18next';
+
 export function SearchBar({
     searchQuery,
     onSearchChange,
     selectedFilter,
     onFilterChange
 }: SearchBarProps) {
+    const { t } = useTranslation();
     return (
         <View className="mb-4">
             {/* Search Input */}
@@ -24,7 +27,7 @@ export function SearchBar({
                 <MaterialCommunityIcons name="magnify" size={22} color="#6B7280" />
                 <TextInput
                     className="flex-1 ml-2 text-gray-900 text-base"
-                    placeholder="Search reports..."
+                    placeholder={t('search_reports_placeholder')}
                     placeholderTextColor="#9CA3AF"
                     value={searchQuery}
                     onChangeText={onSearchChange}
@@ -52,7 +55,7 @@ export function SearchBar({
                         className={`font-semibold text-sm ${selectedFilter === null ? 'text-white' : 'text-gray-700'
                             }`}
                     >
-                        All
+                        {t('filter_all')}
                     </Text>
                 </TouchableOpacity>
 
@@ -81,6 +84,7 @@ export function SearchBar({
                                 color: selectedFilter === issueType.value ? 'white' : issueType.color,
                             }}
                         >
+                            {/* In a real app, these values from mockData should also be mapped to translation keys */}
                             {issueType.label}
                         </Text>
                     </TouchableOpacity>

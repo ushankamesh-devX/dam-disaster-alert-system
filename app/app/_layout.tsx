@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import '../global.css';
 import 'react-native-reanimated';
+import '../i18n/i18n'; // Initialize i18n
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 

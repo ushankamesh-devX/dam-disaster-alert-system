@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ScrollView, View } from 'react-native';
 import { AlertCard } from '@/components/AlertCard';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ScreenLayout } from '@/components/ScreenLayout';
+import { useTranslation } from 'react-i18next';
 
 export default function AlertsScreen() {
+  const { t } = useTranslation();
   const alerts = [
     {
       id: '1',
@@ -45,51 +46,25 @@ export default function AlertsScreen() {
   ];
 
   return (
-    <View className="flex-1 bg-[#455A64]">
-      <StatusBar barStyle="light-content" />
-
-      {/* Header Area */}
-      <View className="bg-[#455A64] pt-12 pb-2 px-4 shadow-md z-10">
-        {/* Back Button and Settings */}
-        <View className="flex-row justify-between items-center mb-4">
-          <TouchableOpacity>
-            <MaterialCommunityIcons name="arrow-left" size={28} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <MaterialCommunityIcons name="cog-outline" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Centered Title and Subtitle */}
-        <View className="items-center justify-center pb-4">
-          <Text className="text-white text-3xl font-bold tracking-wider">Alert & Updates</Text>
-          <Text className="text-gray-300 text-sm mt-2 text-center font-light">
-            Stay informed with our updates this chat
-          </Text>
-        </View>
-      </View>
-
-      {/* Content Area */}
-      <Animated.View
-        entering={FadeInDown.delay(100).duration(500).springify()}
-        className="flex-1 bg-white rounded-t-[30px] px-4 pt-6"
+    <ScreenLayout
+      title={t('alerts_title')}
+      subtitle={t('alerts_subtitle')}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        >
-          {alerts.map((alert) => (
-            <AlertCard
-              key={alert.id}
-              title={alert.title}
-              description={alert.description}
-              location={alert.location}
-              timestamp={alert.timestamp}
-              imageUrl={alert.imageUrl}
-            />
-          ))}
-        </ScrollView>
-      </Animated.View>
-    </View>
+        {alerts.map((alert) => (
+          <AlertCard
+            key={alert.id}
+            title={alert.title}
+            description={alert.description}
+            location={alert.location}
+            timestamp={alert.timestamp}
+            imageUrl={alert.imageUrl}
+          />
+        ))}
+      </ScrollView>
+    </ScreenLayout>
   );
 }

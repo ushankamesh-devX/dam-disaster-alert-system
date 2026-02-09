@@ -110,7 +110,10 @@ const newsData = [
   },
 ];
 
+import { useTranslation } from 'react-i18next';
+
 export default function NewsScreen() {
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedNews, setSelectedNews] = useState<typeof newsData[0] | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -130,24 +133,24 @@ export default function NewsScreen() {
     setModalVisible(true);
   };
 
-  const filteredNews = newsData.filter(news => 
+  const filteredNews = newsData.filter(news =>
     activeFilter === 'all' || news.filter === activeFilter
   );
 
   return (
-    <ScreenLayout 
-      title="Latest News" 
-      subtitle="Stay informed with live updates on the dam"
+    <ScreenLayout
+      title={t('title_news')}
+      subtitle={t('stay_informed')}
     >
       <View className="flex-1 bg-gray-50">
         {/* Filter Tabs */}
-        <NewsFilterTabs 
+        <NewsFilterTabs
           activeFilter={activeFilter}
           onFilterChange={setActiveFilter}
         />
 
         {/* News List */}
-        <ScrollView 
+        <ScrollView
           className="flex-1 px-4"
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -166,7 +169,7 @@ export default function NewsScreen() {
               onPress={() => handleNewsPress(news)}
             />
           ))}
-          
+
           <View className="h-6" />
         </ScrollView>
 

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 type LocationTag = 'Nearby' | 'Emergency' | 'Safe' | 'Shelter';
 
@@ -31,6 +32,7 @@ type FacilityDetail = {
 type Amenity = {
   id: string;
   label: string;
+  value?: string; // dummy for lint
 };
 
 function getTagStyles(tag: LocationTag) {
@@ -50,6 +52,7 @@ function getTagStyles(tag: LocationTag) {
 
 export function EmergencySafeLocationFlow() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<SafeLocation | null>(null);
 
   const mapImage = useMemo(
@@ -84,24 +87,34 @@ export function EmergencySafeLocationFlow() {
 
   const facilityDetails: FacilityDetail[] = useMemo(
     () => [
-      { id: 'cap', label: 'Capacity', value: '500 people', icon: 'account-group-outline', status: 'Available' },
-      { id: 'hours', label: 'Opening Hours', value: '24/7 Emergency', icon: 'clock-outline', status: 'Available' },
-      { id: 'loc', label: 'Location', value: '123 Main Street', icon: 'map-marker-outline' },
+      { id: 'cap', label: t('cap_capacity'), value: '500 people', icon: 'account-group-outline', status: t('status_available') },
+      { id: 'hours', label: t('cap_hours'), value: '24/7 Emergency', icon: 'clock-outline', status: t('status_available') },
+      { id: 'loc', label: t('cap_location'), value: '123 Main Street', icon: 'map-marker-outline' },
     ],
-    [],
+    [t],
   );
 
   const amenities: Amenity[] = useMemo(
     () => [
-      { id: 'a1', label: 'Medical Aid' },
-      { id: 'a2', label: 'Restrooms' },
-      { id: 'a3', label: 'Power Supply' },
-      { id: 'a4', label: 'Pet Friendly' },
-      { id: 'a5', label: 'Communication' },
-      { id: 'a6', label: 'Food & Water' },
+      { id: 'a1', label: t('amenity_medical') },
+      { id: 'a2', label: t('amenity_restrooms') },
+      { id: 'a3', label: t('amenity_power') },
+      { id: 'a4', label: t('amenity_pet') },
+      { id: 'a5', label: t('amenity_comm') },
+      { id: 'a6', label: t('amenity_food') },
     ],
-    [],
+    [t],
   );
+
+  const getTagLabel = (tag: LocationTag) => {
+    switch (tag) {
+      case 'Nearby': return t('tag_nearby');
+      case 'Emergency': return t('tag_emergency');
+      case 'Safe': return t('tag_safe');
+      case 'Shelter': return t('tag_shelter');
+      default: return tag;
+    }
+  }
 
   if (selected) {
     const tagStyles = getTagStyles(selected.tag);
@@ -135,7 +148,7 @@ export function EmergencySafeLocationFlow() {
               </View>
 
               <View className={`px-3 py-1 rounded-full ${tagStyles.pill}`}>
-                <Text className={`text-xs font-semibold ${tagStyles.text}`}>{selected.tag}</Text>
+                <Text className={`text-xs font-semibold ${tagStyles.text}`}>{getTagLabel(selected.tag)}</Text>
               </View>
             </View>
 
@@ -146,7 +159,7 @@ export function EmergencySafeLocationFlow() {
                 className="flex-1 rounded-xl bg-blue-600 py-3 items-center justify-center flex-row"
               >
                 <MaterialCommunityIcons name="navigation-variant" size={18} color="white" />
-                <Text className="text-white font-semibold ml-2">Directions</Text>
+                <Text className="text-white font-semibold ml-2">{t('directions')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -155,14 +168,14 @@ export function EmergencySafeLocationFlow() {
                 className="flex-1 rounded-xl bg-green-600 py-3 items-center justify-center flex-row"
               >
                 <MaterialCommunityIcons name="phone" size={18} color="white" />
-                <Text className="text-white font-semibold ml-2">Call</Text>
+                <Text className="text-white font-semibold ml-2">{t('call')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
         <View className="mt-5">
-          <Text className="text-gray-900 text-sm font-semibold mb-3">Facility Details</Text>
+          <Text className="text-gray-900 text-sm font-semibold mb-3">{t('facility_details')}</Text>
           <View className="bg-white border border-gray-200 rounded-2xl px-4 py-3">
             {facilityDetails.map((d) => (
               <View key={d.id} className="flex-row items-center justify-between py-2">
@@ -185,7 +198,7 @@ export function EmergencySafeLocationFlow() {
         </View>
 
         <View className="mt-5">
-          <Text className="text-gray-900 text-sm font-semibold mb-3">Available Amenities</Text>
+          <Text className="text-gray-900 text-sm font-semibold mb-3">{t('available_amenities')}</Text>
           <View className="flex-row flex-wrap justify-between">
             {amenities.map((a) => (
               <View
@@ -219,8 +232,8 @@ export function EmergencySafeLocationFlow() {
         </TouchableOpacity>
 
         <View className="flex-1 items-center">
-          <Text className="text-gray-900 text-lg font-semibold">Safe Locations</Text>
-          <Text className="text-gray-500 text-xs mt-0.5">Stay informed and ready in disaster</Text>
+          <Text className="text-gray-900 text-lg font-semibold">{t('safe_locations_title')}</Text>
+          <Text className="text-gray-500 text-xs mt-0.5">{t('safe_locations_subheading')}</Text>
         </View>
 
         <TouchableOpacity
@@ -274,7 +287,7 @@ export function EmergencySafeLocationFlow() {
       </View>
 
       <View className="mt-5">
-        <Text className="text-gray-900 text-base font-semibold mb-3">Nearby Safe Locations</Text>
+        <Text className="text-gray-900 text-base font-semibold mb-3">{t('nearby_safe_locations')}</Text>
 
         <View className="gap-3">
           {locations.map((loc) => {
@@ -297,13 +310,13 @@ export function EmergencySafeLocationFlow() {
                   </View>
 
                   <View className={`px-3 py-1 rounded-full ${tag.pill}`}>
-                    <Text className={`text-xs font-semibold ${tag.text}`}>{loc.tag}</Text>
+                    <Text className={`text-xs font-semibold ${tag.text}`}>{getTagLabel(loc.tag)}</Text>
                   </View>
                 </View>
 
                 <View className="flex-row items-center justify-end mt-2">
                   <View className="flex-row items-center">
-                    <Text className="text-blue-600 text-xs font-semibold">Details</Text>
+                    <Text className="text-blue-600 text-xs font-semibold">{t('details')}</Text>
                     <MaterialCommunityIcons name="chevron-right" size={18} color="#2563EB" />
                   </View>
                 </View>

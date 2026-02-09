@@ -6,8 +6,11 @@ import { HazardCard } from '@/components/pages/Dashboard/HazardCard';
 import { FloodRiskMap } from '@/components/pages/Dashboard/FloodRiskMap';
 import { QuickActions } from '@/components/pages/Dashboard/QuickActions';
 
+import { useTranslation } from 'react-i18next';
+
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [level, setLevel] = useState(75);
   const [hazardValue, setHazardValue] = useState(">1.2 m²s");
 
@@ -43,27 +46,27 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScreenLayout 
-      title="FloodWatch" 
-      subtitle="Stay informed with live updates on the dam"
+    <ScreenLayout
+      title="FloodWatch"
+      subtitle={t('stay_informed')}
     >
       <ScrollView className="flex-1 rounded-3xl" showsVerticalScrollIndicator={false}>
         <HazardCard level={level} hazardValue={hazardValue} />
-        
+
         <FloodRiskMap onViewFullMap={handleViewFullMap} />
-        
+
         <QuickActions
           onGuidelines={handleGuidelines}
           onShelterLocations={handleShelterLocations}
           onShareLocation={handleShareLocation}
           onEmergencyContact={handleEmergencyContact}
         />
-        
+
         {/* <Text className="text-gray-600 text-base mt-6 px-4 mb-6">
           Welcome to the Dam Disaster Alert System. Monitor water levels and receive real-time alerts.
         </Text> */}
       </ScrollView>
-      
+
     </ScreenLayout>
   );
 }

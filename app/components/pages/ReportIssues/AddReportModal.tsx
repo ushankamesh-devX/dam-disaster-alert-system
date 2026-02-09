@@ -26,7 +26,10 @@ interface AddReportModalProps {
     }) => void;
 }
 
+import { useTranslation } from 'react-i18next';
+
 export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalProps) {
+    const { t } = useTranslation();
     const [selectedDam, setSelectedDam] = useState<DamOption | null>(null);
     const [selectedIssueType, setSelectedIssueType] = useState<IssueType | null>(null);
     const [description, setDescription] = useState('');
@@ -48,15 +51,15 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
 
     const handleSubmit = () => {
         if (!selectedDam) {
-            Alert.alert('Error', 'Please select a dam');
+            Alert.alert(t('error'), t('please_select_dam'));
             return;
         }
         if (!selectedIssueType) {
-            Alert.alert('Error', 'Please select an issue type');
+            Alert.alert(t('error'), t('please_select_issue_type'));
             return;
         }
         if (!description.trim()) {
-            Alert.alert('Error', 'Please enter a description');
+            Alert.alert(t('error'), t('please_enter_description'));
             return;
         }
 
@@ -78,7 +81,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                 // Request camera permissions
                 const { status } = await ImagePicker.requestCameraPermissionsAsync();
                 if (status !== 'granted') {
-                    Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
+                    Alert.alert(t('permission_denied'), t('camera_permission_required'));
                     return;
                 }
 
@@ -93,7 +96,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                 // Request camera permissions for video
                 const { status } = await ImagePicker.requestCameraPermissionsAsync();
                 if (status !== 'granted') {
-                    Alert.alert('Permission Denied', 'Camera permission is required to record videos.');
+                    Alert.alert(t('permission_denied'), t('video_permission_required'));
                     return;
                 }
 
@@ -108,7 +111,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                 // Request media library permissions
                 const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
                 if (status !== 'granted') {
-                    Alert.alert('Permission Denied', 'Gallery permission is required to select media.');
+                    Alert.alert(t('permission_denied'), t('gallery_permission_required'));
                     return;
                 }
 
@@ -129,7 +132,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
             }
         } catch (error) {
             console.error('Error picking media:', error);
-            Alert.alert('Error', 'Failed to pick media. Please try again.');
+            Alert.alert(t('error'), t('failed_to_pick_media'));
         }
     };
 
@@ -144,7 +147,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                 <View className="bg-white rounded-t-3xl max-h-[90%]">
                     {/* Header */}
                     <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
-                        <Text className="text-xl font-bold text-gray-900">Report Issue</Text>
+                        <Text className="text-xl font-bold text-gray-900">{t('report_issue_modal_title')}</Text>
                         <TouchableOpacity onPress={handleClose}>
                             <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
                         </TouchableOpacity>
@@ -154,7 +157,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Dam Selection */}
                         <View className="mb-5">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                Select Dam *
+                                {t('select_dam')}
                             </Text>
                             <TouchableOpacity
                                 onPress={() => setShowDamPicker(!showDamPicker)}
@@ -165,7 +168,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                             >
                                 <View className="flex-1">
                                     <Text className={selectedDam ? 'text-gray-900 font-medium' : 'text-gray-400'}>
-                                        {selectedDam ? selectedDam.name : 'Choose a dam'}
+                                        {selectedDam ? selectedDam.name : t('choose_a_dam')}
                                     </Text>
                                     {selectedDam && (
                                         <Text className="text-gray-500 text-xs mt-0.5">
@@ -235,7 +238,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Issue Type Selection */}
                         <View className="mb-5">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                Issue Type *
+                                {t('issue_type')}
                             </Text>
                             <View className="flex-row flex-wrap">
                                 {ISSUE_TYPES.map((issueType) => (
@@ -269,6 +272,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                                     selectedIssueType === issueType.value ? 'white' : issueType.color,
                                             }}
                                         >
+                                            {/* Ideally translate issue type labels too, but mock data driven */}
                                             {issueType.label}
                                         </Text>
                                     </TouchableOpacity>
@@ -279,11 +283,11 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Description */}
                         <View className="mb-5">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                Description *
+                                {t('description')}
                             </Text>
                             <TextInput
                                 className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 text-base"
-                                placeholder="Describe the issue in detail..."
+                                placeholder={t('describe_issue_placeholder')}
                                 placeholderTextColor="#9CA3AF"
                                 multiline
                                 numberOfLines={4}
@@ -297,7 +301,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Media Upload */}
                         <View className="mb-6">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                Add Photos/Videos (Optional)
+                                {t('add_media_optional')}
                             </Text>
 
                             {/* Media Preview - Horizontal Scroll */}
@@ -353,14 +357,14 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                         className="flex-1 bg-blue-50 rounded-xl py-3.5 flex-row items-center justify-center"
                                     >
                                         <MaterialCommunityIcons name="camera" size={20} color="#3B82F6" />
-                                        <Text className="ml-2 text-blue-600 font-semibold">Photo</Text>
+                                        <Text className="ml-2 text-blue-600 font-semibold">{t('photo')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         onPress={() => handleMediaPicker('video')}
                                         className="flex-1 bg-red-50 rounded-xl py-3.5 flex-row items-center justify-center"
                                     >
                                         <MaterialCommunityIcons name="video" size={20} color="#EF4444" />
-                                        <Text className="ml-2 text-red-600 font-semibold">Video</Text>
+                                        <Text className="ml-2 text-red-600 font-semibold">{t('video')}</Text>
                                     </TouchableOpacity>
                                 </View>
                                 {/* Bottom Row - Gallery */}
@@ -369,7 +373,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                     className="bg-purple-50 rounded-xl py-3.5 flex-row items-center justify-center"
                                 >
                                     <MaterialCommunityIcons name="folder-image" size={20} color="#7C3AED" />
-                                    <Text className="ml-2 text-purple-600 font-semibold">Gallery</Text>
+                                    <Text className="ml-2 text-purple-600 font-semibold">{t('gallery')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -380,13 +384,13 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                 onPress={handleClose}
                                 className="flex-1 mr-2 bg-gray-100 rounded-xl py-4 items-center"
                             >
-                                <Text className="text-gray-700 font-semibold text-base">Cancel</Text>
+                                <Text className="text-gray-700 font-semibold text-base">{t('cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={handleSubmit}
                                 className="flex-1 ml-2 bg-[#455A64] rounded-xl py-4 items-center"
                             >
-                                <Text className="text-white font-semibold text-base">Submit Report</Text>
+                                <Text className="text-white font-semibold text-base">{t('submit_report')}</Text>
                             </TouchableOpacity>
                         </View>
                     </ScrollView>

@@ -8,8 +8,11 @@ import { FullMapView } from '@/components/pages/Hazardmap/FullMapView';
 import { QuickActions } from '@/components/pages/Hazardmap/QuickActions';
 import FakeCallScreen from '@/components/Emergency Contact/FakeCallScreen';
 
+import { useTranslation } from 'react-i18next';
+
 export default function HazardMapScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [showFakeCall, setShowFakeCall] = useState(false);
 
   const handleGuidelines = () => {
@@ -45,8 +48,8 @@ export default function HazardMapScreen() {
 
   return (
     <ScreenLayout
-      title="Hazard Map"
-      subtitle="View flood risk zones and evacuation routes"
+      title={t('hazard_map_title')}
+      subtitle={t('hazard_map_subtitle')}
     >
       <ScrollView className="flex-1 rounded-2xl" showsVerticalScrollIndicator={false}>
         {/* Back Button */}
@@ -86,9 +89,9 @@ export default function HazardMapScreen() {
         visible={showFakeCall}
         onAnswer={handleAnswerCall}
         onDecline={handleDeclineCall}
-        callerName="Emergency Alert System"
+        callerName={t('emergency_alert_system')}
         callerNumber="108"
-        emergencyType="Dam Emergency Alert"
+        emergencyType={t('dam_emergency_alert')}
       />
 
       {/* Test Trigger Button - Floating */}
@@ -98,7 +101,7 @@ export default function HazardMapScreen() {
         activeOpacity={0.8}
       >
         <MaterialCommunityIcons name="phone-alert" size={24} color="#fff" />
-        <Text style={styles.testButtonText}>Test Call</Text>
+        <Text style={styles.testButtonText}>{t('test_call')}</Text>
       </TouchableOpacity>
     </ScreenLayout>
   );

@@ -11,7 +11,10 @@ import {
   IssueType,
 } from '@/components/pages/ReportIssues';
 
+import { useTranslation } from 'react-i18next';
+
 export default function ReportScreen() {
+  const { t } = useTranslation();
   const [reports, setReports] = useState<Report[]>(MOCK_REPORTS);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<IssueType | null>(null);
@@ -69,8 +72,8 @@ export default function ReportScreen() {
 
   return (
     <ScreenLayout
-      title="Report Issues"
-      subtitle="Submit safety concerns and observations"
+      title={t('report_issues_title')}
+      subtitle={t('report_issues_subtitle')}
     >
       <View className="flex-1">
         {/* Search and Filter Bar */}

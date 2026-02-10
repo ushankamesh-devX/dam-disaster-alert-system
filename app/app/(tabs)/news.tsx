@@ -14,8 +14,8 @@ const newsData = [
     category: 'Weather Alert',
     title: 'Heavy Rainfall Warning for Western Province',
     description: 'Meteorology Department issues heavy rainfall warning for Western Province including Colombo, Gampaha, and Kalutara districts. Expected rainfall: 150-200mm over next 48 hours.',
-    fullContent: 'The Department of Meteorology has issued a Level 2 (Orange) weather warning for the Western Province. Heavy rainfall between 150-200mm is expected over the next 48 hours due to the low-pressure system developing in the Bay of Bengal. Residents in low-lying areas are advised to be vigilant about potential flooding. The Kelani River water levels are being closely monitored. Fishermen are advised not to venture into the sea during this period. Emergency services are on high alert. Please stay indoors during heavy downpours and avoid unnecessary travel. Keep emergency contact numbers handy and follow official weather updates.',
-    timeAgo: '30 minutes ago',
+    fullContent: ' The Department of Meteorology has released a Level 2 (Orange) weather alert for the Western Province. Rainfall of around 150–200 mm is forecast over the next 48 hours due to a low-pressure system forming in the Bay of Bengal. People living in low-lying regions are urged to stay alert for possible flooding. Water levels of the Kelani River are under close observation. Fishermen are strongly advised to avoid going out to sea during this time. Emergency response teams are on standby. The public is advised to remain indoors during intense rainfall, limit non-essential travel, keep emergency contact numbers accessible, and follow official weather advisories.',
+    timeAgo: '40 minutes ago',
     filter: 'weather-alerts'
   },
   {

@@ -8,7 +8,7 @@ public class HelloController {
 
 	@GetMapping("/hello")
 	public String hello() {
-		return "Hello from Dam Disaster Alert System Yooooo What's Up!";
+		return "Hello from Dam Disaster Alert System API!";
 	}
 }
 

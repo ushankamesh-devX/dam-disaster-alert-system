@@ -29,4 +29,3 @@ jobs:
             docker-compose up -d
             docker system prune -af
             echo "Deployment completed successfully!"
-

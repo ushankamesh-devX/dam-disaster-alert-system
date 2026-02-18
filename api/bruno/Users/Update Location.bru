@@ -1,0 +1,20 @@
+meta {
+  name: Update Location
+}
+
+put {
+  url: {{baseUrl}}/api/v1/users/me/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "latitude": 7.8731,
+    "longitude": 80.7718
+  }
+}

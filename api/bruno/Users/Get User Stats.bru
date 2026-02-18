@@ -1,0 +1,13 @@
+meta {
+  name: Get User Stats
+}
+
+get {
+  url: {{baseUrl}}/api/v1/users/stats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

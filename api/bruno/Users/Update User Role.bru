@@ -1,0 +1,20 @@
+meta {
+  name: Update User Role
+}
+
+put {
+  url: {{baseUrl}}/api/v1/users/1/role
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "roleId": 2,
+    "reason": "Promoted to admin"
+  }
+}

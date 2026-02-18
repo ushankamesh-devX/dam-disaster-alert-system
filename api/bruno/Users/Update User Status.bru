@@ -1,0 +1,20 @@
+meta {
+  name: Update User Status
+}
+
+put {
+  url: {{baseUrl}}/api/v1/users/1/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "status": "active",
+    "reason": "Account verified"
+  }
+}

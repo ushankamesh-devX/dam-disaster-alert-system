@@ -1,0 +1,21 @@
+User
+    -- Admins
+    -- Operators
+    -- Engineers
+    -- Users
+    -- *We can custumly create an role and assign permissions*
+
+Dame
+    -- Dam id 
+    -- dama informations
+
+Location
+    -- Location id
+    -- location informations
+
+Sensor
+    -- Sensor id
+    -- Sensor type
+    -- sensor informations
+
+

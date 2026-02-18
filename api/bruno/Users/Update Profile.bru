@@ -1,0 +1,23 @@
+meta {
+  name: Update Profile
+}
+
+put {
+  url: {{baseUrl}}/api/v1/users/me
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "fullName": "Updated Name",
+    "phoneNumber": "+94771234567",
+    "avatarUrl": "https://example.com/avatar.jpg",
+    "languagePreference": "en",
+    "notificationEnabled": true
+  }
+}

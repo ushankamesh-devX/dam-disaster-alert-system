@@ -1,0 +1,13 @@
+meta {
+  name: Restore User
+}
+
+post {
+  url: {{baseUrl}}/api/v1/users/1/restore
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Admin Create User
+}
+
+post {
+  url: {{baseUrl}}/api/v1/users
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "fullName": "New User",
+    "email": "newuser@example.com",
+    "phoneNumber": "+94771234567",
+    "password": "password123",
+    "roleId": 2,
+    "languagePreference": "en",
+    "status": "active"
+  }
+}

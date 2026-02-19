@@ -1,0 +1,30 @@
+meta {
+  name: Get High Risk Dam Statuses
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/dams/statuses/high-risk
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains high risk statuses", function() {
+    const data = res.getBody();
+    expect(data).to.be.an('array');
+  });
+}

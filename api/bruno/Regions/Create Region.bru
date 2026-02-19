@@ -1,0 +1,43 @@
+meta {
+  name: Create Region
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/regions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "name": "Central Province",
+    "nameSi": "මධ්‍යම පළාත",
+    "nameTa": "மத்திய மாகாணம்",
+    "stateProvince": "Central",
+    "country": "Sri Lanka",
+    "latitude": 7.2906,
+    "longitude": 80.6337
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains created region", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data.name).to.equal('Central Province');
+  });
+}

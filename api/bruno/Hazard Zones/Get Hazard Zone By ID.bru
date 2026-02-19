@@ -1,0 +1,32 @@
+meta {
+  name: Get Hazard Zone By ID
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/dams/zones/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains zone data", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data).to.have.property('zoneCode');
+    expect(data).to.have.property('zoneName');
+  });
+}

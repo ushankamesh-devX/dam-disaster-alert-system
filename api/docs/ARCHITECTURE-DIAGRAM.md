@@ -4,59 +4,59 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         CLIENT LAYER                             │
+│                         CLIENT LAYER                            │
 │  (Bruno, Mobile App, Web App, External Services)                │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               │ HTTP/HTTPS
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      API GATEWAY / NGINX                         │
-│                     (Future Load Balancer)                       │
+│                      API GATEWAY / NGINX                        │
+│                     (Future Load Balancer)                      │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    SPRING BOOT APPLICATION                       │
-│                        (Port 8080)                               │
-│                                                                   │
+┌────────────────────────────────────────────────────────────────┐
+│                    SPRING BOOT APPLICATION                     │
+│                        (Port 8080)                             │
+│                                                                │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │              SECURITY LAYER                               │  │
+│  │              SECURITY LAYER                              │  │
 │  │  • CORS Filter                                           │  │
 │  │  • JWT Authentication Filter                             │  │
 │  │  • Spring Security                                       │  │
 │  └──────────────────────────────────────────────────────────┘  │
-│                              │                                   │
+│                              │                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │            CONTROLLER LAYER                               │  │
-│  │  • AuthController      (/api/v1/auth/*)                 │  │
-│  │  • UserController      (/api/v1/users/*)                │  │
-│  │  • HealthController    (/api/v1/health)                 │  │
+│  │            CONTROLLER LAYER                              │  │
+│  │  • AuthController      (/api/v1/auth/*)                  │  │
+│  │  • UserController      (/api/v1/users/*)                 │  │
+│  │  • HealthController    (/api/v1/health)                  │  │
 │  │  • [Future Controllers...]                               │  │
 │  └──────────────────────────────────────────────────────────┘  │
-│                              │                                   │
+│                              │                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │              SERVICE LAYER                                │  │
+│  │              SERVICE LAYER                               │  │
 │  │  • AuthService         (Authentication logic)            │  │
 │  │  • UserDetailsService  (User loading)                    │  │
 │  │  • [Future Services...]                                  │  │
 │  └──────────────────────────────────────────────────────────┘  │
-│                              │                                   │
+│                              │                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │            REPOSITORY LAYER                               │  │
+│  │            REPOSITORY LAYER                              │  │
 │  │  • UserRepository                                        │  │
 │  │  • RoleRepository                                        │  │
 │  │  • PermissionRepository                                  │  │
 │  │  • [Future Repositories...]                              │  │
 │  └──────────────────────────────────────────────────────────┘  │
-│                              │                                   │
-└──────────────────────────────┼───────────────────────────────────┘
+│                              │                                 │
+└──────────────────────────────┼─────────────────────────────────┘
                               │ JPA/Hibernate
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      DATABASE LAYER                              │
-│                    MySQL 8.0+ (Port 3306)                        │
-│  ┌─────────────────────────────────────────────────────────┐   │
+│                      DATABASE LAYER                             │
+│                    MySQL 8.0+ (Port 3306)                       │
+│  ┌─────────────────────────────────────────────────────────┐    │
 │  │  Tables:                                                 │   │
 │  │  • users                                                 │   │
 │  │  • roles                                                 │   │

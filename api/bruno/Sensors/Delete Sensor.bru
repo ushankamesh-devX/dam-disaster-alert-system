@@ -1,0 +1,25 @@
+meta {
+  name: Delete Sensor
+  type: http
+  seq: 19
+}
+
+delete {
+  url: {{base_url}}/sensors/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 204
+}
+
+tests {
+  test("Status code is 204 No Content", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

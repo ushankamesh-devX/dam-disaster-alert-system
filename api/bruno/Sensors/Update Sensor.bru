@@ -1,0 +1,39 @@
+meta {
+  name: Update Sensor
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{base_url}}/sensors/1
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "name": "Water Level Sensor 1 - Updated",
+    "status": "maintenance",
+    "batteryLevel": 85.5,
+    "signalStrength": -45.0
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains updated sensor", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+  });
+}

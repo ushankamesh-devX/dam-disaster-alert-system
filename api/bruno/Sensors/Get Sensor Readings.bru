@@ -1,0 +1,35 @@
+meta {
+  name: Get Sensor Readings
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{base_url}}/sensors/1/readings
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~page: 0
+  ~size: 100
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains readings", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('content');
+  });
+}

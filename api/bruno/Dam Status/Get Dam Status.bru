@@ -1,0 +1,31 @@
+meta {
+  name: Get Dam Status
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/dams/1/status
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains status data", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data).to.have.property('damId');
+  });
+}

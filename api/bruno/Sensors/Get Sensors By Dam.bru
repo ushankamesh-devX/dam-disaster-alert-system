@@ -1,0 +1,30 @@
+meta {
+  name: Get Sensors By Dam
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/sensors/dam/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains sensors array", function() {
+    const data = res.getBody();
+    expect(data).to.be.an('array');
+  });
+}

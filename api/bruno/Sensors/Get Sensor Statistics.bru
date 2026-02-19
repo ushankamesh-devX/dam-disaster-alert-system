@@ -1,0 +1,31 @@
+meta {
+  name: Get Sensor Statistics
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{base_url}}/sensors/1/statistics
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains statistics", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('totalReadings');
+    expect(data).to.have.property('averageValue');
+  });
+}

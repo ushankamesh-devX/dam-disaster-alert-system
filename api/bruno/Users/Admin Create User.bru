@@ -1,5 +1,7 @@
 meta {
   name: Admin Create User
+  type: http
+  seq: 1
 }
 
 post {
@@ -22,4 +24,8 @@ body:json {
     "languagePreference": "en",
     "status": "active"
   }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080/api/v1
 }

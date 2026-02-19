@@ -1,0 +1,56 @@
+meta {
+  name: Create Hazard Zone
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/dams/hazard-zones
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "damId": 1,
+    "hazardLevelId": 1,
+    "zoneCode": "VIC-Z01",
+    "zoneName": "Immediate Flood Zone",
+    "zoneNameSi": "ක්ෂණික ගංවතුර කලාපය",
+    "description": "Area immediately downstream of the dam",
+    "boundaryGeojson": "{\"type\":\"Polygon\",\"coordinates\":[[[80.78,7.22],[80.79,7.22],[80.79,7.23],[80.78,7.23],[80.78,7.22]]]}",
+    "centerLatitude": 7.225,
+    "centerLongitude": 80.785,
+    "areaSqKm": 5.5,
+    "distanceFromDamKm": 0.5,
+    "estimatedFloodArrivalMinutes": 5,
+    "estimatedWaterDepthMeters": 10.0,
+    "fillColor": "#FF0000",
+    "fillOpacity": 0.35,
+    "strokeColor": "#CC0000",
+    "strokeWidth": 2,
+    "displayOrder": 1,
+    "showLabel": true,
+    "isActive": true
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains created zone", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data.zoneCode).to.equal('VIC-Z01');
+  });
+}

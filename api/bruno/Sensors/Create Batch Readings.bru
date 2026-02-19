@@ -1,0 +1,57 @@
+meta {
+  name: Create Batch Readings
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{base_url}}/sensors/readings/batch
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  [
+    {
+      "sensorId": 1,
+      "readingValue": 105.5,
+      "readingUnit": "meters",
+      "readingQuality": "good",
+      "isAlert": false
+    },
+    {
+      "sensorId": 2,
+      "readingValue": 2500.75,
+      "readingUnit": "m³/s",
+      "readingQuality": "good",
+      "isAlert": false
+    },
+    {
+      "sensorId": 3,
+      "readingValue": 2.1,
+      "readingUnit": "mm",
+      "readingQuality": "good",
+      "isAlert": false
+    }
+  ]
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response contains created readings array", function() {
+    const data = res.getBody();
+    expect(data).to.be.an('array');
+    expect(data.length).to.equal(3);
+  });
+}

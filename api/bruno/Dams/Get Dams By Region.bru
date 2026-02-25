@@ -1,0 +1,30 @@
+meta {
+  name: Get Dams By Region
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/dams/region/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains dams array", function() {
+    const data = res.getBody();
+    expect(data).to.be.an('array');
+  });
+}

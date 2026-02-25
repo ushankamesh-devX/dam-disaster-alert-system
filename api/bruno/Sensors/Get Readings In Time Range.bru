@@ -1,0 +1,37 @@
+meta {
+  name: Get Readings In Time Range
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{base_url}}/sensors/1/readings/range
+  body: none
+  auth: bearer
+}
+
+params:query {
+  start: 2024-01-01T00:00:00
+  end: 2024-12-31T23:59:59
+  ~page: 0
+  ~size: 100
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains readings", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('content');
+  });
+}

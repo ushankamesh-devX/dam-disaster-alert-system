@@ -1,0 +1,30 @@
+meta {
+  name: Get Dam Gates
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/dams/1/gates
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains gates array", function() {
+    const data = res.getBody();
+    expect(data).to.be.an('array');
+  });
+}

@@ -1,0 +1,42 @@
+meta {
+  name: Create Gate
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/dams/gates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "damId": 1,
+    "gateNumber": "G01",
+    "gateType": "radial",
+    "maxOpeningMeters": 12.5,
+    "currentOpeningMeters": 0.0,
+    "status": "closed"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains created gate", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data.gateNumber).to.equal('G01');
+  });
+}

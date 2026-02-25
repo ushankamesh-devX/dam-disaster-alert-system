@@ -1,0 +1,36 @@
+meta {
+  name: Search Dams
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base_url}}/dams/search?q=Victoria
+  body: none
+  auth: bearer
+}
+
+params:query {
+  q: Victoria
+  ~page: 0
+  ~size: 20
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is paginated", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('content');
+  });
+}

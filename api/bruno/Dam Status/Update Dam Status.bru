@@ -1,0 +1,46 @@
+meta {
+  name: Update Dam Status
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{base_url}}/dams/1/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "waterLevelMeters": 115.5,
+    "waterLevelPercentage": 85.5,
+    "inflowCumecs": 250.5,
+    "outflowCumecs": 200.0,
+    "storageCurrentMcm": 617.5,
+    "storagePercentage": 85.5,
+    "gatesOpenCount": 2,
+    "hazardStatus": "low",
+    "floodRiskScore": 25.5,
+    "rainfallLast1hrMm": 5.2,
+    "rainfallLast24hrMm": 45.8
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains updated status", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+  });
+}

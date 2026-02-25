@@ -1,0 +1,57 @@
+meta {
+  name: Create Sensor
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/sensors
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "sensorUid": "VIC-WL-001",
+    "damId": 1,
+    "sensorTypeId": 1,
+    "name": "Water Level Sensor 1",
+    "description": "Primary water level sensor at dam crest",
+    "locationOnDam": "Dam Crest - Center",
+    "latitude": 7.2276,
+    "longitude": 80.7867,
+    "elevationMeters": 438.0,
+    "manufacturer": "Siemens",
+    "model": "SITRANS LH300",
+    "serialNumber": "SIE-2024-001",
+    "installationDate": "2024-01-15",
+    "calibrationDate": "2024-01-15",
+    "nextCalibrationDate": "2025-01-15",
+    "minReading": 0.0,
+    "maxReading": 125.0,
+    "warningThreshold": 115.0,
+    "criticalThreshold": 120.0,
+    "readingIntervalSeconds": 60,
+    "status": "active"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains created sensor", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data.sensorUid).to.equal('VIC-WL-001');
+  });
+}

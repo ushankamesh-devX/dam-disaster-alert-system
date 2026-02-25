@@ -1,0 +1,42 @@
+meta {
+  name: Create Reading
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{base_url}}/sensors/readings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "sensorId": 1,
+    "readingValue": 105.5,
+    "readingUnit": "meters",
+    "readingQuality": "good",
+    "isAlert": false,
+    "rawData": "{\"voltage\": 3.3, \"temperature\": 25.2}"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains created reading", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data.readingValue).to.equal(105.5);
+  });
+}

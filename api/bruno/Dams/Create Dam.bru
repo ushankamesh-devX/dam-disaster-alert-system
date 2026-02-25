@@ -1,0 +1,62 @@
+meta {
+  name: Create Dam
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{base_url}}/dams
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "code": "VIC001",
+    "name": "Victoria Dam",
+    "nameSi": "වික්ටෝරියා වේල්ල",
+    "nameTa": "விக்டோரியா அணை",
+    "regionId": 1,
+    "locationDescription": "Located on Mahaweli River in Teldeniya",
+    "latitude": 7.2276,
+    "longitude": 80.7867,
+    "damType": "gravity",
+    "heightMeters": 122.0,
+    "lengthMeters": 520.0,
+    "reservoirCapacityMcm": 722.0,
+    "grossStorageMcm": 722.0,
+    "liveStorageMcm": 688.0,
+    "deadStorageMcm": 34.0,
+    "catchmentAreaSqkm": 1869.0,
+    "spillwayCapacityCumecs": 8000.0,
+    "yearCompleted": 1985,
+    "riverName": "Mahaweli River",
+    "purpose": "hydropower,irrigation,flood_control",
+    "operatorOrganization": "Mahaweli Authority of Sri Lanka",
+    "contactPhone": "+94112345678",
+    "contactEmail": "info@mahaweli.gov.lk",
+    "emergencyPhone": "+94119999999",
+    "status": "operational",
+    "riskClassification": "high"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains created dam", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('id');
+    expect(data.code).to.equal('VIC001');
+  });
+}

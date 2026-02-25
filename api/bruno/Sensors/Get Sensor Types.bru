@@ -1,0 +1,30 @@
+meta {
+  name: Get Sensor Types
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/sensors/types
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains sensor types", function() {
+    const data = res.getBody();
+    expect(data).to.be.an('array');
+  });
+}

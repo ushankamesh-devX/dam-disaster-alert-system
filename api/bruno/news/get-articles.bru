@@ -1,0 +1,20 @@
+meta {
+  name: Get All News Articles
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/news-articles?page=0&size=10&status=published
+  body: none
+  auth: inherit
+}
+
+query {
+  page: 0
+  size: 10
+  ~status: published
+  ~categoryId: 1
+  ~priorityLevel: high
+  ~isFeatured: true
+}

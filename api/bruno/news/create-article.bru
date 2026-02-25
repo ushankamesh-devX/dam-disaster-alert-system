@@ -1,0 +1,28 @@
+meta {
+  name: Create News Article
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/news-articles
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "categoryId": 1,
+    "title": "Heavy Rain Warning",
+    "titleSi": "තද වැසි පිළිබඳ අනතුරු ඇඟවීම",
+    "summary": "Heavy rain is expected in multiple districts over the next 24 hours.",
+    "summarySi": "ඉදිරි පැය 24 තුළ දිස්ත්‍රික්ක කිහිපයකට තද වැසි අපේක්ෂා කෙරේ.",
+    "content": "The Department of Meteorology has issued a severe weather warning...",
+    "contentSi": "කාලගුණ විද්‍යා දෙපාර්තමේන්තුව විසින් දැඩි කාලගුණ අනතුරු ඇඟවීමක් නිකුත් කර ඇත...",
+    "priorityLevel": "high",
+    "source": "Meteorology Dept",
+    "isNationwide": true,
+    "status": "draft",
+    "isFeatured": true
+  }
+}

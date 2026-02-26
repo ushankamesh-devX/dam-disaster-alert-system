@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/dams/1/zones/active
+  url: {{base_url}}/dams/1/hazard-zones/active
   body: none
   auth: bearer
 }
@@ -22,7 +22,7 @@ tests {
   test("Status code is 200", function() {
     expect(res.getStatus()).to.equal(200);
   });
-
+  
   test("Response contains active zones", function() {
     const data = res.getBody();
     expect(data).to.be.an('array');

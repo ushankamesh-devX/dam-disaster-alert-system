@@ -1,9 +1,11 @@
 meta {
   name: Restore User
+  type: http
+  seq: 1
 }
 
 post {
-  url: {{baseUrl}}/api/v1/users/1/restore
+  url: {{baseUrl}}/users/1/restore
   body: none
   auth: bearer
 }

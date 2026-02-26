@@ -1,9 +1,11 @@
 meta {
   name: Get Role By ID
+  type: http
+  seq: 1
 }
 
 get {
-  url: {{baseUrl}}/api/v1/roles/1
+  url: {{baseUrl}}/roles/1
   body: none
   auth: bearer
 }

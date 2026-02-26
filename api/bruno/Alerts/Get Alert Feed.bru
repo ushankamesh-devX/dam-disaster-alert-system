@@ -1,0 +1,40 @@
+meta {
+  name: Get Alert Feed
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/alerts/feed
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~damId: 1
+  ~regionId: 1
+  ~severity: warning
+  limit: 20
+  includeResolved: false
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains alert feed array", function() {
+    const data = res.getBody();
+    expect(data.success).to.equal(true);
+    expect(data.data).to.be.an('array');
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Update Article
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{base_url}}/news-articles/{{article_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "title": "Updated Heavy Rain Warning",
+    "status": "published",
+    "priorityLevel": "critical",
+    "imageUrl": "https://example.com/images/rain-warning.jpg",
+    "imageAlt": "Heavy rain warning banner",
+    "categoryId": 2
+  }
+}

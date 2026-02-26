@@ -1,0 +1,23 @@
+meta {
+  name: Mark Article Viewed
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{base_url}}/news-articles/{{article_id}}/view
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "userId": 1,
+    "readProgress": 100,
+    "readTimeSeconds": 120
+  }
+}

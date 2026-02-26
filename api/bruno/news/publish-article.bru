@@ -1,0 +1,15 @@
+meta {
+  name: Publish Article
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{base_url}}/news-articles/{{article_id}}/publish
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

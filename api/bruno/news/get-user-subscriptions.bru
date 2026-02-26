@@ -1,0 +1,15 @@
+meta {
+  name: Get User Subscriptions
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{base_url}}/users/1/news-subscriptions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

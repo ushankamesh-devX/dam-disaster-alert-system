@@ -1,0 +1,15 @@
+meta {
+  name: Delete Article
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{base_url}}/news-articles/{{article_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

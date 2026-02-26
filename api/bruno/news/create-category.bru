@@ -1,0 +1,28 @@
+meta {
+  name: Create Category
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/news-categories
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "code": "weather_alert",
+    "name": "Weather Alert",
+    "nameSi": "කාලගුණ අනතුරු ඇඟවීම",
+    "filterKey": "weather",
+    "icon": "weather-partly-cloudy",
+    "color": "#3B82F6",
+    "displayOrder": 1,
+    "isActive": true
+  }
+}

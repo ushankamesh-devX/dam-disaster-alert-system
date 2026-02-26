@@ -1,0 +1,22 @@
+meta {
+  name: Save Article
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{base_url}}/news-articles/{{article_id}}/save
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "userId": 1,
+    "hasSaved": true
+  }
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Get All News Articles
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/news-articles?page=0&size=10&status=published
+  body: none
+  auth: inherit
+}
+
+params:query {
+  page: 0
+  size: 10
+  status: published
+  ~status: published
+  ~categoryId: 1
+  ~priorityLevel: high
+  ~isFeatured: true
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080/api/v1
+}

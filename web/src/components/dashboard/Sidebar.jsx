@@ -26,7 +26,8 @@ const NAV = [
         group: 'System',
         items: [
             { to: '/admin/settings', label: 'Settings', icon: CogIcon },
-            { to: '/admin/mapFunc', label: 'Map Test', icon: MapIcon }
+            { to: '/admin/mapFunc', label: 'Map Test', icon: MapIcon },
+            { to: '/admin/system-safe-locations-test', label: 'Evacuation Centers Test', icon: MapIcon }
         ],
     },
 ];

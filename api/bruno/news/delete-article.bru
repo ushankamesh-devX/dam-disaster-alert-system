@@ -1,11 +1,11 @@
 meta {
-  name: Get All Categories
+  name: Delete Article
   type: http
-  seq: 1
+  seq: 10
 }
 
-get {
-  url: {{base_url}}/news-categories
+delete {
+  url: {{base_url}}/news-articles/{{article_id}}
   body: none
   auth: bearer
 }

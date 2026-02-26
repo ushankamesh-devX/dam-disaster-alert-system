@@ -1,0 +1,35 @@
+meta {
+  name: Create Subscription
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{base_url}}/news-subscriptions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "userId": 1,
+    "categoryId": 1,
+    "minPriority": "medium",
+    "pushEnabled": true,
+    "emailEnabled": false,
+    "smsEnabled": false
+  }
+}
+
+script:post-response {
+  // Automatically save the created subscription's ID for use in update/delete
+  if (res.body.data && res.body.data.id) {
+    bru.setEnvVar("subscription_id", res.body.data.id);
+  } else if (res.body.id) {
+    bru.setEnvVar("subscription_id", res.body.id);
+  }
+}

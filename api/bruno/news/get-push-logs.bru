@@ -1,0 +1,15 @@
+meta {
+  name: Get Push Logs For Article
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{base_url}}/news-articles/{{article_id}}/push-logs
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

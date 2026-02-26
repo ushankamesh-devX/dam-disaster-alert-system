@@ -1,11 +1,11 @@
 meta {
-  name: Get All Categories
+  name: Get User Subscriptions
   type: http
-  seq: 1
+  seq: 15
 }
 
 get {
-  url: {{base_url}}/news-categories
+  url: {{base_url}}/users/1/news-subscriptions
   body: none
   auth: bearer
 }

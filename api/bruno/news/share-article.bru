@@ -1,0 +1,22 @@
+meta {
+  name: Share Article
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{base_url}}/news-articles/{{article_id}}/share
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "userId": 1,
+    "platform": "whatsapp"
+  }
+}

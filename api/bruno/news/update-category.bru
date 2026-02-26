@@ -1,0 +1,23 @@
+meta {
+  name: Update Category
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{base_url}}/news-categories/1
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "name": "Updated Weather Alert",
+    "description": "Updated description",
+    "isActive": true
+  }
+}

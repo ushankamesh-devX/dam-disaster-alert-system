@@ -1,0 +1,24 @@
+meta {
+  name: Update Subscription
+  type: http
+  seq: 16
+}
+
+put {
+  url: {{base_url}}/news-subscriptions/{{subscription_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "pushEnabled": false,
+    "emailEnabled": true,
+    "smsEnabled": false,
+    "isActive": true
+  }
+}

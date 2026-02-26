@@ -1,0 +1,15 @@
+meta {
+  name: Archive Article
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{base_url}}/news-articles/{{article_id}}/archive
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

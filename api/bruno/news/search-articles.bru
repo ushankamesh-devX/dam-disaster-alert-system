@@ -1,0 +1,21 @@
+meta {
+  name: Search Articles
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/news-articles/search?q=flood
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+params:query {
+  q: flood
+  ~page: 0
+  ~size: 10
+}

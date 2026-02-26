@@ -1,11 +1,11 @@
 meta {
-  name: Get All Categories
+  name: Get Article By ID
   type: http
-  seq: 1
+  seq: 3
 }
 
 get {
-  url: {{base_url}}/news-categories
+  url: {{base_url}}/news-articles/{{article_id}}
   body: none
   auth: bearer
 }

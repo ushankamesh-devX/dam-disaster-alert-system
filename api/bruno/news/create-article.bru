@@ -5,9 +5,13 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/api/news-articles
+  url: {{base_url}}/news-articles
   body: json
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
 }
 
 body:json {
@@ -24,5 +28,14 @@ body:json {
     "isNationwide": true,
     "status": "draft",
     "isFeatured": true
+  }
+}
+
+script:post-response {
+  // Automatically save the created article's ID for use in other requests
+  if (res.body.data && res.body.data.id) {
+    bru.setEnvVar("article_id", res.body.data.id);
+  } else if (res.body.id) {
+    bru.setEnvVar("article_id", res.body.id);
   }
 }

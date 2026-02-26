@@ -1,0 +1,15 @@
+meta {
+  name: Delete Subscription
+  type: http
+  seq: 17
+}
+
+delete {
+  url: {{base_url}}/news-subscriptions/{{subscription_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

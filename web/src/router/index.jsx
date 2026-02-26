@@ -17,6 +17,7 @@ import UsersPage from '../pages/admin/UsersPage';
 import RolesPage from '../pages/admin/RolesPage';
 import RegionsPage from '../pages/admin/RegionsPage';
 import MapFuncPage from '../pages/admin/MapFuncPage';
+import SystemSafeLocationsMapFuncPage from '../pages/admin/SystemSafeLocationsMapFuncPage';
 
 function Soon({ title }) {
     return (
@@ -66,6 +67,7 @@ const router = createBrowserRouter([
                     { path: '/admin/roles', element: <RolesPage /> },
                     { path: '/admin/settings', element: <Soon title="Settings" /> },
                     { path: '/admin/mapFunc', element: <MapFuncPage /> },
+                    { path: '/admin/system-safe-locations-test', element: <SystemSafeLocationsMapFuncPage /> },
                 ],
             },
         ],

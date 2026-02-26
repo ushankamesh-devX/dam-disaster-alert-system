@@ -1,0 +1,34 @@
+meta {
+  name: Update By ID
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{base_url}}/system-safe-locations/{{safe_location_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "name": "Updated Name",
+    "status": "active",
+    "markerIcon": "hospital",
+    "markerColor": "#ef4444"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 404]
+}
+
+tests {
+  test("Status code is 200/400/404", function() {
+    expect([200, 400, 404]).to.include(res.getStatus());
+  });
+}

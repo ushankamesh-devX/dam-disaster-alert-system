@@ -20,6 +20,7 @@ const NAV = [
             { to: '/admin/users', label: 'Users', icon: UsersIcon },
             { to: '/admin/regions', label: 'Regions', icon: MapIcon },
             { to: '/admin/roles', label: 'Roles', icon: ShieldIcon },
+            { to: '/admin/system-safe-locations-test', label: 'Safe Locations', icon: MapIcon },
         ],
     },
     {
@@ -27,7 +28,6 @@ const NAV = [
         items: [
             { to: '/admin/settings', label: 'Settings', icon: CogIcon },
             { to: '/admin/mapFunc', label: 'Map Test', icon: MapIcon },
-            { to: '/admin/system-safe-locations-test', label: 'Evacuation Centers Test', icon: MapIcon }
         ],
     },
 ];

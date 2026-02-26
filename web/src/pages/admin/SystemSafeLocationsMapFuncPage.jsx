@@ -3,6 +3,7 @@ import { MapPin, Palette, Settings2 } from 'lucide-react';
 import SystemSafeLocationsGeomanMap from '../../components/map/SystemSafeLocationsGeomanMap';
 import { patchSafeLocationFromForm } from '../../components/map/systemSafeLocationsFormPatch';
 import SystemSafeLocationsService from '../../services/systemSafeLocations.service';
+import LocationTypesService from '../../services/locationTypes.service';
 
 const PIN_PRESETS = {
     evacuation_center: { label: 'Evacuation Center', marker_icon: 'evacuation_center', marker_color: '#2563eb' },
@@ -110,6 +111,38 @@ function stringifyIfObject(value) {
     }
 }
 
+function getAuthTokenPresent() {
+    try {
+        const stored = localStorage.getItem('auth-storage');
+        if (!stored) return false;
+        const parsed = JSON.parse(stored);
+        return !!parsed?.state?.token;
+    } catch {
+        return false;
+    }
+}
+
+function formatApiError(err, fallbackMessage) {
+    const status = err?.response?.status;
+    const apiMessage = err?.response?.data?.message;
+    const message = apiMessage || err?.message || fallbackMessage || 'Request failed';
+
+    const method = err?.config?.method ? String(err.config.method).toUpperCase() : null;
+    const baseURL = err?.config?.baseURL || import.meta.env.VITE_API_URL || '';
+    const url = err?.config?.url || '';
+    const fullUrl = baseURL ? `${String(baseURL).replace(/\/$/, '')}${url}` : url;
+
+    const code = status ? `HTTP ${status}` : 'Network error';
+    const requestLine = method && fullUrl ? `${method} ${fullUrl}` : (fullUrl || method || '').trim();
+
+    let hint = '';
+    if (status === 401) hint = ' (not logged in / token expired)';
+    if (status === 403) hint = ' (no permission for this action)';
+    if (!status && String(message).toLowerCase().includes('timeout')) hint = ' (timeout)';
+
+    return [code + hint, requestLine ? `• ${requestLine}` : null, `• ${message}`].filter(Boolean).join(' ');
+}
+
 function toNullableLong(value) {
     if (value === null || value === undefined) return null;
     if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
@@ -126,6 +159,16 @@ function toNullableNumber(value) {
     if (!t) return null;
     const n = Number(t);
     return Number.isFinite(n) ? n : null;
+}
+
+function toCleanString(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+}
+
+function coalesceRequired(value, fallback) {
+    const t = toCleanString(value);
+    return t ? value : fallback;
 }
 
 function fromApiSafeLocationToModel(api) {
@@ -258,6 +301,62 @@ export default function SystemSafeLocationsMapFuncPage() {
     const [jsonText, setJsonText] = useState('');
     const [jsonError, setJsonError] = useState(null);
     const [pendingChanges, setPendingChanges] = useState(false);
+
+    const [locationTypes, setLocationTypes] = useState([]);
+    const [locationTypesLoading, setLocationTypesLoading] = useState(false);
+    const [locationTypesError, setLocationTypesError] = useState(null);
+    const [defaultLocationTypeId, setDefaultLocationTypeId] = useState('');
+
+    const apiBaseUrl = import.meta.env.VITE_API_URL;
+    const tokenPresent = getAuthTokenPresent();
+    const apiLooksLocalhost = typeof apiBaseUrl === 'string' && /localhost|127\.0\.0\.1/i.test(apiBaseUrl);
+    const runningOnLocalhost = typeof window !== 'undefined' && /localhost|127\.0\.0\.1/i.test(window.location.hostname);
+
+    const desiredLocationTypeCode = useMemo(() => {
+        if (newPinPreset === 'other') {
+            const icon = toCleanString(newOtherIcon).toLowerCase();
+            if (!icon || icon === 'none' || icon === 'default') return 'other';
+            return icon;
+        }
+        if (String(newPinPreset || '').startsWith('custom_')) return 'other';
+        return toCleanString(newPinPreset).toLowerCase() || 'other';
+    }, [newPinPreset, newOtherIcon]);
+
+    const defaultLocationType = useMemo(() => {
+        if (!locationTypes?.length) return null;
+        return locationTypes.find((t) => String(t?.code || '').toLowerCase() === desiredLocationTypeCode)
+            || locationTypes.find((t) => String(t?.code || '').toLowerCase() === 'other')
+            || locationTypes[0];
+    }, [locationTypes, desiredLocationTypeCode]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const run = async () => {
+            setLocationTypesError(null);
+            setLocationTypesLoading(true);
+            try {
+                const list = await LocationTypesService.list();
+                if (cancelled) return;
+                setLocationTypes(Array.isArray(list) ? list : []);
+            } catch (err) {
+                if (cancelled) return;
+                setLocationTypesError(formatApiError(err, 'Failed to load location types'));
+            } finally {
+                if (!cancelled) setLocationTypesLoading(false);
+            }
+        };
+        run();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (!defaultLocationType) return;
+        // If user hasn't chosen manually yet, auto-pick based on pin type
+        setDefaultLocationTypeId((prev) => toCleanString(prev) ? prev : String(defaultLocationType.id));
+    }, [defaultLocationType]);
     const [form, setForm] = useState({
         code: '',
         name: '',
@@ -351,7 +450,7 @@ export default function SystemSafeLocationsMapFuncPage() {
             setInitialLocations(models);
             setInitialLocationsKey((k) => k + 1);
         } catch (err) {
-            setDbError(err?.response?.data?.message || err?.message || 'Failed to load from DB');
+            setDbError(formatApiError(err, 'Failed to load from DB'));
         } finally {
             setDbLoading(false);
         }
@@ -365,11 +464,16 @@ export default function SystemSafeLocationsMapFuncPage() {
             return;
         }
 
-        const missingRequired = locations.filter((l) => {
-            const hasUuid = !!String(l?.uuid || '').trim();
-            const hasCode = !!String(l?.code || '').trim();
-            const hasName = !!String(l?.name || '').trim();
-            const hasTypeId = !!String(l?.location_type_id ?? '').trim();
+        const locationsForSave = (locations || []).map((l) => ({
+            ...l,
+            location_type_id: coalesceRequired(l?.location_type_id, toCleanString(defaultLocationTypeId) || null),
+        }));
+
+        const missingRequired = locationsForSave.filter((l) => {
+            const hasUuid = !!toCleanString(l?.uuid || '');
+            const hasCode = !!toCleanString(l?.code || '');
+            const hasName = !!toCleanString(l?.name || '');
+            const hasTypeId = !!toCleanString(l?.location_type_id ?? '');
             return !hasUuid || !hasCode || !hasName || !hasTypeId;
         });
         if (missingRequired.length) {
@@ -381,14 +485,14 @@ export default function SystemSafeLocationsMapFuncPage() {
 
         setDbSaving(true);
         try {
-            const items = locations.map(toApiUpsertItem).filter(Boolean);
+            const items = locationsForSave.map(toApiUpsertItem).filter(Boolean);
             const saved = await SystemSafeLocationsService.bulkUpsert(items);
             const models = (saved || []).map(fromApiSafeLocationToModel).filter(Boolean);
             setInitialLocations(models);
             setInitialLocationsKey((k) => k + 1);
             setLastSavedAt(new Date().toISOString());
         } catch (err) {
-            setDbError(err?.response?.data?.message || err?.message || 'Failed to save to DB');
+            setDbError(formatApiError(err, 'Failed to save to DB'));
         } finally {
             setDbSaving(false);
         }
@@ -465,10 +569,11 @@ export default function SystemSafeLocationsMapFuncPage() {
         return {
             marker_icon: icon,
             marker_color: newPinColor || preset.marker_color,
+            location_type_id: toCleanString(defaultLocationTypeId) || null,
             __templateLabel: templateLabel,
             __templateCodePrefix: templatePrefix,
         };
-    }, [newPinPreset, newPinColor, newOtherIcon, selectedNewType]);
+    }, [newPinPreset, newPinColor, newOtherIcon, selectedNewType, defaultLocationTypeId]);
 
     const addCustomType = () => {
         const label = customTypeLabel.trim();
@@ -499,15 +604,23 @@ export default function SystemSafeLocationsMapFuncPage() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-6">
-            <div className="flex justify-between items-center shrink-0">
+            <div className="flex justify-between items-center shrink-0 sticky top-0 z-10 bg-white pt-2 pb-2 border-b border-gray-200">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
-                        System Safe Locations Test
+                        Safe Locations
                     </h1>
                     <p className="text-sm text-gray-500 mt-1 pl-4 flex items-center gap-2">
                         <Settings2 className="w-4 h-4" />
-                        Data-entry friendly pins • Choose type/color • Hover shows details • Create/edit/drag/delete
+                        Manage evacuation center pins • Choose type/color • Hover shows details • Create/edit/drag/delete
                     </p>
+                    <div className="text-[11px] text-gray-500 mt-1 pl-4">
+                        API: {apiBaseUrl || '(same origin)'} • Auth token: {tokenPresent ? 'present' : 'missing'}
+                    </div>
+                    {apiLooksLocalhost && !runningOnLocalhost ? (
+                        <div className="text-[11px] text-red-600 mt-1 pl-4">
+                            API is set to localhost. If your backend is on another server, update `VITE_API_URL` in `web/.env.local`.
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className="flex flex-col items-end gap-1">
@@ -566,6 +679,27 @@ export default function SystemSafeLocationsMapFuncPage() {
                                 {pinTypeOptions.map((o) => (
                                     <option key={o.key} value={o.key}>{o.label}</option>
                                 ))}
+                            </select>
+                        </label>
+
+                        <label className="text-xs text-gray-700 flex items-center gap-2">
+                            Location type
+                            <select
+                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm disabled:opacity-60"
+                                value={defaultLocationTypeId}
+                                onChange={(e) => setDefaultLocationTypeId(e.target.value)}
+                                disabled={locationTypesLoading || !locationTypes?.length}
+                                title="Required for saving"
+                            >
+                                {locationTypes?.length ? (
+                                    locationTypes.map((t) => (
+                                        <option key={t.id} value={String(t.id)}>
+                                            {t.name} ({t.code})
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value="">{locationTypesLoading ? 'Loading…' : 'Not loaded'}</option>
+                                )}
                             </select>
                         </label>
 
@@ -637,6 +771,9 @@ export default function SystemSafeLocationsMapFuncPage() {
                         <div className="text-xs text-gray-500">
                             Select type, then place a marker using the toolbar.
                         </div>
+                        {locationTypesError ? (
+                            <div className="text-xs text-red-600">{locationTypesError}</div>
+                        ) : null}
                     </div>
 
                     <div className="flex-1 w-full rounded border border-gray-300 overflow-hidden isolate relative z-0">
@@ -798,16 +935,34 @@ export default function SystemSafeLocationsMapFuncPage() {
                                         </select>
                                     </label>
                                     <label className="text-xs text-gray-700">
-                                        Location type ID (from DB)
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.location_type_id}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, location_type_id: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                            placeholder="e.g. 10"
-                                        />
+                                        Location type (required)
+                                        {locationTypes?.length ? (
+                                            <select
+                                                className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                value={toCleanString(form.location_type_id)}
+                                                onChange={(e) => {
+                                                    setForm((p) => ({ ...p, location_type_id: e.target.value }));
+                                                    setPendingChanges(true);
+                                                }}
+                                            >
+                                                <option value="">Select…</option>
+                                                {locationTypes.map((t) => (
+                                                    <option key={t.id} value={String(t.id)}>
+                                                        {t.name} ({t.code})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                value={form.location_type_id}
+                                                onChange={(e) => {
+                                                    setForm((p) => ({ ...p, location_type_id: e.target.value }));
+                                                    setPendingChanges(true);
+                                                }}
+                                                placeholder="e.g. 10"
+                                            />
+                                        )}
                                     </label>
                                     <label className="text-xs text-gray-700">
                                         Region ID (optional)
@@ -993,7 +1148,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                 <pre className="whitespace-pre-wrap">{outputJson}</pre>
                             ) : (
                                 <div className="h-48 flex items-center justify-center text-gray-400 italic text-center">
-                                    Use the marker tool on the left to add evacuation centers. Drag/edit/delete to test updates.
+                                            Use the marker tool on the left to add evacuation centers. Drag/edit/delete to update.
                                 </div>
                             )}
                         </div>

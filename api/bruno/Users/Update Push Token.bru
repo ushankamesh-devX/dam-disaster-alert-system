@@ -1,9 +1,11 @@
 meta {
   name: Update Push Token
+  type: http
+  seq: 1
 }
 
 put {
-  url: {{baseUrl}}/api/v1/users/me/push-token
+  url: {{baseUrl}}/users/me/push-token
   body: json
   auth: bearer
 }

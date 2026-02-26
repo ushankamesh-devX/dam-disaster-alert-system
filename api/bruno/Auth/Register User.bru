@@ -17,8 +17,8 @@ headers {
 body:json {
   {
     "fullName": "John Doe",
-    "email": "john.doe@example.com",
-    "phoneNumber": "+94771234567",
+    "email": "kamesh@example.com",
+    "phoneNumber": "+94764511038",
     "password": "SecurePass123!",
     "languagePreference": "en"
   }
@@ -39,10 +39,9 @@ tests {
   test("Status code is 201", function() {
     expect(res.getStatus()).to.equal(201);
   });
-
+  
   test("Response contains token", function() {
     const data = res.getBody();
     expect(data.data.token).to.be.a('string');
   });
 }
-

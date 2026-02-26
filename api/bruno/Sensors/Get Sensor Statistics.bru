@@ -5,9 +5,14 @@ meta {
 }
 
 get {
-  url: {{base_url}}/sensors/1/statistics
+  url: {{base_url}}/sensors/1/statistics?startTime=2024-01-01T00:00:00&endTime=2027-12-31T23:59:59
   body: none
   auth: bearer
+}
+
+params:query {
+  startTime: 2024-01-01T00:00:00
+  endTime: 2027-12-31T23:59:59
 }
 
 auth:bearer {
@@ -22,7 +27,7 @@ tests {
   test("Status code is 200", function() {
     expect(res.getStatus()).to.equal(200);
   });
-
+  
   test("Response contains statistics", function() {
     const data = res.getBody();
     expect(data).to.have.property('totalReadings');

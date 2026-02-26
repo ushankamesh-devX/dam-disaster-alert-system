@@ -1,9 +1,11 @@
 meta {
   name: Update Location
+  type: http
+  seq: 1
 }
 
 put {
-  url: {{baseUrl}}/api/v1/users/me/location
+  url: {{baseUrl}}/users/me/location
   body: json
   auth: bearer
 }

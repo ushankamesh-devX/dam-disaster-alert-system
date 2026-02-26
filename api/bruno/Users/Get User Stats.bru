@@ -1,13 +1,15 @@
 meta {
   name: Get User Stats
+  type: http
+  seq: 1
 }
 
 get {
-  url: {{baseUrl}}/api/v1/users/stats
+  url: {{baseUrl}}/users/stats
   body: none
   auth: bearer
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{auth_token}}
 }

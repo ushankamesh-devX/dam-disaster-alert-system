@@ -16,7 +16,7 @@ headers {
 
 body:json {
   {
-    "email": "john.doe@example.com",
+    "email": "kamesh@example.com",
     "password": "SecurePass123!"
   }
 }
@@ -37,16 +37,15 @@ tests {
   test("Status code is 200", function() {
     expect(res.getStatus()).to.equal(200);
   });
-
+  
   test("Response contains token", function() {
     const data = res.getBody();
     expect(data.data.token).to.be.a('string');
   });
-
+  
   test("Response contains user data", function() {
     const data = res.getBody();
     expect(data.data.user).to.be.an('object');
     expect(data.data.user.email).to.equal('john.doe@example.com');
   });
 }
-

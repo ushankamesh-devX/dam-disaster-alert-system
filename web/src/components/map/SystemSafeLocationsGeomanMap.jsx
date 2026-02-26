@@ -413,6 +413,8 @@ export default function SystemSafeLocationsGeomanMap({
     zoom = 7,
     readOnly = false,
     height = '100%',
+    initialLocations = [],
+    initialLocationsKey = 0,
     newLocationTemplate = null,
     onLocationsChange = () => { },
     onSelectedLocationChange = () => { },
@@ -434,6 +436,68 @@ export default function SystemSafeLocationsGeomanMap({
             onSelectedLocationChange(layer?.feature?.properties || null);
         }
     }, [onLocationsChange, onSelectedLocationChange, selectedLayerId]);
+
+    useEffect(() => {
+        if (!featureGroupRef.current) return;
+
+        const featureGroup = featureGroupRef.current;
+
+        // Clear existing system-safe-location markers before hydrating.
+        featureGroup.getLayers().forEach((layer) => {
+            const entity = layer?.feature?.properties?.__entity;
+            if (entity === 'system_safe_location') {
+                featureGroup.removeLayer(layer);
+            }
+        });
+
+        setSelectedLayerId(null);
+        onSelectedLocationChange(null);
+
+        const emit = () => {
+            const locations = collectSafeLocations(featureGroup);
+            handleLocationsChange(locations);
+        };
+
+        (initialLocations || []).forEach((loc) => {
+            if (!loc) return;
+            const lat = Number(loc.latitude);
+            const lng = Number(loc.longitude);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+            const marker = L.marker([lat, lng]);
+
+            marker.feature = marker.feature || { type: 'Feature', properties: {} };
+            marker.feature.properties = {
+                ...(loc || {}),
+                __entity: 'system_safe_location',
+            };
+
+            try {
+                marker.setIcon(markerDivIconFor(marker.feature.properties));
+            } catch {
+                // ignore
+            }
+
+            marker.bindTooltip(renderHoverHtml(marker.feature.properties), {
+                direction: 'top',
+                offset: [0, -18],
+                opacity: 1,
+                sticky: true,
+            });
+
+            marker.on('mouseover', () => marker.openTooltip());
+            marker.on('mouseout', () => marker.closeTooltip());
+            marker.on('click', () => handleSelectLayer(marker));
+
+            marker.on('pm:edit', emit);
+            marker.on('pm:dragend', emit);
+
+            featureGroup.addLayer(marker);
+        });
+
+        emit();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialLocationsKey]);
 
     const updateSelectedLocation = useCallback((patch) => {
         if (selectedLayerId === null || !featureGroupRef.current) return;

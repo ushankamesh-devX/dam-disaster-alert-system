@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapPin, Palette, Settings2 } from 'lucide-react';
 import SystemSafeLocationsGeomanMap from '../../components/map/SystemSafeLocationsGeomanMap';
 import { patchSafeLocationFromForm } from '../../components/map/systemSafeLocationsFormPatch';
+import SystemSafeLocationsService from '../../services/systemSafeLocations.service';
 
 const PIN_PRESETS = {
     evacuation_center: { label: 'Evacuation Center', marker_icon: 'evacuation_center', marker_color: '#2563eb' },
@@ -98,9 +99,155 @@ function safeParseJson(text) {
     }
 }
 
+function stringifyIfObject(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return null;
+    }
+}
+
+function toNullableLong(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+    const t = String(value).trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+function toNullableNumber(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const t = String(value).trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+}
+
+function fromApiSafeLocationToModel(api) {
+    if (!api) return null;
+    return {
+        uuid: api.uuid ?? null,
+        code: api.code ?? null,
+        name: api.name ?? null,
+        name_si: api.nameSi ?? null,
+        name_ta: api.nameTa ?? null,
+        description: api.description ?? null,
+        description_si: api.descriptionSi ?? null,
+        location_type_id: api.locationTypeId ?? null,
+        region_id: api.regionId ?? null,
+        address_text: api.addressText ?? null,
+        address_si: api.addressSi ?? null,
+        latitude: api.latitude != null ? Number(api.latitude) : null,
+        longitude: api.longitude != null ? Number(api.longitude) : null,
+        elevation_meters: api.elevationMeters ?? null,
+        boundary_geojson: api.boundaryGeojson ?? null,
+        capacity_persons: api.capacityPersons ?? null,
+        current_occupancy: api.currentOccupancy ?? 0,
+        has_medical_facility: api.hasMedicalFacility ?? false,
+        has_food_supply: api.hasFoodSupply ?? false,
+        has_water_supply: api.hasWaterSupply ?? false,
+        has_power_backup: api.hasPowerBackup ?? false,
+        has_communication: api.hasCommunication ?? false,
+        has_restrooms: api.hasRestrooms ?? false,
+        has_pet_area: api.hasPetArea ?? false,
+        has_accessibility: api.hasAccessibility ?? false,
+        amenities: api.amenities ?? null,
+        contact_name: api.contactName ?? null,
+        contact_phone: api.contactPhone ?? null,
+        contact_email: api.contactEmail ?? null,
+        emergency_phone: api.emergencyPhone ?? null,
+        operating_hours: api.operatingHours ?? null,
+        is_24_hours: api.is24Hours ?? false,
+        primary_dam_id: api.primaryDamId ?? null,
+        serves_hazard_zones: api.servesHazardZones ?? null,
+        distance_from_dam_km: api.distanceFromDamKm ?? null,
+        estimated_travel_time_minutes: api.estimatedTravelTimeMinutes ?? null,
+        status: api.status ?? 'active',
+        is_verified: api.isVerified ?? false,
+        verified_by: api.verifiedBy ?? null,
+        verified_at: api.verifiedAt ?? null,
+        last_inspection_date: api.lastInspectionDate ?? null,
+        next_inspection_date: api.nextInspectionDate ?? null,
+        show_on_map: api.showOnMap ?? true,
+        marker_icon: api.markerIcon ?? 'evacuation_center',
+        marker_color: api.markerColor ?? '#2563eb',
+        image_url: api.imageUrl ?? null,
+        gallery_urls: api.galleryUrls ?? null,
+        created_by: api.createdBy ?? null,
+        updated_by: api.updatedBy ?? null,
+        deleted_at: api.deletedAt ?? null,
+    };
+}
+
+function toApiUpsertItem(model) {
+    if (!model) return null;
+    return {
+        uuid: model.uuid,
+        code: model.code,
+        name: model.name,
+        nameSi: model.name_si ?? null,
+        nameTa: model.name_ta ?? null,
+        description: model.description ?? null,
+        descriptionSi: model.description_si ?? null,
+        locationTypeId: toNullableLong(model.location_type_id),
+        regionId: toNullableLong(model.region_id),
+        addressText: model.address_text ?? null,
+        addressSi: model.address_si ?? null,
+        latitude: model.latitude != null ? Number(model.latitude) : null,
+        longitude: model.longitude != null ? Number(model.longitude) : null,
+        elevationMeters: toNullableNumber(model.elevation_meters),
+        boundaryGeojson: stringifyIfObject(model.boundary_geojson),
+        capacityPersons: toNullableLong(model.capacity_persons),
+        currentOccupancy: toNullableLong(model.current_occupancy) ?? 0,
+        hasMedicalFacility: !!model.has_medical_facility,
+        hasFoodSupply: !!model.has_food_supply,
+        hasWaterSupply: !!model.has_water_supply,
+        hasPowerBackup: !!model.has_power_backup,
+        hasCommunication: !!model.has_communication,
+        hasRestrooms: !!model.has_restrooms,
+        hasPetArea: !!model.has_pet_area,
+        hasAccessibility: !!model.has_accessibility,
+        amenities: stringifyIfObject(model.amenities),
+        contactName: model.contact_name ?? null,
+        contactPhone: model.contact_phone ?? null,
+        contactEmail: model.contact_email ?? null,
+        emergencyPhone: model.emergency_phone ?? null,
+        operatingHours: stringifyIfObject(model.operating_hours),
+        is24Hours: !!model.is_24_hours,
+        primaryDamId: toNullableLong(model.primary_dam_id),
+        servesHazardZones: stringifyIfObject(model.serves_hazard_zones),
+        distanceFromDamKm: toNullableNumber(model.distance_from_dam_km),
+        estimatedTravelTimeMinutes: toNullableLong(model.estimated_travel_time_minutes),
+        status: model.status ?? 'active',
+        isVerified: !!model.is_verified,
+        verifiedBy: toNullableLong(model.verified_by),
+        verifiedAt: model.verified_at ?? null,
+        lastInspectionDate: model.last_inspection_date ?? null,
+        nextInspectionDate: model.next_inspection_date ?? null,
+        showOnMap: model.show_on_map ?? true,
+        markerIcon: model.marker_icon ?? null,
+        markerColor: model.marker_color ?? null,
+        imageUrl: model.image_url ?? null,
+        galleryUrls: stringifyIfObject(model.gallery_urls),
+        createdBy: toNullableLong(model.created_by),
+        updatedBy: toNullableLong(model.updated_by),
+    };
+}
+
 export default function SystemSafeLocationsMapFuncPage() {
     const [locations, setLocations] = useState([]);
     const [selected, setSelected] = useState(null);
+    const [initialLocations, setInitialLocations] = useState([]);
+    const [initialLocationsKey, setInitialLocationsKey] = useState(0);
+    const [dbError, setDbError] = useState(null);
+    const [dbLoading, setDbLoading] = useState(false);
+    const [dbSaving, setDbSaving] = useState(false);
+    const [lastSavedAt, setLastSavedAt] = useState(null);
     const [newPinPreset, setNewPinPreset] = useState('evacuation_center');
     const [newPinColor, setNewPinColor] = useState(PIN_PRESETS.evacuation_center.marker_color);
     const [newOtherIcon, setNewOtherIcon] = useState('other');
@@ -194,6 +341,65 @@ export default function SystemSafeLocationsMapFuncPage() {
             has_accessibility: props.has_accessibility ?? false,
         }));
     };
+
+    const loadFromDb = async () => {
+        setDbError(null);
+        setDbLoading(true);
+        try {
+            const apiItems = await SystemSafeLocationsService.list();
+            const models = (apiItems || []).map(fromApiSafeLocationToModel).filter(Boolean);
+            setInitialLocations(models);
+            setInitialLocationsKey((k) => k + 1);
+        } catch (err) {
+            setDbError(err?.response?.data?.message || err?.message || 'Failed to load from DB');
+        } finally {
+            setDbLoading(false);
+        }
+    };
+
+    const saveAllToDb = async () => {
+        setDbError(null);
+
+        if (!locations?.length) {
+            setDbError('No pins to save. Add at least one pin first.');
+            return;
+        }
+
+        const missingRequired = locations.filter((l) => {
+            const hasUuid = !!String(l?.uuid || '').trim();
+            const hasCode = !!String(l?.code || '').trim();
+            const hasName = !!String(l?.name || '').trim();
+            const hasTypeId = !!String(l?.location_type_id ?? '').trim();
+            return !hasUuid || !hasCode || !hasName || !hasTypeId;
+        });
+        if (missingRequired.length) {
+            setDbError(
+                `${missingRequired.length} pin(s) missing required fields. Each pin must have uuid, code, name, and Location type ID (location_type_id).`
+            );
+            return;
+        }
+
+        setDbSaving(true);
+        try {
+            const items = locations.map(toApiUpsertItem).filter(Boolean);
+            const saved = await SystemSafeLocationsService.bulkUpsert(items);
+            const models = (saved || []).map(fromApiSafeLocationToModel).filter(Boolean);
+            setInitialLocations(models);
+            setInitialLocationsKey((k) => k + 1);
+            setLastSavedAt(new Date().toISOString());
+        } catch (err) {
+            setDbError(err?.response?.data?.message || err?.message || 'Failed to save to DB');
+        } finally {
+            setDbSaving(false);
+        }
+    };
+
+    useEffect(() => {
+        // Optional: auto-load existing pins from DB on page open.
+        // Comment this out if you prefer manual loading.
+        loadFromDb();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const applyFormToSelected = () => {
         if (!selected) return;
@@ -303,6 +509,35 @@ export default function SystemSafeLocationsMapFuncPage() {
                         Data-entry friendly pins • Choose type/color • Hover shows details • Create/edit/drag/delete
                     </p>
                 </div>
+
+                <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            className="text-xs font-semibold px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                            onClick={loadFromDb}
+                            disabled={dbLoading || dbSaving}
+                            title="Load pins from DB"
+                        >
+                            {dbLoading ? 'Loading…' : 'Load from DB'}
+                        </button>
+                        <button
+                            type="button"
+                            className="text-xs font-semibold px-3 py-2 rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                            onClick={saveAllToDb}
+                            disabled={dbLoading || dbSaving}
+                            title="Save all pins to DB"
+                        >
+                            {dbSaving ? 'Saving…' : 'Save all to DB'}
+                        </button>
+                    </div>
+                    {lastSavedAt ? (
+                        <div className="text-[11px] text-gray-500">Last saved: {new Date(lastSavedAt).toLocaleString()}</div>
+                    ) : null}
+                    {dbError ? (
+                        <div className="text-[11px] text-red-600 max-w-[520px] text-right">{dbError}</div>
+                    ) : null}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
@@ -409,6 +644,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                             onLocationsChange={setLocations}
                             onSelectedLocationChange={handleSelectedChange}
                             newLocationTemplate={newLocationTemplate}
+                            initialLocations={initialLocations}
+                            initialLocationsKey={initialLocationsKey}
                             height="100%"
                         />
                     </div>

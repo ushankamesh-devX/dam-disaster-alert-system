@@ -21,13 +21,15 @@ const NAV = [
             { to: '/admin/regions', label: 'Regions', icon: MapIcon },
             { to: '/admin/roles', label: 'Roles', icon: ShieldIcon },
             { to: '/admin/news', label: 'News', icon: NewsIcon },
+            { to: '/admin/system-safe-locations-test', label: 'Safe Locations', icon: MapIcon },
+
         ],
     },
     {
         group: 'System',
         items: [
             { to: '/admin/settings', label: 'Settings', icon: CogIcon },
-            { to: '/admin/mapFunc', label: 'Map Test', icon: MapIcon }
+            { to: '/admin/mapFunc', label: 'Map Test', icon: MapIcon },
         ],
     },
 ];

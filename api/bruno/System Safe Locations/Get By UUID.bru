@@ -1,0 +1,29 @@
+meta {
+  name: Get By UUID
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/system-safe-locations/uuid/{{safe_location_uuid}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJrYW1lc2hAZXhhbXBsZS5jb20iLCJpYXQiOjE3NzIxMzQwMDEsImV4cCI6MTc3MjIyMDQwMX0.ylzfXzNaJQVZ3-wSbeIZ8cbHfTdRNIYz3gbQwiufov-Z5C5_5ZqaW5ORvqVSvM1wsHjlcoAVrCUDaYqBT2WVPA
+}
+
+vars:pre-request {
+  safe_location_uuid: 11111111-1111-1111-1111-111111111111
+}
+
+assert {
+  res.status: in [200, 404]
+}
+
+tests {
+  test("Status code is 200 or 404", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+}

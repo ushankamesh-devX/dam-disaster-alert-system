@@ -1,5 +1,15 @@
 import axios from 'axios';
 
+function baseUrlEndsWithApiV1(baseURL) {
+    if (!baseURL || typeof baseURL !== 'string') return false;
+    return /\/api\/v1\/?$/.test(baseURL);
+}
+
+function stripLeadingApiV1(url) {
+    if (!url || typeof url !== 'string') return url;
+    return url.replace(/^\/api\/v1(\/|$)/, '/');
+}
+
 const apiClient = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
     headers: {
@@ -11,6 +21,18 @@ const apiClient = axios.create({
 // Request interceptor — attach token
 apiClient.interceptors.request.use(
     (config) => {
+        // Prevent accidental double-prefix when baseURL already includes '/api/v1'
+        // Example: baseURL='http://localhost:8080/api/v1' + url='/api/v1/regions/list'
+        // becomes 'http://localhost:8080/api/v1/regions/list'
+        try {
+            const baseURL = config.baseURL || apiClient.defaults.baseURL;
+            if (baseUrlEndsWithApiV1(baseURL) && typeof config.url === 'string' && config.url.startsWith('/api/v1')) {
+                config.url = stripLeadingApiV1(config.url);
+            }
+        } catch {
+            // ignore
+        }
+
         // Dynamically read token so it's always fresh
         const stored = localStorage.getItem('auth-storage');
         if (stored) {

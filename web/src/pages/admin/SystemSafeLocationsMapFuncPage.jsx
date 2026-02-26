@@ -1,0 +1,1290 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { MapPin, Palette, Settings2 } from 'lucide-react';
+import SystemSafeLocationsGeomanMap from '../../components/map/SystemSafeLocationsGeomanMap';
+import { patchSafeLocationFromForm } from '../../components/map/systemSafeLocationsFormPatch';
+import SystemSafeLocationsService from '../../services/systemSafeLocations.service';
+import LocationTypesService from '../../services/locationTypes.service';
+
+const PIN_PRESETS = {
+    evacuation_center: { label: 'Evacuation Center', marker_icon: 'evacuation_center', marker_color: '#2563eb' },
+    police_station: { label: 'Police Station', marker_icon: 'police_station', marker_color: '#1e40af' },
+    hospital: { label: 'Hospital', marker_icon: 'hospital', marker_color: '#ef4444' },
+    fire_station: { label: 'Fire Station', marker_icon: 'fire_station', marker_color: '#f97316' },
+    clinic: { label: 'Clinic', marker_icon: 'clinic', marker_color: '#dc2626' },
+    school: { label: 'School', marker_icon: 'school', marker_color: '#7c3aed' },
+    community_hall: { label: 'Community Hall', marker_icon: 'community_hall', marker_color: '#0ea5e9' },
+    temple: { label: 'Temple', marker_icon: 'temple', marker_color: '#f59e0b' },
+    mosque: { label: 'Mosque', marker_icon: 'mosque', marker_color: '#059669' },
+    safe_zone: { label: 'Safe Zone', marker_icon: 'safe_zone', marker_color: '#16a34a' },
+    other: { label: 'Other (custom)', marker_icon: 'other', marker_color: '#2563eb' },
+};
+
+const BASE_ICON_OPTIONS = [
+    { value: 'none', label: 'None (default marker)' },
+    { value: 'evacuation_center', label: 'Evacuation Center' },
+    { value: 'police_station', label: 'Police Station' },
+    { value: 'hospital', label: 'Hospital' },
+    { value: 'fire_station', label: 'Fire Station' },
+    { value: 'clinic', label: 'Clinic' },
+    { value: 'school', label: 'School' },
+    { value: 'community_hall', label: 'Community Hall' },
+    { value: 'temple', label: 'Temple' },
+    { value: 'mosque', label: 'Mosque' },
+    { value: 'safe_zone', label: 'Safe Zone' },
+    { value: 'other', label: 'Generic (default)' },
+];
+
+const CUSTOM_ICON_OPTIONS = [
+    { value: 'auto', label: 'Auto (pick unused icon)' },
+    ...BASE_ICON_OPTIONS,
+];
+
+function pickUnusedIcon(usedIcons) {
+    const candidates = [
+        'police_station',
+        'hospital',
+        'fire_station',
+        'clinic',
+        'school',
+        'community_hall',
+        'temple',
+        'mosque',
+        'safe_zone',
+        'evacuation_center',
+        'other',
+    ];
+    for (const c of candidates) {
+        if (!usedIcons.has(c)) return c;
+    }
+    return 'other';
+}
+
+function safeKeyFromLabel(label) {
+    return String(label || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 40);
+}
+
+function defaultPrefixFromLabel(label) {
+    const cleaned = String(label || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9 ]+/g, ' ')
+        .trim();
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    const first = parts[0] || 'LOC';
+    return first.slice(0, 3) || 'LOC';
+}
+
+const COLOR_SWATCHES = [
+    '#2563eb', '#1e40af', '#7c3aed', '#0ea5e9', '#059669', '#16a34a', '#f59e0b', '#f97316', '#ef4444', '#dc2626',
+];
+
+function stripInternal(props) {
+    if (!props || typeof props !== 'object') return props;
+    const { __entity: _internalEntity, ...rest } = props;
+    return rest;
+}
+
+function safeParseJson(text) {
+    try {
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return { ok: false, error: 'JSON must be an object (e.g. {"name":"..."}).' };
+        }
+        return { ok: true, value: parsed };
+    } catch (err) {
+        return { ok: false, error: err?.message || 'Invalid JSON' };
+    }
+}
+
+function stringifyIfObject(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return null;
+    }
+}
+
+function getAuthTokenPresent() {
+    try {
+        const stored = localStorage.getItem('auth-storage');
+        if (!stored) return false;
+        const parsed = JSON.parse(stored);
+        return !!parsed?.state?.token;
+    } catch {
+        return false;
+    }
+}
+
+function formatApiError(err, fallbackMessage) {
+    const status = err?.response?.status;
+    const apiMessage = err?.response?.data?.message;
+    const message = apiMessage || err?.message || fallbackMessage || 'Request failed';
+
+    const method = err?.config?.method ? String(err.config.method).toUpperCase() : null;
+    const baseURL = err?.config?.baseURL || import.meta.env.VITE_API_URL || '';
+    const url = err?.config?.url || '';
+    const fullUrl = baseURL ? `${String(baseURL).replace(/\/$/, '')}${url}` : url;
+
+    const code = status ? `HTTP ${status}` : 'Network error';
+    const requestLine = method && fullUrl ? `${method} ${fullUrl}` : (fullUrl || method || '').trim();
+
+    let hint = '';
+    if (status === 401) hint = ' (not logged in / token expired)';
+    if (status === 403) hint = ' (no permission for this action)';
+    if (!status && String(message).toLowerCase().includes('timeout')) hint = ' (timeout)';
+
+    return [code + hint, requestLine ? `• ${requestLine}` : null, `• ${message}`].filter(Boolean).join(' ');
+}
+
+function toNullableLong(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+    const t = String(value).trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+function toNullableNumber(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const t = String(value).trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+}
+
+function toCleanString(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+}
+
+function coalesceRequired(value, fallback) {
+    const t = toCleanString(value);
+    return t ? value : fallback;
+}
+
+function fromApiSafeLocationToModel(api) {
+    if (!api) return null;
+    return {
+        uuid: api.uuid ?? null,
+        code: api.code ?? null,
+        name: api.name ?? null,
+        name_si: api.nameSi ?? null,
+        name_ta: api.nameTa ?? null,
+        description: api.description ?? null,
+        description_si: api.descriptionSi ?? null,
+        location_type_id: api.locationTypeId ?? null,
+        region_id: api.regionId ?? null,
+        address_text: api.addressText ?? null,
+        address_si: api.addressSi ?? null,
+        latitude: api.latitude != null ? Number(api.latitude) : null,
+        longitude: api.longitude != null ? Number(api.longitude) : null,
+        elevation_meters: api.elevationMeters ?? null,
+        boundary_geojson: api.boundaryGeojson ?? null,
+        capacity_persons: api.capacityPersons ?? null,
+        current_occupancy: api.currentOccupancy ?? 0,
+        has_medical_facility: api.hasMedicalFacility ?? false,
+        has_food_supply: api.hasFoodSupply ?? false,
+        has_water_supply: api.hasWaterSupply ?? false,
+        has_power_backup: api.hasPowerBackup ?? false,
+        has_communication: api.hasCommunication ?? false,
+        has_restrooms: api.hasRestrooms ?? false,
+        has_pet_area: api.hasPetArea ?? false,
+        has_accessibility: api.hasAccessibility ?? false,
+        amenities: api.amenities ?? null,
+        contact_name: api.contactName ?? null,
+        contact_phone: api.contactPhone ?? null,
+        contact_email: api.contactEmail ?? null,
+        emergency_phone: api.emergencyPhone ?? null,
+        operating_hours: api.operatingHours ?? null,
+        is_24_hours: api.is24Hours ?? false,
+        primary_dam_id: api.primaryDamId ?? null,
+        serves_hazard_zones: api.servesHazardZones ?? null,
+        distance_from_dam_km: api.distanceFromDamKm ?? null,
+        estimated_travel_time_minutes: api.estimatedTravelTimeMinutes ?? null,
+        status: api.status ?? 'active',
+        is_verified: api.isVerified ?? false,
+        verified_by: api.verifiedBy ?? null,
+        verified_at: api.verifiedAt ?? null,
+        last_inspection_date: api.lastInspectionDate ?? null,
+        next_inspection_date: api.nextInspectionDate ?? null,
+        show_on_map: api.showOnMap ?? true,
+        marker_icon: api.markerIcon ?? 'evacuation_center',
+        marker_color: api.markerColor ?? '#2563eb',
+        image_url: api.imageUrl ?? null,
+        gallery_urls: api.galleryUrls ?? null,
+        created_by: api.createdBy ?? null,
+        updated_by: api.updatedBy ?? null,
+        deleted_at: api.deletedAt ?? null,
+    };
+}
+
+function toApiUpsertItem(model) {
+    if (!model) return null;
+    return {
+        uuid: model.uuid,
+        code: model.code,
+        name: model.name,
+        nameSi: model.name_si ?? null,
+        nameTa: model.name_ta ?? null,
+        description: model.description ?? null,
+        descriptionSi: model.description_si ?? null,
+        locationTypeId: toNullableLong(model.location_type_id),
+        regionId: toNullableLong(model.region_id),
+        addressText: model.address_text ?? null,
+        addressSi: model.address_si ?? null,
+        latitude: model.latitude != null ? Number(model.latitude) : null,
+        longitude: model.longitude != null ? Number(model.longitude) : null,
+        elevationMeters: toNullableNumber(model.elevation_meters),
+        boundaryGeojson: stringifyIfObject(model.boundary_geojson),
+        capacityPersons: toNullableLong(model.capacity_persons),
+        currentOccupancy: toNullableLong(model.current_occupancy) ?? 0,
+        hasMedicalFacility: !!model.has_medical_facility,
+        hasFoodSupply: !!model.has_food_supply,
+        hasWaterSupply: !!model.has_water_supply,
+        hasPowerBackup: !!model.has_power_backup,
+        hasCommunication: !!model.has_communication,
+        hasRestrooms: !!model.has_restrooms,
+        hasPetArea: !!model.has_pet_area,
+        hasAccessibility: !!model.has_accessibility,
+        amenities: stringifyIfObject(model.amenities),
+        contactName: model.contact_name ?? null,
+        contactPhone: model.contact_phone ?? null,
+        contactEmail: model.contact_email ?? null,
+        emergencyPhone: model.emergency_phone ?? null,
+        operatingHours: stringifyIfObject(model.operating_hours),
+        is24Hours: !!model.is_24_hours,
+        primaryDamId: toNullableLong(model.primary_dam_id),
+        servesHazardZones: stringifyIfObject(model.serves_hazard_zones),
+        distanceFromDamKm: toNullableNumber(model.distance_from_dam_km),
+        estimatedTravelTimeMinutes: toNullableLong(model.estimated_travel_time_minutes),
+        status: model.status ?? 'active',
+        isVerified: !!model.is_verified,
+        verifiedBy: toNullableLong(model.verified_by),
+        verifiedAt: model.verified_at ?? null,
+        lastInspectionDate: model.last_inspection_date ?? null,
+        nextInspectionDate: model.next_inspection_date ?? null,
+        showOnMap: model.show_on_map ?? true,
+        markerIcon: model.marker_icon ?? null,
+        markerColor: model.marker_color ?? null,
+        imageUrl: model.image_url ?? null,
+        galleryUrls: stringifyIfObject(model.gallery_urls),
+        createdBy: toNullableLong(model.created_by),
+        updatedBy: toNullableLong(model.updated_by),
+    };
+}
+
+export default function SystemSafeLocationsMapFuncPage() {
+    const [locations, setLocations] = useState([]);
+    const [selected, setSelected] = useState(null);
+    const [initialLocations, setInitialLocations] = useState([]);
+    const [initialLocationsKey, setInitialLocationsKey] = useState(0);
+    const [dbError, setDbError] = useState(null);
+    const [dbLoading, setDbLoading] = useState(false);
+    const [dbSaving, setDbSaving] = useState(false);
+    const [lastSavedAt, setLastSavedAt] = useState(null);
+    const [newPinPreset, setNewPinPreset] = useState('evacuation_center');
+    const [newPinColor, setNewPinColor] = useState(PIN_PRESETS.evacuation_center.marker_color);
+    const [newOtherIcon, setNewOtherIcon] = useState('other');
+    const [customTypes, setCustomTypes] = useState([]);
+    const [customTypeLabel, setCustomTypeLabel] = useState('');
+    const [customTypeIcon, setCustomTypeIcon] = useState('auto');
+    const [customTypeColor, setCustomTypeColor] = useState('#2563eb');
+    const [jsonText, setJsonText] = useState('');
+    const [jsonError, setJsonError] = useState(null);
+    const [pendingChanges, setPendingChanges] = useState(false);
+    const [detailsTab, setDetailsTab] = useState('details');
+
+    const [locationTypes, setLocationTypes] = useState([]);
+    const [locationTypesLoading, setLocationTypesLoading] = useState(false);
+    const [locationTypesError, setLocationTypesError] = useState(null);
+    const [defaultLocationTypeId, setDefaultLocationTypeId] = useState('');
+
+    const apiBaseUrl = import.meta.env.VITE_API_URL;
+    const tokenPresent = getAuthTokenPresent();
+    const apiLooksLocalhost = typeof apiBaseUrl === 'string' && /localhost|127\.0\.0\.1/i.test(apiBaseUrl);
+    const runningOnLocalhost = typeof window !== 'undefined' && /localhost|127\.0\.0\.1/i.test(window.location.hostname);
+
+    const desiredLocationTypeCode = useMemo(() => {
+        if (newPinPreset === 'other') {
+            const icon = toCleanString(newOtherIcon).toLowerCase();
+            if (!icon || icon === 'none' || icon === 'default') return 'other';
+            return icon;
+        }
+        if (String(newPinPreset || '').startsWith('custom_')) return 'other';
+        return toCleanString(newPinPreset).toLowerCase() || 'other';
+    }, [newPinPreset, newOtherIcon]);
+
+    const defaultLocationType = useMemo(() => {
+        if (!locationTypes?.length) return null;
+        return locationTypes.find((t) => String(t?.code || '').toLowerCase() === desiredLocationTypeCode)
+            || locationTypes.find((t) => String(t?.code || '').toLowerCase() === 'other')
+            || locationTypes[0];
+    }, [locationTypes, desiredLocationTypeCode]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const run = async () => {
+            setLocationTypesError(null);
+            setLocationTypesLoading(true);
+            try {
+                const list = await LocationTypesService.list();
+                if (cancelled) return;
+                setLocationTypes(Array.isArray(list) ? list : []);
+            } catch (err) {
+                if (cancelled) return;
+                setLocationTypesError(formatApiError(err, 'Failed to load location types'));
+            } finally {
+                if (!cancelled) setLocationTypesLoading(false);
+            }
+        };
+        run();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (!defaultLocationType) return;
+        // If user hasn't chosen manually yet, auto-pick based on pin type
+        setDefaultLocationTypeId((prev) => toCleanString(prev) ? prev : String(defaultLocationType.id));
+    }, [defaultLocationType]);
+    const [form, setForm] = useState({
+        code: '',
+        name: '',
+        description: '',
+        status: 'active',
+        location_type_id: '',
+        region_id: '',
+        address_text: '',
+        elevation_meters: '',
+        contact_phone: '',
+        emergency_phone: '',
+        contact_name: '',
+        contact_email: '',
+        capacity_persons: '',
+        current_occupancy: '',
+        marker_icon: 'evacuation_center',
+        marker_color: '#2563eb',
+        show_on_map: true,
+        is_24_hours: false,
+        is_verified: false,
+        has_medical_facility: false,
+        has_food_supply: false,
+        has_water_supply: false,
+        has_power_backup: false,
+        has_communication: false,
+        has_restrooms: false,
+        has_pet_area: false,
+        has_accessibility: false,
+    });
+
+    const outputJson = useMemo(() => {
+        return JSON.stringify(
+            {
+                entity: 'system_safe_locations',
+                count: locations.length,
+                items: locations,
+            },
+            null,
+            2
+        );
+    }, [locations]);
+
+    const handleSelectedChange = (props) => {
+        setSelected(props);
+        if (!props) return;
+
+        setDetailsTab('details');
+
+        const clean = stripInternal(props);
+        setJsonText(JSON.stringify(clean, null, 2));
+        setJsonError(null);
+        setPendingChanges(false);
+
+        setForm((prev) => ({
+            ...prev,
+            code: props.code || '',
+            name: props.name || '',
+            description: props.description || '',
+            status: props.status || 'active',
+            location_type_id: props.location_type_id ?? '',
+            region_id: props.region_id ?? '',
+            address_text: props.address_text || '',
+            elevation_meters: props.elevation_meters ?? '',
+            contact_phone: props.contact_phone || '',
+            emergency_phone: props.emergency_phone || '',
+            contact_name: props.contact_name || '',
+            contact_email: props.contact_email || '',
+            capacity_persons: props.capacity_persons ?? '',
+            current_occupancy: props.current_occupancy ?? '',
+            marker_icon: props.marker_icon || 'evacuation_center',
+            marker_color: props.marker_color || '#2563eb',
+            show_on_map: props.show_on_map ?? true,
+            is_24_hours: props.is_24_hours ?? false,
+            is_verified: props.is_verified ?? false,
+            has_medical_facility: props.has_medical_facility ?? false,
+            has_food_supply: props.has_food_supply ?? false,
+            has_water_supply: props.has_water_supply ?? false,
+            has_power_backup: props.has_power_backup ?? false,
+            has_communication: props.has_communication ?? false,
+            has_restrooms: props.has_restrooms ?? false,
+            has_pet_area: props.has_pet_area ?? false,
+            has_accessibility: props.has_accessibility ?? false,
+        }));
+    };
+
+    const loadFromDb = async () => {
+        setDbError(null);
+        setDbLoading(true);
+        try {
+            const apiItems = await SystemSafeLocationsService.list();
+            const models = (apiItems || []).map(fromApiSafeLocationToModel).filter(Boolean);
+            setInitialLocations(models);
+            setInitialLocationsKey((k) => k + 1);
+        } catch (err) {
+            setDbError(formatApiError(err, 'Failed to load from DB'));
+        } finally {
+            setDbLoading(false);
+        }
+    };
+
+    const saveAllToDb = async () => {
+        setDbError(null);
+
+        if (!locations?.length) {
+            setDbError('No pins to save. Add at least one pin first.');
+            return;
+        }
+
+        const locationsForSave = (locations || []).map((l) => ({
+            ...l,
+            location_type_id: coalesceRequired(l?.location_type_id, toCleanString(defaultLocationTypeId) || null),
+        }));
+
+        const missingRequired = locationsForSave.filter((l) => {
+            const hasUuid = !!toCleanString(l?.uuid || '');
+            const hasCode = !!toCleanString(l?.code || '');
+            const hasName = !!toCleanString(l?.name || '');
+            const hasTypeId = !!toCleanString(l?.location_type_id ?? '');
+            return !hasUuid || !hasCode || !hasName || !hasTypeId;
+        });
+        if (missingRequired.length) {
+            setDbError(
+                `${missingRequired.length} pin(s) missing required fields. Each pin must have uuid, code, name, and Location type ID (location_type_id).`
+            );
+            return;
+        }
+
+        setDbSaving(true);
+        try {
+            const items = locationsForSave.map(toApiUpsertItem).filter(Boolean);
+            const saved = await SystemSafeLocationsService.bulkUpsert(items);
+            const models = (saved || []).map(fromApiSafeLocationToModel).filter(Boolean);
+            setInitialLocations(models);
+            setInitialLocationsKey((k) => k + 1);
+            setLastSavedAt(new Date().toISOString());
+        } catch (err) {
+            setDbError(formatApiError(err, 'Failed to save to DB'));
+        } finally {
+            setDbSaving(false);
+        }
+    };
+
+    const saveSelectedToDb = async () => {
+        setDbError(null);
+
+        const selectedUuid = toCleanString(selected?.uuid);
+        if (!selectedUuid) {
+            setDbError('Select a pin first.');
+            return;
+        }
+
+        const current = (locations || []).find((l) => toCleanString(l?.uuid) === selectedUuid) || selected;
+        const patch = patchSafeLocationFromForm(form);
+        const merged = {
+            ...current,
+            ...patch,
+            code: coalesceRequired(coalesceRequired(patch?.code, current?.code), form.code),
+            name: coalesceRequired(coalesceRequired(patch?.name, current?.name), form.name),
+            location_type_id: coalesceRequired(
+                coalesceRequired(coalesceRequired(patch?.location_type_id, current?.location_type_id), form.location_type_id),
+                toCleanString(defaultLocationTypeId) || null
+            ),
+        };
+
+        const hasUuid = !!toCleanString(merged?.uuid);
+        const hasCode = !!toCleanString(merged?.code);
+        const hasName = !!toCleanString(merged?.name);
+        const hasTypeId = !!toCleanString(merged?.location_type_id);
+        if (!hasUuid || !hasCode || !hasName || !hasTypeId) {
+            setDbError('Selected pin is missing required fields (uuid, code, name, location type).');
+            return;
+        }
+
+        setDbSaving(true);
+        try {
+            const saved = await SystemSafeLocationsService.bulkUpsert([toApiUpsertItem(merged)]);
+            const models = (saved || []).map(fromApiSafeLocationToModel).filter(Boolean);
+
+            setInitialLocations((prev) => {
+                const map = new Map((prev || []).map((p) => [p.uuid, p]));
+                for (const m of models) map.set(m.uuid, m);
+                return Array.from(map.values());
+            });
+            setInitialLocationsKey((k) => k + 1);
+            setLastSavedAt(new Date().toISOString());
+        } catch (err) {
+            setDbError(formatApiError(err, 'Failed to save selected pin'));
+        } finally {
+            setDbSaving(false);
+        }
+    };
+
+    useEffect(() => {
+        // Optional: auto-load existing pins from DB on page open.
+        // Comment this out if you prefer manual loading.
+        loadFromDb();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const applyFormToSelected = () => {
+        if (!selected) return;
+        const patch = patchSafeLocationFromForm(form);
+        if (window.__DDAS_SAFE_LOCATIONS__?.updateSelectedLocation) {
+            window.__DDAS_SAFE_LOCATIONS__.updateSelectedLocation(patch);
+        }
+        setPendingChanges(false);
+    };
+
+    const applyJsonToSelected = () => {
+        if (!selected) return;
+        const parsed = safeParseJson(jsonText);
+        if (!parsed.ok) {
+            setJsonError(parsed.error);
+            return;
+        }
+        setJsonError(null);
+
+        // Prevent accidental edits of identity / coordinates from the editor.
+        // Lat/Lng are controlled by the marker position.
+        const {
+            uuid: _uuid,
+            latitude: _latitude,
+            longitude: _longitude,
+            created_at: _createdAt,
+            updated_at: _updatedAt,
+            deleted_at: _deletedAt,
+            ...patch
+        } = parsed.value;
+
+        if (window.__DDAS_SAFE_LOCATIONS__?.updateSelectedLocation) {
+            window.__DDAS_SAFE_LOCATIONS__.updateSelectedLocation(patch);
+        }
+        setPendingChanges(false);
+    };
+
+    const pinTypeOptions = useMemo(() => {
+        const builtins = Object.entries(PIN_PRESETS).map(([key, v]) => ({ key, ...v, kind: 'builtin' }));
+        const customs = customTypes.map((t) => ({
+            key: t.key,
+            label: t.label,
+            marker_icon: t.marker_icon,
+            marker_color: t.marker_color,
+            code_prefix: t.code_prefix,
+            kind: 'custom',
+        }));
+        return [...builtins, ...customs];
+    }, [customTypes]);
+
+    const selectedNewType = useMemo(() => {
+        return pinTypeOptions.find((o) => o.key === newPinPreset) || null;
+    }, [pinTypeOptions, newPinPreset]);
+
+    const newLocationTemplate = useMemo(() => {
+        const preset = selectedNewType || PIN_PRESETS.evacuation_center;
+        const icon = newPinPreset === 'other' ? newOtherIcon : preset.marker_icon;
+
+        const iconLabel = BASE_ICON_OPTIONS.find((o) => o.value === icon)?.label || 'Location';
+        const templateLabel = newPinPreset === 'other' ? iconLabel : preset.label;
+        const templatePrefix = preset.code_prefix || defaultPrefixFromLabel(templateLabel);
+
+        return {
+            marker_icon: icon,
+            marker_color: newPinColor || preset.marker_color,
+            location_type_id: toCleanString(defaultLocationTypeId) || null,
+            __templateLabel: templateLabel,
+            __templateCodePrefix: templatePrefix,
+        };
+    }, [newPinPreset, newPinColor, newOtherIcon, selectedNewType, defaultLocationTypeId]);
+
+    const addCustomType = () => {
+        const label = customTypeLabel.trim();
+        if (!label) return;
+
+        const usedIcons = new Set([
+            ...Object.values(PIN_PRESETS).map((p) => p.marker_icon),
+            ...customTypes.map((t) => t.marker_icon),
+        ]);
+
+        const resolvedIcon = customTypeIcon === 'auto' ? pickUnusedIcon(usedIcons) : customTypeIcon;
+
+        const baseKey = safeKeyFromLabel(label) || 'custom';
+        const key = `custom_${baseKey}_${Date.now()}`;
+        const next = {
+            key,
+            label,
+            marker_icon: resolvedIcon,
+            marker_color: customTypeColor,
+            code_prefix: defaultPrefixFromLabel(label),
+        };
+        setCustomTypes((prev) => [...prev, next]);
+        setCustomTypeLabel('');
+        setCustomTypeIcon('auto');
+        setNewPinPreset(key);
+        setNewPinColor(customTypeColor);
+    };
+
+    return (
+        <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-6">
+            <div className="flex justify-between items-center shrink-0 sticky top-0 z-10 bg-white pt-2 pb-2 border-b border-gray-200">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
+                        Safe Locations
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1 pl-4 flex items-center gap-2">
+                        <Settings2 className="w-4 h-4" />
+                        Manage safe location pins • Choose type/color • Hover shows details • Create/edit/drag/delete
+                    </p>
+                    <details className="mt-1 pl-4">
+                        <summary className="cursor-pointer text-[11px] font-semibold text-gray-600 select-none">Debug</summary>
+                        <div className="mt-1 text-[11px] text-gray-500">
+                            API: {apiBaseUrl || '(same origin)'} • Auth token: {tokenPresent ? 'present' : 'missing'}
+                        </div>
+                        {apiLooksLocalhost && !runningOnLocalhost ? (
+                            <div className="text-[11px] text-red-600 mt-1">
+                                API is set to localhost. If your backend is on another server, update `VITE_API_URL` in `web/.env.local`.
+                            </div>
+                        ) : null}
+                    </details>
+                </div>
+
+                <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            className="text-xs font-semibold px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                            onClick={loadFromDb}
+                            disabled={dbLoading || dbSaving}
+                            title="Load pins from DB"
+                        >
+                            {dbLoading ? 'Loading…' : 'Load from DB'}
+                        </button>
+                        <button
+                            type="button"
+                            className="text-xs font-semibold px-3 py-2 rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                            onClick={saveAllToDb}
+                            disabled={dbLoading || dbSaving}
+                            title="Save all pins to DB"
+                        >
+                            {dbSaving ? 'Saving…' : 'Save all to DB'}
+                        </button>
+                    </div>
+                    {lastSavedAt ? (
+                        <div className="text-[11px] text-gray-500">Last saved: {new Date(lastSavedAt).toLocaleString()}</div>
+                    ) : null}
+                    {dbError ? (
+                        <div className="text-[11px] text-red-600 max-w-[520px] text-right">{dbError}</div>
+                    ) : null}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col min-h-[500px]">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-blue-600" />
+                        All Safe Locations
+                    </h2>
+
+                    <div className="mb-3 flex flex-wrap items-center gap-3">
+                        <label className="text-xs text-gray-700 flex items-center gap-2">
+                            New pin type
+                            <select
+                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                value={newPinPreset}
+                                onChange={(e) => {
+                                    const next = e.target.value;
+                                    setNewPinPreset(next);
+                                    const preset = pinTypeOptions.find((o) => o.key === next) || PIN_PRESETS.evacuation_center;
+                                    setNewPinColor(preset.marker_color);
+                                    if (next !== 'other') {
+                                        setNewOtherIcon('other');
+                                    }
+                                }}
+                            >
+                                {pinTypeOptions.map((o) => (
+                                    <option key={o.key} value={o.key}>{o.label}</option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label className="text-xs text-gray-700 flex items-center gap-2">
+                            Location type
+                            <select
+                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm disabled:opacity-60"
+                                value={defaultLocationTypeId}
+                                onChange={(e) => setDefaultLocationTypeId(e.target.value)}
+                                disabled={locationTypesLoading || !locationTypes?.length}
+                                title="Required for saving"
+                            >
+                                {locationTypes?.length ? (
+                                    locationTypes.map((t) => (
+                                        <option key={t.id} value={String(t.id)}>
+                                            {t.name} ({t.code})
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value="">{locationTypesLoading ? 'Loading…' : 'Not loaded'}</option>
+                                )}
+                            </select>
+                        </label>
+
+                        {newPinPreset === 'other' ? (
+                            <label className="text-xs text-gray-700 flex items-center gap-2">
+                                Default icon
+                                <select
+                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                    value={newOtherIcon}
+                                    onChange={(e) => setNewOtherIcon(e.target.value)}
+                                >
+                                    {BASE_ICON_OPTIONS.map((o) => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        ) : null}
+
+                        <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1">
+                            <summary className="cursor-pointer text-xs font-semibold text-gray-700 select-none">Add custom pin type</summary>
+                            <div className="mt-2 flex flex-wrap items-end gap-2">
+                                <div className="text-xs text-gray-600">Label</div>
+                                <input
+                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                    value={customTypeLabel}
+                                    onChange={(e) => setCustomTypeLabel(e.target.value)}
+                                    placeholder="e.g. Relief Camp / Bus Stop"
+                                />
+                                <select
+                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                    value={customTypeIcon}
+                                    onChange={(e) => setCustomTypeIcon(e.target.value)}
+                                    title="Default icon"
+                                >
+                                    {CUSTOM_ICON_OPTIONS.map((o) => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="color"
+                                    className="h-9 w-10 rounded border border-gray-300 bg-white"
+                                    value={customTypeColor}
+                                    onChange={(e) => setCustomTypeColor(e.target.value)}
+                                    title="Default color"
+                                />
+                                <button
+                                    type="button"
+                                    className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                    onClick={addCustomType}
+                                    disabled={!customTypeLabel.trim()}
+                                    title="Add this type to the dropdown"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </details>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                            <Palette className="w-4 h-4 text-gray-400" />
+                            {COLOR_SWATCHES.map((c) => (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    className={`w-5 h-5 rounded-full border ${newPinColor === c ? 'border-gray-900' : 'border-gray-300'}`}
+                                    style={{ backgroundColor: c }}
+                                    onClick={() => {
+                                        setNewPinColor(c);
+                                    }}
+                                    title={c}
+                                />
+                            ))}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Select type, then place a marker using the toolbar.
+                        </div>
+                        {locationTypesError ? (
+                            <div className="text-xs text-red-600">{locationTypesError}</div>
+                        ) : null}
+                    </div>
+
+                    <div className="flex-1 w-full rounded border border-gray-300 overflow-hidden isolate relative z-0">
+                        <SystemSafeLocationsGeomanMap
+                            onLocationsChange={setLocations}
+                            onSelectedLocationChange={handleSelectedChange}
+                            newLocationTemplate={newLocationTemplate}
+                            initialLocations={initialLocations}
+                            initialLocationsKey={initialLocationsKey}
+                            height="100%"
+                        />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 overflow-hidden min-h-0">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4 shrink-0">Location details</h2>
+
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                            {selected ? (
+                                <div className="space-y-3">
+                                    <div className="sticky top-0 bg-gray-50 pb-2">
+                                        <div className="text-xs text-gray-600">
+                                            Selected: <span className="font-mono">{selected.uuid}</span>
+                                        </div>
+
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={applyFormToSelected}
+                                                disabled={!pendingChanges}
+                                                className={`text-xs font-semibold px-2.5 py-1.5 rounded border transition-colors ${pendingChanges
+                                                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                                    : 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                    }`}
+                                            >
+                                                Apply to pin
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={saveSelectedToDb}
+                                                disabled={dbLoading || dbSaving}
+                                                className="text-xs font-semibold px-2.5 py-1.5 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                                                title="Save only this pin to the database"
+                                            >
+                                                {dbSaving ? 'Saving…' : 'Save selected to DB'}
+                                            </button>
+                                            <div className="text-[11px] text-gray-500">
+                                                Edit fields, then Apply to update the pin. Use Save selected to DB to persist.
+                                            </div>
+                                            {pendingChanges ? (
+                                                <div className="text-[11px] text-amber-700">Unsaved changes</div>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="mt-3 flex flex-wrap gap-1">
+                                            {[
+                                                { key: 'details', label: 'Details' },
+                                                { key: 'capacity', label: 'Capacity' },
+                                                { key: 'contact', label: 'Contact' },
+                                                { key: 'facilities', label: 'Facilities' },
+                                                { key: 'advanced', label: 'Advanced' },
+                                            ].map((t) => (
+                                                <button
+                                                    key={t.key}
+                                                    type="button"
+                                                    onClick={() => setDetailsTab(t.key)}
+                                                    className={`text-xs font-semibold px-2 py-1 rounded border ${detailsTab === t.key
+                                                        ? 'border-gray-900 bg-white text-gray-900'
+                                                        : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    {t.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {detailsTab === 'details' ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <label className="text-xs text-gray-700">
+                                                Pin icon
+                                                <select
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.marker_icon}
+                                                    onChange={(e) => {
+                                                        const nextIcon = e.target.value;
+                                                        const preset = PIN_PRESETS[nextIcon] || null;
+                                                        setForm((p) => ({
+                                                            ...p,
+                                                            marker_icon: nextIcon,
+                                                            marker_color: preset?.marker_color ?? p.marker_color,
+                                                        }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                >
+                                                    {BASE_ICON_OPTIONS.map((o) => (
+                                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+
+                                            <label className="text-xs text-gray-700">
+                                                Pin color (hex)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm font-mono"
+                                                    value={form.marker_color}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, marker_color: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-xs text-gray-700 flex-1">
+                                                    Pick color
+                                                    <input
+                                                        type="color"
+                                                        className="mt-1 w-full h-9 rounded border border-gray-300 bg-white"
+                                                        value={form.marker_color}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, marker_color: e.target.value }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                </label>
+                                                <div className="pt-5 flex items-center gap-1.5">
+                                                    {COLOR_SWATCHES.slice(0, 8).map((c) => (
+                                                        <button
+                                                            key={c}
+                                                            type="button"
+                                                            className="w-5 h-5 rounded-full border border-gray-300"
+                                                            style={{ backgroundColor: c }}
+                                                            onClick={() => {
+                                                                setForm((p) => ({ ...p, marker_color: c }));
+                                                                setPendingChanges(true);
+                                                            }}
+                                                            title={c}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <label className="text-xs text-gray-700">
+                                                Code <span className="text-red-600">*</span>
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.code}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, code: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Name <span className="text-red-600">*</span>
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.name}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, name: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Description
+                                                <textarea
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    rows={2}
+                                                    value={form.description}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, description: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Status
+                                                <select
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.status}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, status: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                >
+                                                    <option value="active">active</option>
+                                                    <option value="inactive">inactive</option>
+                                                    <option value="under_maintenance">under_maintenance</option>
+                                                    <option value="full">full</option>
+                                                    <option value="closed">closed</option>
+                                                </select>
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Location type <span className="text-red-600">*</span>
+                                                {locationTypes?.length ? (
+                                                    <select
+                                                        className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                        value={toCleanString(form.location_type_id)}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, location_type_id: e.target.value }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    >
+                                                        <option value="">Select…</option>
+                                                        {locationTypes.map((t) => (
+                                                            <option key={t.id} value={String(t.id)}>
+                                                                {t.name} ({t.code})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                        value={form.location_type_id}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, location_type_id: e.target.value }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                        placeholder="e.g. 10"
+                                                    />
+                                                )}
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Region ID (optional)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.region_id}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, region_id: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                    placeholder="e.g. 3"
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Address
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.address_text}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, address_text: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Elevation (meters)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.elevation_meters}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, elevation_meters: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'capacity' ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <label className="text-xs text-gray-700">
+                                                Capacity (persons)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.capacity_persons}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, capacity_persons: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Current occupancy
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.current_occupancy}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, current_occupancy: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'contact' ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <label className="text-xs text-gray-700">
+                                                Contact name
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.contact_name}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, contact_name: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Contact phone
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.contact_phone}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, contact_phone: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Contact email
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.contact_email}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, contact_email: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Emergency phone
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.emergency_phone}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, emergency_phone: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'facilities' ? (
+                                        <div className="space-y-3">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <label className="flex items-center gap-2 text-xs text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.show_on_map}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, show_on_map: e.target.checked }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                    Show on map
+                                                </label>
+                                                <label className="flex items-center gap-2 text-xs text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.is_24_hours}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, is_24_hours: e.target.checked }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                    24 hours
+                                                </label>
+                                                <label className="flex items-center gap-2 text-xs text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.is_verified}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, is_verified: e.target.checked }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                    Verified
+                                                </label>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {[
+                                                    { key: 'has_medical_facility', label: 'Medical facility' },
+                                                    { key: 'has_food_supply', label: 'Food supply' },
+                                                    { key: 'has_water_supply', label: 'Water supply' },
+                                                    { key: 'has_power_backup', label: 'Power backup' },
+                                                    { key: 'has_communication', label: 'Communication' },
+                                                    { key: 'has_restrooms', label: 'Restrooms' },
+                                                    { key: 'has_pet_area', label: 'Pet area' },
+                                                    { key: 'has_accessibility', label: 'Accessibility' },
+                                                ].map((f) => (
+                                                    <label key={f.key} className="flex items-center gap-2 text-xs text-gray-700">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!form[f.key]}
+                                                            onChange={(e) => {
+                                                                setForm((p) => ({ ...p, [f.key]: e.target.checked }));
+                                                                setPendingChanges(true);
+                                                            }}
+                                                        />
+                                                        {f.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'advanced' ? (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <div className="text-xs text-gray-600">All fields (JSON)</div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={applyJsonToSelected}
+                                                        className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                                    >
+                                                        Apply JSON
+                                                    </button>
+                                                </div>
+                                                <textarea
+                                                    className="w-full h-44 rounded border border-gray-300 bg-white p-2 font-mono text-xs text-gray-800"
+                                                    value={jsonText}
+                                                    onChange={(e) => {
+                                                        setJsonText(e.target.value);
+                                                        setPendingChanges(true);
+                                                    }}
+                                                    spellCheck={false}
+                                                />
+                                                {jsonError ? (
+                                                    <div className="mt-1 text-xs text-red-600">{jsonError}</div>
+                                                ) : (
+                                                    <div className="mt-1 text-[11px] text-gray-500">
+                                                        Paste complex fields like `amenities`, `operating_hours`, `boundary_geojson`, `gallery_urls`, `serves_hazard_zones`.
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <details className="rounded border border-gray-200 bg-white p-2">
+                                                <summary className="cursor-pointer text-xs font-semibold text-gray-700 select-none">Export (debug)</summary>
+                                                <div className="mt-2 bg-gray-50 rounded p-2 font-mono text-xs text-gray-700 border border-gray-200">
+                                                    <pre className="whitespace-pre-wrap">{outputJson}</pre>
+                                                </div>
+                                            </details>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <div className="text-sm text-gray-500">
+                                    Create a pin (marker tool) then click it to edit details.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

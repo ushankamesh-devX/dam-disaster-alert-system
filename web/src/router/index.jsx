@@ -17,6 +17,7 @@ import UsersPage from '../pages/admin/UsersPage';
 import RolesPage from '../pages/admin/RolesPage';
 import RegionsPage from '../pages/admin/RegionsPage';
 import MapFuncPage from '../pages/admin/MapFuncPage';
+import NewsPage from '../pages/admin/NewsPage';
 
 function Soon({ title }) {
     return (
@@ -64,6 +65,7 @@ const router = createBrowserRouter([
                     { path: '/admin/users', element: <UsersPage /> },
                     { path: '/admin/regions', element: <RegionsPage /> },
                     { path: '/admin/roles', element: <RolesPage /> },
+                    { path: '/admin/news', element: <NewsPage /> },
                     { path: '/admin/settings', element: <Soon title="Settings" /> },
                     { path: '/admin/mapFunc', element: <MapFuncPage /> },
                 ],

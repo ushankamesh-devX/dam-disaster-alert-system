@@ -301,6 +301,7 @@ export default function SystemSafeLocationsMapFuncPage() {
     const [jsonText, setJsonText] = useState('');
     const [jsonError, setJsonError] = useState(null);
     const [pendingChanges, setPendingChanges] = useState(false);
+    const [detailsTab, setDetailsTab] = useState('details');
 
     const [locationTypes, setLocationTypes] = useState([]);
     const [locationTypesLoading, setLocationTypesLoading] = useState(false);
@@ -391,7 +392,6 @@ export default function SystemSafeLocationsMapFuncPage() {
         return JSON.stringify(
             {
                 entity: 'system_safe_locations',
-                mode: 'test',
                 count: locations.length,
                 items: locations,
             },
@@ -403,6 +403,8 @@ export default function SystemSafeLocationsMapFuncPage() {
     const handleSelectedChange = (props) => {
         setSelected(props);
         if (!props) return;
+
+        setDetailsTab('details');
 
         const clean = stripInternal(props);
         setJsonText(JSON.stringify(clean, null, 2));
@@ -493,6 +495,56 @@ export default function SystemSafeLocationsMapFuncPage() {
             setLastSavedAt(new Date().toISOString());
         } catch (err) {
             setDbError(formatApiError(err, 'Failed to save to DB'));
+        } finally {
+            setDbSaving(false);
+        }
+    };
+
+    const saveSelectedToDb = async () => {
+        setDbError(null);
+
+        const selectedUuid = toCleanString(selected?.uuid);
+        if (!selectedUuid) {
+            setDbError('Select a pin first.');
+            return;
+        }
+
+        const current = (locations || []).find((l) => toCleanString(l?.uuid) === selectedUuid) || selected;
+        const patch = patchSafeLocationFromForm(form);
+        const merged = {
+            ...current,
+            ...patch,
+            code: coalesceRequired(coalesceRequired(patch?.code, current?.code), form.code),
+            name: coalesceRequired(coalesceRequired(patch?.name, current?.name), form.name),
+            location_type_id: coalesceRequired(
+                coalesceRequired(coalesceRequired(patch?.location_type_id, current?.location_type_id), form.location_type_id),
+                toCleanString(defaultLocationTypeId) || null
+            ),
+        };
+
+        const hasUuid = !!toCleanString(merged?.uuid);
+        const hasCode = !!toCleanString(merged?.code);
+        const hasName = !!toCleanString(merged?.name);
+        const hasTypeId = !!toCleanString(merged?.location_type_id);
+        if (!hasUuid || !hasCode || !hasName || !hasTypeId) {
+            setDbError('Selected pin is missing required fields (uuid, code, name, location type).');
+            return;
+        }
+
+        setDbSaving(true);
+        try {
+            const saved = await SystemSafeLocationsService.bulkUpsert([toApiUpsertItem(merged)]);
+            const models = (saved || []).map(fromApiSafeLocationToModel).filter(Boolean);
+
+            setInitialLocations((prev) => {
+                const map = new Map((prev || []).map((p) => [p.uuid, p]));
+                for (const m of models) map.set(m.uuid, m);
+                return Array.from(map.values());
+            });
+            setInitialLocationsKey((k) => k + 1);
+            setLastSavedAt(new Date().toISOString());
+        } catch (err) {
+            setDbError(formatApiError(err, 'Failed to save selected pin'));
         } finally {
             setDbSaving(false);
         }
@@ -611,16 +663,19 @@ export default function SystemSafeLocationsMapFuncPage() {
                     </h1>
                     <p className="text-sm text-gray-500 mt-1 pl-4 flex items-center gap-2">
                         <Settings2 className="w-4 h-4" />
-                        Manage evacuation center pins • Choose type/color • Hover shows details • Create/edit/drag/delete
+                        Manage safe location pins • Choose type/color • Hover shows details • Create/edit/drag/delete
                     </p>
-                    <div className="text-[11px] text-gray-500 mt-1 pl-4">
-                        API: {apiBaseUrl || '(same origin)'} • Auth token: {tokenPresent ? 'present' : 'missing'}
-                    </div>
-                    {apiLooksLocalhost && !runningOnLocalhost ? (
-                        <div className="text-[11px] text-red-600 mt-1 pl-4">
-                            API is set to localhost. If your backend is on another server, update `VITE_API_URL` in `web/.env.local`.
+                    <details className="mt-1 pl-4">
+                        <summary className="cursor-pointer text-[11px] font-semibold text-gray-600 select-none">Debug</summary>
+                        <div className="mt-1 text-[11px] text-gray-500">
+                            API: {apiBaseUrl || '(same origin)'} • Auth token: {tokenPresent ? 'present' : 'missing'}
                         </div>
-                    ) : null}
+                        {apiLooksLocalhost && !runningOnLocalhost ? (
+                            <div className="text-[11px] text-red-600 mt-1">
+                                API is set to localhost. If your backend is on another server, update `VITE_API_URL` in `web/.env.local`.
+                            </div>
+                        ) : null}
+                    </details>
                 </div>
 
                 <div className="flex flex-col items-end gap-1">
@@ -657,7 +712,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                 <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col min-h-[500px]">
                     <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-blue-600" />
-                        Safe Location Pins
+                        All Safe Locations
                     </h2>
 
                     <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -718,41 +773,44 @@ export default function SystemSafeLocationsMapFuncPage() {
                             </label>
                         ) : null}
 
-                        <div className="flex flex-wrap items-end gap-2">
-                            <div className="text-xs text-gray-600">Add new type (custom)</div>
-                            <input
-                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                value={customTypeLabel}
-                                onChange={(e) => setCustomTypeLabel(e.target.value)}
-                                placeholder="e.g. Relief Camp / Bus Stop"
-                            />
-                            <select
-                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                value={customTypeIcon}
-                                onChange={(e) => setCustomTypeIcon(e.target.value)}
-                                title="Default icon"
-                            >
-                                {CUSTOM_ICON_OPTIONS.map((o) => (
-                                    <option key={o.value} value={o.value}>{o.label}</option>
-                                ))}
-                            </select>
-                            <input
-                                type="color"
-                                className="h-9 w-10 rounded border border-gray-300 bg-white"
-                                value={customTypeColor}
-                                onChange={(e) => setCustomTypeColor(e.target.value)}
-                                title="Default color"
-                            />
-                            <button
-                                type="button"
-                                className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-                                onClick={addCustomType}
-                                disabled={!customTypeLabel.trim()}
-                                title="Add this type to the dropdown"
-                            >
-                                Add
-                            </button>
-                        </div>
+                        <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1">
+                            <summary className="cursor-pointer text-xs font-semibold text-gray-700 select-none">Add custom pin type</summary>
+                            <div className="mt-2 flex flex-wrap items-end gap-2">
+                                <div className="text-xs text-gray-600">Label</div>
+                                <input
+                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                    value={customTypeLabel}
+                                    onChange={(e) => setCustomTypeLabel(e.target.value)}
+                                    placeholder="e.g. Relief Camp / Bus Stop"
+                                />
+                                <select
+                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                    value={customTypeIcon}
+                                    onChange={(e) => setCustomTypeIcon(e.target.value)}
+                                    title="Default icon"
+                                >
+                                    {CUSTOM_ICON_OPTIONS.map((o) => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="color"
+                                    className="h-9 w-10 rounded border border-gray-300 bg-white"
+                                    value={customTypeColor}
+                                    onChange={(e) => setCustomTypeColor(e.target.value)}
+                                    title="Default color"
+                                />
+                                <button
+                                    type="button"
+                                    className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                    onClick={addCustomType}
+                                    disabled={!customTypeLabel.trim()}
+                                    title="Add this type to the dropdown"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </details>
                         <div className="flex items-center gap-1.5 text-xs text-gray-700">
                             <Palette className="w-4 h-4 text-gray-400" />
                             {COLOR_SWATCHES.map((c) => (
@@ -789,7 +847,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 overflow-hidden min-h-0">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 shrink-0">Location Details + Output</h2>
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4 shrink-0">Location details</h2>
 
                     <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -810,345 +868,417 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                     : 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
                                                     }`}
                                             >
-                                                Save changes
+                                                Apply to pin
                                             </button>
-                                            <div className="text-[11px] text-gray-500">
-                                                Fill fields then click Save. Drag the pin to change location.
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 gap-2">
-                                    <label className="text-xs text-gray-700">
-                                        Pin icon
-                                        <select
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.marker_icon}
-                                            onChange={(e) => {
-                                                const nextIcon = e.target.value;
-                                                const preset = PIN_PRESETS[nextIcon] || null;
-                                                setForm((p) => ({
-                                                    ...p,
-                                                    marker_icon: nextIcon,
-                                                    marker_color: preset?.marker_color ?? p.marker_color,
-                                                }));
-                                                setPendingChanges(true);
-                                            }}
-                                        >
-                                            {BASE_ICON_OPTIONS.map((o) => (
-                                                <option key={o.value} value={o.value}>{o.label}</option>
-                                            ))}
-                                        </select>
-                                    </label>
-
-                                    <label className="text-xs text-gray-700">
-                                        Pin color (hex)
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm font-mono"
-                                            value={form.marker_color}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, marker_color: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-xs text-gray-700 flex-1">
-                                            Pick color
-                                            <input
-                                                type="color"
-                                                className="mt-1 w-full h-9 rounded border border-gray-300 bg-white"
-                                                value={form.marker_color}
-                                                onChange={(e) => {
-                                                    setForm((p) => ({ ...p, marker_color: e.target.value }));
-                                                    setPendingChanges(true);
-                                                }}
-                                            />
-                                        </label>
-                                        <div className="pt-5 flex items-center gap-1.5">
-                                            {COLOR_SWATCHES.slice(0, 8).map((c) => (
-                                                <button
-                                                    key={c}
-                                                    type="button"
-                                                    className="w-5 h-5 rounded-full border border-gray-300"
-                                                    style={{ backgroundColor: c }}
-                                                    onClick={() => {
-                                                        setForm((p) => ({ ...p, marker_color: c }));
-                                                        setPendingChanges(true);
-                                                    }}
-                                                    title={c}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <label className="text-xs text-gray-700">
-                                        Code
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.code}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, code: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Name
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.name}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, name: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Description
-                                        <textarea
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            rows={2}
-                                            value={form.description}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, description: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Status
-                                        <select
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.status}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, status: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        >
-                                            <option value="active">active</option>
-                                            <option value="inactive">inactive</option>
-                                            <option value="under_maintenance">under_maintenance</option>
-                                            <option value="full">full</option>
-                                            <option value="closed">closed</option>
-                                        </select>
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Location type (required)
-                                        {locationTypes?.length ? (
-                                            <select
-                                                className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                                value={toCleanString(form.location_type_id)}
-                                                onChange={(e) => {
-                                                    setForm((p) => ({ ...p, location_type_id: e.target.value }));
-                                                    setPendingChanges(true);
-                                                }}
-                                            >
-                                                <option value="">Select…</option>
-                                                {locationTypes.map((t) => (
-                                                    <option key={t.id} value={String(t.id)}>
-                                                        {t.name} ({t.code})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        ) : (
-                                            <input
-                                                className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                                value={form.location_type_id}
-                                                onChange={(e) => {
-                                                    setForm((p) => ({ ...p, location_type_id: e.target.value }));
-                                                    setPendingChanges(true);
-                                                }}
-                                                placeholder="e.g. 10"
-                                            />
-                                        )}
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Region ID (optional)
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.region_id}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, region_id: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                            placeholder="e.g. 3"
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Capacity (persons)
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.capacity_persons}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, capacity_persons: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Current occupancy
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.current_occupancy}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, current_occupancy: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Emergency phone
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.emergency_phone}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, emergency_phone: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Address
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.address_text}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, address_text: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Elevation (meters)
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.elevation_meters}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, elevation_meters: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Contact name
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.contact_name}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, contact_name: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Contact phone
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.contact_phone}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, contact_phone: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                    <label className="text-xs text-gray-700">
-                                        Contact email
-                                        <input
-                                            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                                            value={form.contact_email}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, contact_email: e.target.value }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                    </label>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <label className="flex items-center gap-2 text-xs text-gray-700">
-                                        <input
-                                            type="checkbox"
-                                            checked={form.show_on_map}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, show_on_map: e.target.checked }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                        Show on map
-                                    </label>
-                                    <label className="flex items-center gap-2 text-xs text-gray-700">
-                                        <input
-                                            type="checkbox"
-                                            checked={form.is_24_hours}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, is_24_hours: e.target.checked }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                        24 hours
-                                    </label>
-                                    <label className="flex items-center gap-2 text-xs text-gray-700">
-                                        <input
-                                            type="checkbox"
-                                            checked={form.is_verified}
-                                            onChange={(e) => {
-                                                setForm((p) => ({ ...p, is_verified: e.target.checked }));
-                                                setPendingChanges(true);
-                                            }}
-                                        />
-                                        Verified
-                                    </label>
-                                </div>
-
-                                <details className="pt-2 border-t border-gray-200">
-                                    <summary className="cursor-pointer text-xs font-semibold text-gray-700 select-none">
-                                        Advanced (optional): paste/edit all fields
-                                    </summary>
-                                    <div className="mt-2">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <div className="text-xs text-gray-600">All Fields (JSON)</div>
                                             <button
                                                 type="button"
-                                                onClick={applyJsonToSelected}
-                                                className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                                onClick={saveSelectedToDb}
+                                                disabled={dbLoading || dbSaving}
+                                                className="text-xs font-semibold px-2.5 py-1.5 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                                                title="Save only this pin to the database"
                                             >
-                                                Apply JSON
+                                                {dbSaving ? 'Saving…' : 'Save selected to DB'}
                                             </button>
-                                        </div>
-                                        <textarea
-                                            className="w-full h-44 rounded border border-gray-300 bg-white p-2 font-mono text-xs text-gray-800"
-                                            value={jsonText}
-                                            onChange={(e) => {
-                                                setJsonText(e.target.value);
-                                                setPendingChanges(true);
-                                            }}
-                                            spellCheck={false}
-                                        />
-                                        {jsonError ? (
-                                            <div className="mt-1 text-xs text-red-600">{jsonError}</div>
-                                        ) : (
-                                            <div className="mt-1 text-[11px] text-gray-500">
-                                                Paste complex fields like `amenities`, `operating_hours`, `boundary_geojson`, `gallery_urls`, `serves_hazard_zones`.
+                                            <div className="text-[11px] text-gray-500">
+                                                Edit fields, then Apply to update the pin. Use Save selected to DB to persist.
                                             </div>
-                                        )}
+                                            {pendingChanges ? (
+                                                <div className="text-[11px] text-amber-700">Unsaved changes</div>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="mt-3 flex flex-wrap gap-1">
+                                            {[
+                                                { key: 'details', label: 'Details' },
+                                                { key: 'capacity', label: 'Capacity' },
+                                                { key: 'contact', label: 'Contact' },
+                                                { key: 'facilities', label: 'Facilities' },
+                                                { key: 'advanced', label: 'Advanced' },
+                                            ].map((t) => (
+                                                <button
+                                                    key={t.key}
+                                                    type="button"
+                                                    onClick={() => setDetailsTab(t.key)}
+                                                    className={`text-xs font-semibold px-2 py-1 rounded border ${detailsTab === t.key
+                                                        ? 'border-gray-900 bg-white text-gray-900'
+                                                        : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    {t.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                </details>
+
+                                    {detailsTab === 'details' ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <label className="text-xs text-gray-700">
+                                                Pin icon
+                                                <select
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.marker_icon}
+                                                    onChange={(e) => {
+                                                        const nextIcon = e.target.value;
+                                                        const preset = PIN_PRESETS[nextIcon] || null;
+                                                        setForm((p) => ({
+                                                            ...p,
+                                                            marker_icon: nextIcon,
+                                                            marker_color: preset?.marker_color ?? p.marker_color,
+                                                        }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                >
+                                                    {BASE_ICON_OPTIONS.map((o) => (
+                                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+
+                                            <label className="text-xs text-gray-700">
+                                                Pin color (hex)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm font-mono"
+                                                    value={form.marker_color}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, marker_color: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-xs text-gray-700 flex-1">
+                                                    Pick color
+                                                    <input
+                                                        type="color"
+                                                        className="mt-1 w-full h-9 rounded border border-gray-300 bg-white"
+                                                        value={form.marker_color}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, marker_color: e.target.value }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                </label>
+                                                <div className="pt-5 flex items-center gap-1.5">
+                                                    {COLOR_SWATCHES.slice(0, 8).map((c) => (
+                                                        <button
+                                                            key={c}
+                                                            type="button"
+                                                            className="w-5 h-5 rounded-full border border-gray-300"
+                                                            style={{ backgroundColor: c }}
+                                                            onClick={() => {
+                                                                setForm((p) => ({ ...p, marker_color: c }));
+                                                                setPendingChanges(true);
+                                                            }}
+                                                            title={c}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <label className="text-xs text-gray-700">
+                                                Code <span className="text-red-600">*</span>
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.code}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, code: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Name <span className="text-red-600">*</span>
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.name}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, name: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Description
+                                                <textarea
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    rows={2}
+                                                    value={form.description}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, description: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Status
+                                                <select
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.status}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, status: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                >
+                                                    <option value="active">active</option>
+                                                    <option value="inactive">inactive</option>
+                                                    <option value="under_maintenance">under_maintenance</option>
+                                                    <option value="full">full</option>
+                                                    <option value="closed">closed</option>
+                                                </select>
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Location type <span className="text-red-600">*</span>
+                                                {locationTypes?.length ? (
+                                                    <select
+                                                        className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                        value={toCleanString(form.location_type_id)}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, location_type_id: e.target.value }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    >
+                                                        <option value="">Select…</option>
+                                                        {locationTypes.map((t) => (
+                                                            <option key={t.id} value={String(t.id)}>
+                                                                {t.name} ({t.code})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                        value={form.location_type_id}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, location_type_id: e.target.value }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                        placeholder="e.g. 10"
+                                                    />
+                                                )}
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Region ID (optional)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.region_id}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, region_id: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                    placeholder="e.g. 3"
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Address
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.address_text}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, address_text: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Elevation (meters)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.elevation_meters}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, elevation_meters: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'capacity' ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <label className="text-xs text-gray-700">
+                                                Capacity (persons)
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.capacity_persons}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, capacity_persons: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Current occupancy
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.current_occupancy}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, current_occupancy: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'contact' ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <label className="text-xs text-gray-700">
+                                                Contact name
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.contact_name}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, contact_name: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Contact phone
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.contact_phone}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, contact_phone: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Contact email
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.contact_email}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, contact_email: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                            <label className="text-xs text-gray-700">
+                                                Emergency phone
+                                                <input
+                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    value={form.emergency_phone}
+                                                    onChange={(e) => {
+                                                        setForm((p) => ({ ...p, emergency_phone: e.target.value }));
+                                                        setPendingChanges(true);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'facilities' ? (
+                                        <div className="space-y-3">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <label className="flex items-center gap-2 text-xs text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.show_on_map}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, show_on_map: e.target.checked }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                    Show on map
+                                                </label>
+                                                <label className="flex items-center gap-2 text-xs text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.is_24_hours}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, is_24_hours: e.target.checked }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                    24 hours
+                                                </label>
+                                                <label className="flex items-center gap-2 text-xs text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.is_verified}
+                                                        onChange={(e) => {
+                                                            setForm((p) => ({ ...p, is_verified: e.target.checked }));
+                                                            setPendingChanges(true);
+                                                        }}
+                                                    />
+                                                    Verified
+                                                </label>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {[
+                                                    { key: 'has_medical_facility', label: 'Medical facility' },
+                                                    { key: 'has_food_supply', label: 'Food supply' },
+                                                    { key: 'has_water_supply', label: 'Water supply' },
+                                                    { key: 'has_power_backup', label: 'Power backup' },
+                                                    { key: 'has_communication', label: 'Communication' },
+                                                    { key: 'has_restrooms', label: 'Restrooms' },
+                                                    { key: 'has_pet_area', label: 'Pet area' },
+                                                    { key: 'has_accessibility', label: 'Accessibility' },
+                                                ].map((f) => (
+                                                    <label key={f.key} className="flex items-center gap-2 text-xs text-gray-700">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!form[f.key]}
+                                                            onChange={(e) => {
+                                                                setForm((p) => ({ ...p, [f.key]: e.target.checked }));
+                                                                setPendingChanges(true);
+                                                            }}
+                                                        />
+                                                        {f.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {detailsTab === 'advanced' ? (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <div className="text-xs text-gray-600">All fields (JSON)</div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={applyJsonToSelected}
+                                                        className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                                    >
+                                                        Apply JSON
+                                                    </button>
+                                                </div>
+                                                <textarea
+                                                    className="w-full h-44 rounded border border-gray-300 bg-white p-2 font-mono text-xs text-gray-800"
+                                                    value={jsonText}
+                                                    onChange={(e) => {
+                                                        setJsonText(e.target.value);
+                                                        setPendingChanges(true);
+                                                    }}
+                                                    spellCheck={false}
+                                                />
+                                                {jsonError ? (
+                                                    <div className="mt-1 text-xs text-red-600">{jsonError}</div>
+                                                ) : (
+                                                    <div className="mt-1 text-[11px] text-gray-500">
+                                                        Paste complex fields like `amenities`, `operating_hours`, `boundary_geojson`, `gallery_urls`, `serves_hazard_zones`.
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <details className="rounded border border-gray-200 bg-white p-2">
+                                                <summary className="cursor-pointer text-xs font-semibold text-gray-700 select-none">Export (debug)</summary>
+                                                <div className="mt-2 bg-gray-50 rounded p-2 font-mono text-xs text-gray-700 border border-gray-200">
+                                                    <pre className="whitespace-pre-wrap">{outputJson}</pre>
+                                                </div>
+                                            </details>
+                                        </div>
+                                    ) : null}
                                 </div>
                             ) : (
                                 <div className="text-sm text-gray-500">
                                     Create a pin (marker tool) then click it to edit details.
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="bg-gray-50 rounded-lg p-4 font-mono text-xs text-gray-700 border border-gray-200">
-                            {locations.length ? (
-                                <pre className="whitespace-pre-wrap">{outputJson}</pre>
-                            ) : (
-                                <div className="h-48 flex items-center justify-center text-gray-400 italic text-center">
-                                            Use the marker tool on the left to add evacuation centers. Drag/edit/delete to update.
                                 </div>
                             )}
                         </div>

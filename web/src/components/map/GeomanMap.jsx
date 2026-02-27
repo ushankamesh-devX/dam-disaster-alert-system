@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, useMap } from 'react-leaflet';
 import { renderToString } from 'react-dom/server';
-import { Activity, Lock } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import '@geoman-io/leaflet-geoman-free';
@@ -60,35 +59,15 @@ const createCustomIcon = (IconComponent, color, bgColor = 'white') => {
     });
 };
 
-const GateIcon = createCustomIcon(Lock, '#ef4444', '#fef2f2');    // Red Lock for Gate
-const SensorIcon = createCustomIcon(Activity, '#10b981', '#ecfdf5'); // Green Activity for Sensor
+
 
 // We can inject styles to override the Geoman toolbar icons for our custom tools
 const injectCustomToolbarStyles = () => {
     if (document.getElementById('ddas-geoman-styles')) return;
 
-    // Convert React SVG components to URI strings for CSS background-image
-    const svgWrapper = (svgStr) => svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-    const gateSvg = encodeURIComponent(svgWrapper(renderToString(<Lock size={16} strokeWidth={2.5} color="#ef4444" />)));
-    const sensorSvg = encodeURIComponent(svgWrapper(renderToString(<Activity size={16} strokeWidth={2.5} color="#10b981" />)));
-
     const style = document.createElement('style');
     style.id = 'ddas-geoman-styles';
     style.innerHTML = `
-        /* Point Markers (SVG Backgrounds) */
-        .leaflet-pm-toolbar .leaflet-pm-icon-gate {
-            background-image: url("data:image/svg+xml;utf8,${gateSvg}") !important;
-            background-size: 16px 16px !important;
-            background-repeat: no-repeat !important;
-            background-position: center !important;
-        }
-        .leaflet-pm-toolbar .leaflet-pm-icon-sensor {
-            background-image: url("data:image/svg+xml;utf8,${sensorSvg}") !important;
-            background-size: 16px 16px !important;
-            background-repeat: no-repeat !important;
-            background-position: center !important;
-        }
-
         /* Circle Markers (CSS Pseudo-elements) */
         .leaflet-pm-toolbar .leaflet-pm-icon-dam-circle {
             background-image: none !important;
@@ -126,11 +105,33 @@ const injectCustomToolbarStyles = () => {
     document.head.appendChild(style);
 };
 
-function GeomanEffect({ readOnly, onMapChange, featureGroupRef }) {
+function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor, onShapeDrawn, onShapeEdited, onShapeDeleted }) {
     const map = useMap();
 
     useEffect(() => {
         if (!map) return;
+
+        // Update drawing path options whenever the selected color changes
+        const updateAreaColors = () => {
+            if (!map.pm) return;
+            try {
+                map.pm.Draw.Polygon.setPathOptions({
+                    color: activeAreaColor.border,
+                    fillColor: activeAreaColor.fill,
+                    fillOpacity: 0.4,
+                    weight: 2
+                });
+            } catch (e) { }
+
+            try {
+                map.pm.Draw.Rectangle.setPathOptions({
+                    color: activeAreaColor.border,
+                    fillColor: activeAreaColor.fill,
+                    fillOpacity: 0.4,
+                    weight: 2
+                });
+            } catch (e) { }
+        };
 
         // Add Geoman controls
         if (!readOnly) {
@@ -143,7 +144,7 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef }) {
 
             map.pm.addControls({
                 position: 'topleft',
-                drawMarker: false, // Disabled default marker in favor of custom ones
+                drawMarker: true, // Use default marker for general points
                 drawCircleMarker: false, // Disabled default circle in favor of custom ones
                 drawPolyline: false,
                 drawRectangle: true,
@@ -155,45 +156,8 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef }) {
                 removalMode: true,
             });
 
-            // Add custom Draw Gate Control
-            try {
-                map.pm.Toolbar.copyDrawControl('drawMarker', {
-                    name: 'drawGate',
-                    block: 'custom',
-                    title: 'Draw Gate',
-                    className: 'leaflet-pm-icon-gate',
-                    onClick: () => {
-                        map.pm.disableDraw();
-                    }
-                });
-            } catch (e) {
-                // Ignore "Button already exists" during hotreloads
-            }
-            try {
-                map.pm.Draw.drawGate.setPathOptions({
-                    markerStyle: { icon: GateIcon },
-                });
-            } catch (e) { }
-
-            // Add custom Draw Sensor Control
-            try {
-                map.pm.Toolbar.copyDrawControl('drawMarker', {
-                    name: 'drawSensor',
-                    block: 'custom',
-                    title: 'Draw Sensor',
-                    className: 'leaflet-pm-icon-sensor',
-                    onClick: () => {
-                        map.pm.disableDraw();
-                    }
-                });
-            } catch (e) {
-                // Ignore "Button already exists" during hotreloads
-            }
-            try {
-                map.pm.Draw.drawSensor.setPathOptions({
-                    markerStyle: { icon: SensorIcon },
-                });
-            } catch (e) { }
+            // Initial color application
+            updateAreaColors();
 
             // Add custom Draw Dam Circle Control
             try {
@@ -239,18 +203,11 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef }) {
                 });
             } catch (e) { }
 
-            // Set up event listeners for newly created layers
             map.on('pm:create', (e) => {
                 const layer = e.layer;
 
                 // Tag the layer with its type based on the shape drawn
-                if (e.shape === 'drawGate') {
-                    layer.feature = layer.feature || { type: 'Feature', properties: {} };
-                    layer.feature.properties.type = 'gate';
-                } else if (e.shape === 'drawSensor') {
-                    layer.feature = layer.feature || { type: 'Feature', properties: {} };
-                    layer.feature.properties.type = 'sensor';
-                } else if (e.shape === 'drawDamCircle') {
+                if (e.shape === 'drawDamCircle') {
                     layer.feature = layer.feature || { type: 'Feature', properties: {} };
                     layer.feature.properties.type = 'damCircle';
                     layer.feature.properties.radius = layer.options.radius || 8;
@@ -262,29 +219,67 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef }) {
                     layer.feature = layer.feature || { type: 'Feature', properties: {} };
                     layer.feature.properties.type = 'circleMarker';
                     layer.feature.properties.radius = layer.options.radius;
-                } else if (e.shape === 'Polygon' || e.shape === 'Rectangle') {
+                } else if (e.shape === 'Polygon') {
                     layer.feature = layer.feature || { type: 'Feature', properties: {} };
-                    layer.feature.properties.type = 'region';
+                    layer.feature.properties.type = 'polygon';
+                    layer.feature.properties.color = activeAreaColor; // Save selected color mode
+                } else if (e.shape === 'Rectangle') {
+                    layer.feature = layer.feature || { type: 'Feature', properties: {} };
+                    layer.feature.properties.type = 'rectangle';
+                    layer.feature.properties.color = activeAreaColor; // Save selected color mode
                 }
 
                 if (featureGroupRef.current) {
                     featureGroupRef.current.addLayer(layer);
                 }
+
+                // Bubble up specific shape creation events so parent can intercept (e.g., popping up a modal for sensors)
+                if (onShapeDrawn) {
+                    onShapeDrawn({
+                        type: layer.feature.properties.type,
+                        layer: layer,
+                        latlng: e.shape.includes('Circle') || e.shape === 'Marker' ? layer.getLatLng() : null,
+                        bounds: layer.getBounds ? layer.getBounds() : null
+                    });
+                }
+
                 onMapChange();
 
                 // Listen to edits/drags on this new layer
-                layer.on('pm:edit', onMapChange);
-                layer.on('pm:dragend', onMapChange);
+                layer.on('pm:edit', (e) => {
+                    onMapChange();
+                    if (onShapeEdited) onShapeEdited(e.layer);
+                });
+                layer.on('pm:dragend', (e) => {
+                    onMapChange();
+                    if (onShapeEdited) onShapeEdited(e.layer);
+                });
             });
 
             // Listen to edits on existing features
-            map.on('pm:remove', onMapChange);
+            map.on('pm:remove', (e) => {
+                if (featureGroupRef.current && featureGroupRef.current.hasLayer(e.layer)) {
+                    featureGroupRef.current.removeLayer(e.layer);
+                }
+                setTimeout(() => {
+                    onMapChange();
+                }, 0);
+                if (onShapeDeleted) onShapeDeleted(e.layer);
+            });
             map.on('layeradd', (e) => {
                 if (e.layer && e.layer.pm) {
-                    e.layer.on('pm:edit', onMapChange);
-                    e.layer.on('pm:dragchange', onMapChange);
+                    e.layer.on('pm:edit', (layerEvent) => {
+                        onMapChange();
+                        if (onShapeEdited) onShapeEdited(layerEvent.target);
+                    });
+                    e.layer.on('pm:dragend', (layerEvent) => {
+                        onMapChange();
+                        if (onShapeEdited) onShapeEdited(layerEvent.target);
+                    });
                 }
             });
+            // Also run this if color changes while map is already drawn
+            updateAreaColors();
         }
 
         // Cleanup
@@ -296,17 +291,30 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef }) {
             map.off('pm:remove');
             map.off('layeradd');
         };
-    }, [map, readOnly, featureGroupRef, onMapChange]);
+    }, [map, readOnly, featureGroupRef, onMapChange, activeAreaColor]);
 
     return null;
 }
+
+// Preset color options for areas
+export const AREA_COLORS = [
+    { id: 'red', name: 'High Risk (Red)', border: '#ef4444', fill: '#fca5a5' },
+    { id: 'purple', name: 'Medium Risk (Purple)', border: '#8b5cf6', fill: '#c4b5fd' },
+    { id: 'yellow', name: 'Low Risk (Yellow)', border: '#eab308', fill: '#fef08a' }
+];
 
 export default function GeomanMap({
     center = [7.8731, 80.7718], // Sri Lanka default
     zoom = 7,
     initialGeoJson = null,
     onMapChange = () => { },
-    readOnly = false
+    onShapeDrawn = null,
+    onShapeEdited = null,
+    onShapeDeleted = null,
+    readOnly = false,
+    activeAreaColor = AREA_COLORS[0], // Default to Red
+    fitBoundsOnLoad = true,
+    onFeatureGroupReady = null
 }) {
     const featureGroupRef = useRef(null);
     const mapRef = useRef(null);
@@ -349,11 +357,7 @@ export default function GeomanMap({
                 if (parsedGeoJson) {
                     const layer = L.geoJSON(parsedGeoJson, {
                         pointToLayer: (feature, latlng) => {
-                            if (feature.properties && feature.properties.type === 'gate') {
-                                return L.marker(latlng, { icon: GateIcon });
-                            } else if (feature.properties && feature.properties.type === 'sensor') {
-                                return L.marker(latlng, { icon: SensorIcon });
-                            } else if (feature.properties && feature.properties.type === 'circleMarker') {
+                            if (feature.properties && feature.properties.type === 'circleMarker') {
                                 return L.circleMarker(latlng, { radius: feature.properties.radius || 10 });
                             } else if (feature.properties && feature.properties.type === 'damCircle') {
                                 return L.circleMarker(latlng, {
@@ -373,6 +377,20 @@ export default function GeomanMap({
                                 });
                             }
                             return L.marker(latlng, { icon: DefaultIcon });
+                        },
+                        style: (feature) => {
+                            if ((feature.properties && feature.properties.type === 'polygon') ||
+                                (feature.properties && feature.properties.type === 'rectangle')) {
+                                // If color was saved, use it, otherwise fallback to default red
+                                const savedColor = feature.properties.color || AREA_COLORS[0];
+                                return {
+                                    color: feature.properties.strokeColor || savedColor.border,
+                                    fillColor: feature.properties.fillColor || savedColor.fill,
+                                    fillOpacity: feature.properties.fillOpacity || 0.4,
+                                    weight: feature.properties.strokeWidth || 2
+                                };
+                            }
+                            return {};
                         }
                     });
 
@@ -385,17 +403,29 @@ export default function GeomanMap({
                     });
 
                     // Auto-fit bounds if we loaded existing data
-                    if (mapRef.current && featureGroupRef.current.getLayers().length > 0) {
+                    if (fitBoundsOnLoad && mapRef.current && featureGroupRef.current.getLayers().length > 0) {
                         try {
-                            mapRef.current.fitBounds(featureGroupRef.current.getBounds(), { padding: [20, 20] });
-                        } catch (e) { }
+                            const bounds = featureGroupRef.current.getBounds();
+                            if (bounds.isValid()) {
+                                mapRef.current.fitBounds(bounds, { padding: [20, 20], maxZoom: 16 });
+                            }
+                        } catch (e) { console.error("Error auto-fitting bounds", e); }
+                    } else if (mapRef.current && center) {
+                        mapRef.current.setView(center, zoom);
                     }
                 }
             } catch (err) {
                 console.error("Failed to parse initial geojson", err);
             }
         }
-    }, [initialGeoJson]);
+    }, [initialGeoJson, fitBoundsOnLoad, center, zoom]);
+
+    // Expose feature group ref out for direct property styling edits
+    useEffect(() => {
+        if (onFeatureGroupReady && featureGroupRef.current) {
+            onFeatureGroupReady(featureGroupRef.current);
+        }
+    }, [featureGroupRef.current, onFeatureGroupReady]);
 
 
     return (
@@ -414,7 +444,11 @@ export default function GeomanMap({
             <GeomanEffect
                 readOnly={readOnly}
                 onMapChange={handleMapChange}
+                onShapeDrawn={onShapeDrawn}
+                onShapeEdited={onShapeEdited}
+                onShapeDeleted={onShapeDeleted}
                 featureGroupRef={featureGroupRef}
+                activeAreaColor={activeAreaColor}
             />
         </MapContainer>
     );

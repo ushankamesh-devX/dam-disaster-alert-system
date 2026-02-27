@@ -1,0 +1,32 @@
+meta {
+  name: Get Alerts By Dam
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/alerts/dam/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains dam alerts array", function() {
+    const data = res.getBody();
+    expect(data.success).to.equal(true);
+    expect(data.data).to.be.an('array');
+  });
+}

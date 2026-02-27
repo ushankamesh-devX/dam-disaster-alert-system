@@ -69,7 +69,7 @@ export default function AlertsPage() {
         osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 1.0);
         osc.loop = true;
 
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.0);
 
         osc.connect(gain);
@@ -102,7 +102,7 @@ export default function AlertsPage() {
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(880, ctx.currentTime);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
         osc.connect(gain);
         gain.connect(ctx.destination);

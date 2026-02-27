@@ -608,7 +608,7 @@ export default function NewsPage() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-100 text-left">
-                                        {['Title', 'Category', 'Priority', 'Status', 'Views', 'Saves', 'Featured', 'Actions'].map(h => (
+                                        {['Image', 'Title', 'Category', 'Priority', 'Status', 'Views', 'Saves', 'Featured', 'Actions'].map(h => (
                                             <th key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                                         ))}
                                     </tr>
@@ -617,14 +617,14 @@ export default function NewsPage() {
                                     {loadingArticles ? (
                                         Array.from({ length: 8 }).map((_, i) => (
                                             <tr key={i}>
-                                                {Array.from({ length: 8 }).map((_, j) => (
+                                                {Array.from({ length: 9 }).map((_, j) => (
                                                     <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
                                                 ))}
                                             </tr>
                                         ))
                                     ) : articles.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="py-20 text-center">
+                                            <td colSpan={9} className="py-20 text-center">
                                                 <p className="text-4xl mb-3">📰</p>
                                                 <p className="text-sm text-gray-400">No articles found</p>
                                                 <p className="text-xs text-gray-300 mt-1">Try adjusting filters or create a new article</p>
@@ -632,6 +632,15 @@ export default function NewsPage() {
                                         </tr>
                                     ) : articles.map(a => (
                                         <tr key={a.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-4 py-3">
+                                                <div className="w-12 h-10 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0">
+                                                    {a.imageUrl ? (
+                                                        <img src={a.imageUrl} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                                                    ) : (
+                                                        <span className="text-gray-400 text-xs">📰</span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="px-4 py-3 max-w-[220px]">
                                                 <p className="font-medium text-gray-900 truncate" title={a.title}>{a.title}</p>
                                                 {a.source && <p className="text-[11px] text-gray-400 truncate">{a.source}</p>}

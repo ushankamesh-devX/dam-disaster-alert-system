@@ -2,6 +2,9 @@ package com.ddas.api.controller;
 
 import com.ddas.api.dto.request.AlertRequestDTO;
 import com.ddas.api.dto.request.AlertStatusUpdateRequestDTO;
+import com.ddas.api.dto.request.BroadcastRegionRequestDTO;
+import com.ddas.api.dto.request.BulkAlertActionRequestDTO;
+import com.ddas.api.dto.response.AlertAnalyticsResponseDTO;
 import com.ddas.api.dto.response.AlertResponseDTO;
 import com.ddas.api.dto.response.ApiResponse;
 import com.ddas.api.entity.Alert;
@@ -28,6 +31,10 @@ public class AlertController {
 
     private static final Logger log = LoggerFactory.getLogger(AlertController.class);
     private final AlertService alertService;
+
+    // =========================================================================
+    // Existing Endpoints (unchanged)
+    // =========================================================================
 
     @PostMapping
     @PreAuthorize("hasAnyAuthority('alerts.create', 'alerts.broadcast')")
@@ -155,6 +162,110 @@ public class AlertController {
         return ResponseEntity.ok(ApiResponse.success("Search results retrieved", response));
     }
 
+    // =========================================================================
+    // Admin Dashboard – New Endpoints
+    // =========================================================================
+
+    /**
+     * GET /api/v1/alerts/analytics
+     * <p>
+     * Provides aggregated alert metrics for the Admin Dashboard overview:
+     * total alerts sent, active alert count, resolved count,
+     * active alerts per dam, and per-dam resolution rates.
+     */
+    @GetMapping("/analytics")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<AlertAnalyticsResponseDTO>> getAlertAnalytics() {
+        AlertAnalyticsResponseDTO analytics = alertService.getAlertAnalytics();
+        return ResponseEntity.ok(ApiResponse.success("Alert analytics retrieved successfully", analytics));
+    }
+
+    /**
+     * POST /api/v1/alerts/broadcast/region/{regionId}
+     * <p>
+     * Broadcasts an alert targeted to a specific region only.
+     * People outside the specified region are NOT notified, preventing unnecessary panic.
+     */
+    @PostMapping("/broadcast/region/{regionId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<AlertResponseDTO>> broadcastToRegion(
+            @PathVariable Long regionId,
+            @Valid @RequestBody BroadcastRegionRequestDTO request) {
+        AlertResponseDTO response = alertService.broadcastToRegion(regionId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(
+                        "Alert broadcasted successfully to region " + regionId, response));
+    }
+
+    /**
+     * POST /api/v1/alerts/emergency-override
+     * <p>
+     * High-priority Emergency Broadcast that bypasses standard queuing.
+     * Severity is forced to 'emergency' and status to 'active' regardless of payload.
+     * Intended for imminent dam-breach scenarios. Restricted to SUPER_ADMIN only.
+     */
+    @PostMapping("/emergency-override")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<AlertResponseDTO>> emergencyOverrideBroadcast(
+            @Valid @RequestBody AlertRequestDTO request) {
+        AlertResponseDTO response = alertService.emergencyBroadcast(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Emergency override broadcast issued successfully", response));
+    }
+
+    /**
+     * PATCH /api/v1/alerts/{id}/simulation?enable={true|false}
+     * <p>
+     * Toggles simulation (drill) mode on an alert.
+     * When enabled, the mobile app must suppress real emergency UI and show a drill indicator.
+     * Allows admins to conduct drills without triggering actual emergency protocols.
+     */
+    @PatchMapping("/{id}/simulation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<AlertResponseDTO>> toggleSimulation(
+            @PathVariable Long id,
+            @RequestParam boolean enable) {
+        AlertResponseDTO response = alertService.toggleSimulationMode(id, enable);
+        String msg = enable
+                ? "Alert " + id + " set to SIMULATION (drill) mode"
+                : "Alert " + id + " simulation mode disabled – now a LIVE alert";
+        return ResponseEntity.ok(ApiResponse.success(msg, response));
+    }
+
+    /**
+     * PATCH /api/v1/alerts/bulk/resolve
+     * <p>
+     * Resolves all active alerts matching the supplied criteria (damId and/or severity).
+     * At least one filter is required.
+     */
+    @PatchMapping("/bulk/resolve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<AlertResponseDTO>>> bulkResolve(
+            @RequestBody BulkAlertActionRequestDTO criteria) {
+        List<AlertResponseDTO> resolved = alertService.bulkResolve(criteria);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Bulk resolve completed. " + resolved.size() + " alert(s) resolved.", resolved));
+    }
+
+    /**
+     * PATCH /api/v1/alerts/bulk/escalate
+     * <p>
+     * Escalates all active alerts matching the supplied criteria (damId and/or severity).
+     * At least one filter is required.
+     */
+    @PatchMapping("/bulk/escalate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<AlertResponseDTO>>> bulkEscalate(
+            @RequestBody BulkAlertActionRequestDTO criteria) {
+        List<AlertResponseDTO> escalated = alertService.bulkEscalate(criteria);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Bulk escalate completed. " + escalated.size() + " alert(s) escalated.", escalated));
+    }
+
+    // =========================================================================
+    // Private Helpers
+    // =========================================================================
+
     private long estimateAffectedPopulation(List<AlertResponseDTO> activeAlerts) {
         // Placeholder for future integration with an actual population/zone impact service.
         // Using a simple estimate of 1,000 people per active alert for now.
@@ -162,7 +273,8 @@ public class AlertController {
     }
 
     private void logAuditAction(String action, String details) {
-        // Placeholder for future AuditService integration.
-        log.info("AUDIT_PLACEHOLDER action={} details={}", action, details);
+        // Placeholder kept for backward compatibility with existing non-admin endpoints.
+        // New admin endpoints use AlertService#recordAudit() which persists to DB.
+        log.info("AUDIT action={} details={}", action, details);
     }
 }

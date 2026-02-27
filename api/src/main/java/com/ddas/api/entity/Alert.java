@@ -58,6 +58,14 @@ public class Alert {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /**
+     * When true, this alert is a drill/simulation and must NOT trigger
+     * actual emergency protocols on the mobile app.
+     */
+    @Column(name = "simulation_mode", nullable = false)
+    @Builder.Default
+    private boolean simulationMode = false;
+
     public enum AlertStatus {
         draft, active, escalated, resolved, expired, cancelled
     }

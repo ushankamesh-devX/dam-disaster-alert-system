@@ -21,6 +21,7 @@ public class AlertResponseDTO {
     private Alert.AlertStatus status;
     private Long damId;
     private Long regionId;
+    private boolean simulationMode;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

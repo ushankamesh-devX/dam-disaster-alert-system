@@ -13,6 +13,7 @@ import DamsPage from '../pages/admin/DamsPage';
 import DamDetailPage from '../pages/admin/DamDetailPage';
 import SensorsPage from '../pages/admin/SensorsPage';
 import SensorDetailPage from '../pages/admin/SensorDetailPage';
+import AlertsPage from '../pages/admin/AlertsPage';
 import UsersPage from '../pages/admin/UsersPage';
 import RolesPage from '../pages/admin/RolesPage';
 import RegionsPage from '../pages/admin/RegionsPage';
@@ -63,7 +64,7 @@ const router = createBrowserRouter([
                     { path: '/admin/dams/:id', element: <DamDetailPage /> },
                     { path: '/admin/sensors', element: <SensorsPage /> },
                     { path: '/admin/sensors/:id', element: <SensorDetailPage /> },
-                    { path: '/admin/alerts', element: <Soon title="Alerts" /> },
+                    { path: '/admin/alerts', element: <AlertsPage /> },
                     { path: '/admin/users', element: <UsersPage /> },
                     { path: '/admin/regions', element: <RegionsPage /> },
                     { path: '/admin/roles', element: <RolesPage /> },

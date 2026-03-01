@@ -1,0 +1,40 @@
+meta {
+  name: Create
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/system-safe-locations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "uuid": "11111111-1111-1111-1111-111111111111",
+    "code": "EVA_TEST_001",
+    "name": "Test Evacuation Center",
+    "locationTypeId": 1,
+    "latitude": 7.8731,
+    "longitude": 80.7718,
+    "markerIcon": "evacuation_center",
+    "markerColor": "#2563eb",
+    "showOnMap": true,
+    "status": "active"
+  }
+}
+
+assert {
+  res.status: in [201, 400]
+}
+
+tests {
+  test("Status code is 201 or 400", function() {
+    expect([201, 400]).to.include(res.getStatus());
+  });
+}

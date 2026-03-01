@@ -1,0 +1,44 @@
+meta {
+  name: Bulk Upsert (Store All Pins)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/system-safe-locations/bulk-upsert
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "uuid": "22222222-2222-2222-2222-222222222222",
+        "code": "EVA_TEST_002",
+        "name": "Test Shelter 2",
+        "locationTypeId": 1,
+        "latitude": 7.9,
+        "longitude": 80.8,
+        "markerIcon": "evacuation_center",
+        "markerColor": "#2563eb",
+        "showOnMap": true,
+        "status": "active"
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: in [200, 400]
+}
+
+tests {
+  test("Status code is 200 or 400", function() {
+    expect([200, 400]).to.include(res.getStatus());
+  });
+}

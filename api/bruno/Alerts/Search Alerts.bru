@@ -1,0 +1,38 @@
+meta {
+  name: Search Alerts
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/alerts/search
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~status: active
+  ~severity: warning
+  ~regionId: 1
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains filtered alerts", function() {
+    const data = res.getBody();
+    expect(data.success).to.equal(true);
+    expect(data.data).to.be.an('array');
+  });
+}

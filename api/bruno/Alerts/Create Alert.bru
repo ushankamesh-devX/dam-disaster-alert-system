@@ -1,0 +1,58 @@
+meta {
+  name: Create Alert
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/alerts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "alertTypeId": 1,
+    "title": "High Water Level Warning",
+    "message": "Water level has reached warning threshold.",
+    "severity": "warning",
+    "titleSi": "ඉහල ජල මට්ටම අනතුරු ඇඟවීම",
+    "titleTa": "உயர் நீர்மட்ட எச்சரிக்கை",
+    "messageSi": "ජල මට්ටම අනතුරු සීමාවට ළඟා වී ඇත.",
+    "messageTa": "நீர்மட்டம் எச்சரிக்கை அளவை அடைந்துள்ளது.",
+    "source": "manual",
+    "scope": "regional",
+    "status": "active",
+    "damId": 1,
+    "regionId": 1,
+    "hazardZoneId": 1,
+    "latitude": 7.2276,
+    "longitude": 80.7867,
+    "imageUrl": "https://example.com/alerts/water-level.jpg",
+    "actionRequired": "Prepare for possible evacuation",
+    "instructions": "Follow official instructions and stay alert.",
+    "metadata": "{\"channel\":\"manual-test\",\"priority\":\"high\"}"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.success: eq true
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains created alert", function() {
+    const data = res.getBody();
+    expect(data.success).to.equal(true);
+    expect(data.data).to.be.an('object');
+    expect(data.data.id).to.exist;
+  });
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Delete By UUID
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{base_url}}/system-safe-locations/uuid/{{safe_location_uuid}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: in [204, 404]
+}
+
+tests {
+  test("Status code is 204 or 404", function() {
+    expect([204, 404]).to.include(res.getStatus());
+  });
+}

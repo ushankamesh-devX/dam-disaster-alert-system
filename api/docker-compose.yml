@@ -49,6 +49,21 @@ services:
     networks:
       - ddas-network
 
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+    container_name: ddas-web
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - ddas-network
+
 volumes:
   mysql-data:
 

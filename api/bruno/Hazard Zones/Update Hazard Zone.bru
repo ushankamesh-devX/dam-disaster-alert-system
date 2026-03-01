@@ -1,0 +1,40 @@
+meta {
+  name: Update Hazard Zone
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{base_url}}/dams/hazard-zones/1
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "zoneName": "Immediate Flood Zone (Updated)",
+    "description": "Updated area immediately downstream of the dam",
+    "boundaryGeojson": "{\"type\":\"Polygon\",\"coordinates\":[[[80.78,7.22],[80.79,7.22],[80.79,7.23],[80.78,7.23],[80.78,7.22]]]}",
+    "isActive": false
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains updated zone data", function() {
+    const data = res.getBody();
+    expect(data.zoneName).to.equal('Immediate Flood Zone (Updated)');
+    expect(data.isActive).to.be.false;
+  });
+}

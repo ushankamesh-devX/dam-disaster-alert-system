@@ -396,6 +396,8 @@ CREATE TABLE IF NOT EXISTS dam_gates (
     dam_id BIGINT UNSIGNED NOT NULL,
     gate_number VARCHAR(20) NOT NULL,
     gate_type ENUM('radial', 'vertical', 'drum', 'flap', 'sluice') NOT NULL,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
     max_opening_meters DECIMAL(6, 2),
     current_opening_meters DECIMAL(6, 2) DEFAULT 0,
     status ENUM('closed', 'partial', 'fully_open', 'maintenance', 'jammed') DEFAULT 'closed',

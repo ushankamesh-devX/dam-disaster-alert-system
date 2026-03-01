@@ -14,6 +14,14 @@ export const getAllDamsList = async () => {
     return r.data;
 };
 
+// ── Hazard Levels ─────────────────────────────────────────────────────────────
+
+/** GET /hazard-levels/list → List<HazardLevelResponse> */
+export const getAllHazardLevelsList = async () => {
+    const r = await apiClient.get('/hazard-levels/list');
+    return r.data;
+};
+
 /** GET /dams/active  → List<DamListResponse> */
 export const getActiveDams = async () => {
     const r = await apiClient.get('/dams/active');
@@ -120,4 +128,21 @@ export const deleteGate = async (gateId) => {
 export const getDamHazardZones = async (damId) => {
     const r = await apiClient.get(`/dams/${damId}/hazard-zones`);
     return r.data;
+};
+
+/** POST /api/v1/dams/hazard-zones → DamHazardZoneResponse (201) */
+export const createHazardZone = async (payload) => {
+    const r = await apiClient.post('/dams/hazard-zones', payload);
+    return r.data;
+};
+
+/** PUT /api/v1/dams/hazard-zones/{zoneId} → DamHazardZoneResponse */
+export const updateHazardZone = async (zoneId, payload) => {
+    const r = await apiClient.put(`/dams/hazard-zones/${zoneId}`, payload);
+    return r.data;
+};
+
+/** DELETE /api/v1/dams/hazard-zones/{zoneId} → 204 */
+export const deleteHazardZone = async (zoneId) => {
+    await apiClient.delete(`/dams/hazard-zones/${zoneId}`);
 };

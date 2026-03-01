@@ -427,6 +427,8 @@ public class DamMapper {
                 .damName(gate.getDam() != null ? gate.getDam().getName() : null)
                 .gateNumber(gate.getGateNumber())
                 .gateType(gate.getGateType())
+                .latitude(gate.getLatitude())
+                .longitude(gate.getLongitude())
                 .maxOpeningMeters(gate.getMaxOpeningMeters())
                 .currentOpeningMeters(gate.getCurrentOpeningMeters())
                 .status(gate.getStatus())
@@ -448,6 +450,8 @@ public class DamMapper {
                 .dam(dam)
                 .gateNumber(request.getGateNumber())
                 .gateType(request.getGateType())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .maxOpeningMeters(request.getMaxOpeningMeters())
                 .currentOpeningMeters(request.getCurrentOpeningMeters() != null ? request.getCurrentOpeningMeters() : java.math.BigDecimal.ZERO)
                 .status(request.getStatus() != null ? request.getStatus() : DamGate.GateStatus.closed)
@@ -457,6 +461,8 @@ public class DamMapper {
     public void updateDamGateFromRequest(DamGate gate, UpdateDamGateRequest request) {
         if (request.getGateNumber() != null) gate.setGateNumber(request.getGateNumber());
         if (request.getGateType() != null) gate.setGateType(request.getGateType());
+        if (request.getLatitude() != null) gate.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) gate.setLongitude(request.getLongitude());
         if (request.getMaxOpeningMeters() != null) gate.setMaxOpeningMeters(request.getMaxOpeningMeters());
         if (request.getCurrentOpeningMeters() != null) gate.setCurrentOpeningMeters(request.getCurrentOpeningMeters());
         if (request.getStatus() != null) gate.setStatus(request.getStatus());

@@ -17,6 +17,7 @@ import UsersPage from '../pages/admin/UsersPage';
 import RolesPage from '../pages/admin/RolesPage';
 import RegionsPage from '../pages/admin/RegionsPage';
 import MapFuncPage from '../pages/admin/MapFuncPage';
+import MapDetailedPage from '../pages/admin/MapDetailedPage';
 
 function Soon({ title }) {
     return (
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
                     { path: '/admin/dashboard', element: <DashboardPage /> },
                     { path: '/admin/dams', element: <DamsPage /> },
                     { path: '/admin/dams/:id', element: <DamDetailPage /> },
+                    { path: '/admin/dams/:id/map', element: <MapDetailedPage /> },
                     { path: '/admin/sensors', element: <SensorsPage /> },
                     { path: '/admin/sensors/:id', element: <SensorDetailPage /> },
                     { path: '/admin/alerts', element: <Soon title="Alerts" /> },

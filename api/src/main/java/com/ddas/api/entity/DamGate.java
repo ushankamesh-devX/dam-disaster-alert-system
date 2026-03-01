@@ -34,6 +34,12 @@ public class DamGate {
     @Column(name = "gate_type", nullable = false)
     private GateType gateType;
 
+    @Column(name = "latitude", precision = 10, scale = 8)
+    private BigDecimal latitude;
+
+    @Column(name = "longitude", precision = 11, scale = 8)
+    private BigDecimal longitude;
+
     @Column(name = "max_opening_meters", precision = 6, scale = 2)
     private BigDecimal maxOpeningMeters;
 

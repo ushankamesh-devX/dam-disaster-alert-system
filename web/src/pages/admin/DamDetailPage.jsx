@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
     getDamById, getDamStatus, getDamGates, getDamHazardZones,
     updateDam, deleteDam, createGate, updateGate, deleteGate,
-    getAllHazardLevelsList, createHazardZone, updateHazardZone, deleteHazardZone
 } from '../../services/dam.service';
-import { getSensorsByDam, createSensor, getSensorTypes } from '../../services/sensor.service';
-import { getAllRegions } from '../../services/region.service';
+import { getSensorsByDam } from '../../services/sensor.service';
+import { getAllRegionsList } from '../../services/region.service';
 import DamSensorChart from '../../components/dams/DamSensorChart';
-import GeomanMap, { AREA_COLORS } from '../../components/map/GeomanMap';
+import GeomanMap from '../../components/map/GeomanMap';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -106,7 +105,7 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
                     <Input label="Name (Sinhala)" value={form.nameSi} onChange={e => set('nameSi', e.target.value)} />
                     <Select label="Region" value={form.regionId} onChange={e => set('regionId', e.target.value)}>
                         <option value="">Select region…</option>
-                        {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        {(regions || []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </Select>
                     <div className="grid grid-cols-2 gap-4">
                         <Select label="Status" value={form.status} onChange={e => set('status', e.target.value)}>
@@ -209,167 +208,6 @@ function GateModal({ damId, gate, onClose, onSaved }) {
     );
 }
 
-// ─── Sensor Modal ─────────────────────────────────────────────────────────────
-
-function SensorModal({ damId, initLat, initLng, sensorTypes, onClose, onSaved }) {
-    const [form, setForm] = useState({
-        damId,
-        sensorUid: '',
-        name: '',
-        sensorTypeId: sensorTypes?.[0]?.id || '',
-        latitude: initLat,
-        longitude: initLng,
-        status: 'active',
-        minReading: 0,
-        maxReading: 100,
-        warningThreshold: 75,
-        criticalThreshold: 90
-    });
-    const [saving, setSaving] = useState(false);
-    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-    const submit = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        try {
-            const payload = {
-                ...form,
-                sensorTypeId: Number(form.sensorTypeId),
-                minReading: Number(form.minReading),
-                maxReading: Number(form.maxReading),
-                warningThreshold: Number(form.warningThreshold),
-                criticalThreshold: Number(form.criticalThreshold)
-            };
-            const saved = await createSensor(payload);
-            toast.success('Sensor created successfully on map');
-            onSaved(saved);
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Failed to create sensor');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">Add Sensor at Dropped Location</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
-                </div>
-                <form onSubmit={submit} className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-3 mb-2">
-                        <div className="bg-blue-50 text-blue-800 text-xs px-3 py-2 rounded-lg border border-blue-100">
-                            <strong>Lat:</strong> {initLat.toFixed(5)}
-                        </div>
-                        <div className="bg-blue-50 text-blue-800 text-xs px-3 py-2 rounded-lg border border-blue-100">
-                            <strong>Lng:</strong> {initLng.toFixed(5)}
-                        </div>
-                    </div>
-
-                    <Input label="Sensor UID" placeholder="SENS-001" value={form.sensorUid} onChange={e => set('sensorUid', e.target.value)} required />
-                    <Input label="Name" placeholder="Main Spillway Level" value={form.name} onChange={e => set('name', e.target.value)} required />
-
-                    <Select label="Type" value={form.sensorTypeId} onChange={e => set('sensorTypeId', e.target.value)}>
-                        {sensorTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </Select>
-
-                    <Select label="Initial Status" value={form.status} onChange={e => set('status', e.target.value)}>
-                        <option value="active">Active</option>
-                        <option value="maintenance">Maintenance</option>
-                        <option value="inactive">Inactive</option>
-                    </Select>
-
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                        <Input label="Min Reading" type="number" step="any" value={form.minReading} onChange={e => set('minReading', e.target.value)} />
-                        <Input label="Max Reading" type="number" step="any" value={form.maxReading} onChange={e => set('maxReading', e.target.value)} />
-                        <Input label="Warning Thr." type="number" step="any" value={form.warningThreshold} onChange={e => set('warningThreshold', e.target.value)} />
-                        <Input label="Critical Thr." type="number" step="any" value={form.criticalThreshold} onChange={e => set('criticalThreshold', e.target.value)} />
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-3">
-                        <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving || !form.sensorUid || !form.name} className="px-4 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-                            {saving ? 'Saving…' : 'Add Sensor'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-// ─── Hazard Zone Panel Component ──────────────────────────────────────────────
-
-function HazardZonePanel({ damId, initGeoJson, initLayer, hazardLevels, onCancel, onSaved }) {
-    const [form, setForm] = useState({
-        damId,
-        zoneCode: '',
-        zoneName: '',
-        hazardLevelId: hazardLevels?.[0]?.id || '',
-        description: '',
-        boundaryGeojson: initGeoJson,
-        isActive: true
-    });
-    const [saving, setSaving] = useState(false);
-    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-    const submit = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        try {
-            const payload = {
-                ...form,
-                hazardLevelId: Number(form.hazardLevelId)
-            };
-            const saved = await createHazardZone(payload);
-            onSaved(saved, initLayer);
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Failed to create hazard zone');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <form onSubmit={submit} className="flex flex-col h-full bg-white flex-1 p-4 overflow-y-auto">
-            <h3 className="text-sm font-semibold text-gray-800 mb-4 border-b pb-2">Create New Hazard Zone</h3>
-
-            <div className="space-y-4">
-                <Input label="Zone Code" placeholder="HZ-001" value={form.zoneCode} onChange={e => set('zoneCode', e.target.value)} required />
-                <Input label="Name" placeholder="Downstream Flood Area" value={form.zoneName} onChange={e => set('zoneName', e.target.value)} required />
-
-                <Select label="Hazard Level" value={form.hazardLevelId} onChange={e => set('hazardLevelId', e.target.value)}>
-                    {hazardLevels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
-                </Select>
-
-                <Select label="Status" value={form.isActive} onChange={e => set('isActive', e.target.value === 'true')}>
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                </Select>
-
-                <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-                    <textarea
-                        className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
-                        rows={4}
-                        value={form.description}
-                        onChange={e => set('description', e.target.value)}
-                    />
-                </div>
-            </div>
-
-            <div className="mt-auto pt-6 flex gap-3">
-                <button type="button" onClick={onCancel} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
-                    Cancel
-                </button>
-                <button type="submit" disabled={saving || !form.zoneCode || !form.zoneName} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition shadow-sm">
-                    {saving ? 'Saving…' : 'Save Zone'}
-                </button>
-            </div>
-        </form>
-    );
-}
 
 // ─── Water Level Bar ──────────────────────────────────────────────────────────
 
@@ -410,57 +248,79 @@ export default function DamDetailPage() {
     const [gates, setGates] = useState([]);
     const [regions, setRegions] = useState([]);
     const [sensors, setSensors] = useState([]);
-    const [sensorTypes, setSensorTypes] = useState([]);
     const [hazardZones, setHazardZones] = useState([]);
-    const [hazardLevels, setHazardLevels] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [editOpen, setEditOpen] = useState(false);
     const [gateModal, setGateModal] = useState(null); // null | 'new' | gate object
-    const [sensorModal, setSensorModal] = useState(null); // null | { lat, lng }
-    const [hazardPanelState, setHazardPanelState] = useState(null); // null | { geojson, layer }
     const [deletingGate, setDeletingGate] = useState(null);
-    const [activeTab, setActiveTab] = useState('overview'); // overview | map | status | gates
-    const [mapGeoJson, setMapGeoJson] = useState(null);
-    const [activeColor, setActiveColor] = useState(AREA_COLORS[0]);
-    const [rawMapOutput, setRawMapOutput] = useState(null);
-    const [savingMap, setSavingMap] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview'); // overview | status | gates | charts
+
+    // Build read-only GeoJSON for the map overview from fetched data
+    const mapGeoJson = useMemo(() => {
+        const features = [];
+        hazardZones.forEach(zone => {
+            if (zone.boundaryGeojson) {
+                try {
+                    const geometry = typeof zone.boundaryGeojson === 'string' ? JSON.parse(zone.boundaryGeojson) : zone.boundaryGeojson;
+                    features.push({
+                        type: 'Feature', geometry,
+                        properties: {
+                            type: geometry.type === 'Polygon' ? 'polygon' : 'rectangle',
+                            dbId: zone.id, zoneName: zone.zoneName,
+                            fillColor: zone.fillColor || '#fca5a5', fillOpacity: zone.fillOpacity || 0.4,
+                            strokeColor: zone.strokeColor || '#ef4444', strokeWidth: zone.strokeWidth || 2,
+                        },
+                    });
+                } catch (e) { }
+            }
+        });
+        gates.forEach(gate => {
+            if (gate.latitude && gate.longitude) {
+                features.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [parseFloat(gate.longitude), parseFloat(gate.latitude)] },
+                    properties: { type: 'gateCircle', dbId: gate.id, gateNumber: gate.gateNumber },
+                });
+            }
+        });
+        sensors.forEach(sensor => {
+            if (sensor.latitude && sensor.longitude) {
+                features.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [sensor.longitude, sensor.latitude] },
+                    properties: { type: 'sensorCircle', dbId: sensor.id, name: sensor.name, sensorUid: sensor.sensorUid },
+                });
+            }
+        });
+        if (features.length === 0) return null;
+        return JSON.stringify({ type: 'FeatureCollection', features });
+    }, [hazardZones, gates, sensors]);
 
     useEffect(() => {
         const fetchAll = async () => {
             setLoading(true);
             try {
-                const [damRes, statusRes, gatesRes, sensorsRes, hazardRes, regionsRes, typesRes, hzLevelsRes] = await Promise.allSettled([
+                const [damRes, statusRes, gatesRes, sensorsRes, hazardRes, regionsRes] = await Promise.allSettled([
                     getDamById(id),
                     getDamStatus(id),
                     getDamGates(id),
                     getSensorsByDam(id),
                     getDamHazardZones(id),
-                    getAllRegions(),
-                    getSensorTypes(),
-                    getAllHazardLevelsList()
+                    getAllRegionsList(),
                 ]);
 
-                let fetchedDam = null;
-                let fetchedSensors = [];
-                let fetchedHazardZones = [];
-
-                if (damRes.status === 'fulfilled') { fetchedDam = damRes.value; setDam(fetchedDam); }
+                if (damRes.status === 'fulfilled') setDam(damRes.value);
                 if (statusRes.status === 'fulfilled') setStatus(statusRes.value);
                 if (gatesRes.status === 'fulfilled') setGates(gatesRes.value || []);
-                if (sensorsRes.status === 'fulfilled') { fetchedSensors = sensorsRes.value || []; setSensors(fetchedSensors); }
-                if (hazardRes.status === 'fulfilled') { fetchedHazardZones = hazardRes.value || []; setHazardZones(fetchedHazardZones); }
+                if (sensorsRes.status === 'fulfilled') setSensors(sensorsRes.value || []);
+                if (hazardRes.status === 'fulfilled') setHazardZones(hazardRes.value || []);
                 if (regionsRes.status === 'fulfilled') setRegions(regionsRes.value || []);
-                if (typesRes.status === 'fulfilled') setSensorTypes(typesRes.value || []);
-                if (hzLevelsRes.status === 'fulfilled') setHazardLevels(hzLevelsRes.value || []);
 
                 if (damRes.status !== 'fulfilled') {
                     toast.error('Dam not found'); navigate('/admin/dams');
                     return;
                 }
-
-                // Build initial GeoJSON for the Map
-                buildDamGeoJson(fetchedDam, fetchedSensors, fetchedHazardZones);
 
             } finally {
                 setLoading(false);
@@ -485,165 +345,7 @@ export default function DamDetailPage() {
         setDeletingGate(null);
     };
 
-    // --- Map Utilities --------------------------------------------------------
-    const buildDamGeoJson = (currentDam, currentSensors, currentHazards) => {
-        if (!currentDam) return;
-        const features = [];
 
-        // 1. Dam Boundaries (Polygons)
-        if (currentDam.damBoundaryGeojson) {
-            try { features.push(...JSON.parse(currentDam.damBoundaryGeojson).features); } catch (e) { }
-        }
-        if (currentDam.reservoirBoundaryGeojson) {
-            try { features.push(...JSON.parse(currentDam.reservoirBoundaryGeojson).features); } catch (e) { }
-        }
-        if (currentDam.downstreamRiverGeojson) {
-            try { features.push(...JSON.parse(currentDam.downstreamRiverGeojson).features); } catch (e) { }
-        }
-
-        // 2. Hazard Zones (Polygons/Rectangles)
-        currentHazards.forEach(hz => {
-            if (hz.boundaryGeojson) {
-                try {
-                    const parsed = JSON.parse(hz.boundaryGeojson);
-                    // Ensure the color property is mapped based on the hazard level if not inherently saved
-                    parsed.features.forEach(f => {
-                        f.properties = f.properties || {};
-                        f.properties.type = hz.zoneType === 'rectangle' ? 'rectangle' : 'polygon';
-                        f.properties.hazardZoneId = hz.id;
-                    });
-                    features.push(...parsed.features);
-                } catch (e) { }
-            }
-        });
-
-        // 3. Sensors (Points)
-        currentSensors.forEach(s => {
-            if (s.latitude && s.longitude) {
-                features.push({
-                    type: "Feature",
-                    geometry: { type: "Point", coordinates: [s.longitude, s.latitude] },
-                    properties: { type: "sensor", sensorId: s.id, name: s.name }
-                });
-            }
-        });
-
-        const collection = { type: "FeatureCollection", features };
-        setMapGeoJson(JSON.stringify(collection));
-    };
-
-    const handleSensorModalClose = () => {
-        if (sensorModal?.layer) sensorModal.layer.remove();
-        setSensorModal(null);
-    };
-
-    const handleSensorSaved = (savedSensor) => {
-        const updatedSensors = [...sensors, savedSensor];
-        setSensors(updatedSensors);
-        setSensorModal(null);
-        toast.success("Refreshing map with new sensor...");
-        buildDamGeoJson(dam, updatedSensors, hazardZones);
-    };
-
-    const handleShapeDrawn = (e) => {
-        if ((e.type === 'Marker' || e.type === 'sensor' || !e.type) && e.latlng && !e.type?.includes("polygon") && !e.type?.includes("rectangle")) {
-            setSensorModal({ lat: e.latlng.lat, lng: e.latlng.lng, layer: e.layer });
-        } else if (e.type === 'polygon' || e.type === 'rectangle') {
-            const geojsonObj = e.layer.toGeoJSON();
-            const geoJsonString = JSON.stringify({ type: "FeatureCollection", features: [geojsonObj] });
-            setHazardPanelState({ geojson: geoJsonString, layer: e.layer });
-        }
-    };
-
-    const handleHazardPanelCancel = () => {
-        if (hazardPanelState?.layer) hazardPanelState.layer.remove();
-        setHazardPanelState(null);
-    };
-
-    const handleHazardSaved = (savedZone, layer) => {
-        const updatedZones = [...hazardZones, savedZone];
-        setHazardZones(updatedZones);
-        setHazardPanelState(null);
-        toast.success("Hazard Zone created and added to map!");
-        buildDamGeoJson(dam, sensors, updatedZones);
-    };
-
-    const handleShapeEdited = async (layer) => {
-        const feature = layer.feature;
-        if (!feature || !feature.properties) return;
-
-        // Try to identify if it's a hazard zone
-        const hazardZoneId = feature.properties.hazardZoneId;
-
-        if (hazardZoneId) {
-            try {
-                const geojsonObj = layer.toGeoJSON();
-                const geoJsonString = JSON.stringify({ type: "FeatureCollection", features: [geojsonObj] });
-
-                const existingZone = hazardZones.find(hz => hz.id === hazardZoneId);
-                if (!existingZone) return;
-
-                // We must send all required fields for UpdateHazardZoneRequest
-                const payload = {
-                    hazardLevelId: existingZone.hazardLevel?.id,
-                    zoneCode: existingZone.zoneCode,
-                    zoneName: existingZone.zoneName,
-                    description: existingZone.description,
-                    isActive: existingZone.isActive,
-                    boundaryGeojson: geoJsonString
-                };
-
-                const updatedZone = await updateHazardZone(hazardZoneId, payload);
-
-                setHazardZones(prev => prev.map(hz => hz.id === hazardZoneId ? updatedZone : hz));
-                toast.success("Hazard Zone shape updated successfully");
-            } catch (err) {
-                toast.error("Failed to update Hazard Zone shape");
-            }
-        }
-    };
-
-    const handleShapeDeleted = async (layer) => {
-        const feature = layer.feature;
-        if (!feature || !feature.properties) return;
-
-        const hazardZoneId = feature.properties.hazardZoneId;
-
-        if (hazardZoneId) {
-            try {
-                await deleteHazardZone(hazardZoneId);
-                setHazardZones(prev => prev.filter(hz => hz.id !== hazardZoneId));
-                toast.success("Hazard Zone deleted successfully");
-            } catch (err) {
-                console.error("Failed to delete hazard zone. Context:", err);
-                toast.error(`Failed to delete Hazard Zone: ${err?.response?.status} ${err?.response?.data?.message || err.message}`);
-            }
-        }
-    };
-
-    const handleSaveMap = async () => {
-        if (!rawMapOutput) return;
-        setSavingMap(true);
-        try {
-            const parsed = JSON.parse(rawMapOutput);
-
-            // Extract ONLY boundaries (no sensors, no hazard zones by ID)
-            const damBoundaries = parsed.features.filter(f => !['sensor', 'gate', 'hazard'].includes(f.properties?.type) && !f.properties?.hazardZoneId);
-
-            const damCollection = { type: "FeatureCollection", features: damBoundaries };
-
-            const updated = await updateDam(id, {
-                damBoundaryGeojson: JSON.stringify(damCollection),
-            });
-
-            setDam(updated);
-            toast.success("Dam boundaries saved safely. (Sensors and Hazard zones manage themselves instantly window by window)");
-        } catch (err) {
-            toast.error(err?.response?.data?.message || "Failed to save map data");
-        } finally {
-            setSavingMap(false);
-        }
-    };
 
     if (loading) {
         return (
@@ -659,7 +361,7 @@ export default function DamDetailPage() {
 
     if (!dam) return null;
 
-    const TABS = ['overview', 'map', 'status', 'gates', 'charts'];
+    const TABS = ['overview', 'status', 'gates', 'charts'];
 
     return (
         <div className="space-y-5">
@@ -679,10 +381,42 @@ export default function DamDetailPage() {
                     </div>
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={() => navigate(`/admin/dams/${id}/map`)}
+                            className="px-4 py-2 text-sm font-medium text-blue-700 border border-blue-300 bg-blue-50 rounded-lg hover:bg-blue-100 transition flex items-center gap-1.5"
+                        >🗺️ Map &amp; Layout</button>
+                        <button
                             onClick={() => setEditOpen(true)}
                             className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                         >Edit Dam</button>
                     </div>
+                </div>
+            </div>
+
+            {/* Full-width Map Overview */}
+            <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <span className="text-sm font-semibold text-gray-700">🗺️ Map &amp; Layout Overview</span>
+                    <button
+                        onClick={() => navigate(`/admin/dams/${id}/map`)}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium transition"
+                    >Edit in full map →</button>
+                </div>
+                <div className="h-64 w-full isolate relative z-0">
+                    {mapGeoJson ? (
+                        <GeomanMap
+                            key={mapGeoJson}
+                            readOnly
+                            initialGeoJson={mapGeoJson}
+                            height="100%"
+                            fitBoundsOnLoad
+                            onMapChange={() => { }}
+                        />
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-gray-400 text-sm gap-2">
+                            <span>No map data yet.</span>
+                            <button onClick={() => navigate(`/admin/dams/${id}/map`)} className="text-blue-600 hover:underline">Add in Map Editor →</button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -710,7 +444,7 @@ export default function DamDetailPage() {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`px-5 py-3 text-sm font-medium capitalize transition ${activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                        >{tab === 'charts' ? '📈 Charts' : tab === 'map' ? '🗺️ Map & Layout' : tab}</button>
+                        >{tab === 'charts' ? '📈 Charts' : tab}</button>
                     ))}
                 </div>
 
@@ -746,76 +480,6 @@ export default function DamDetailPage() {
                     </div>
                 )}
 
-                {/* ── Map Tab ───────────────────────────────────────────── */}
-                {activeTab === 'map' && (
-                    <div className="flex h-[650px] bg-gray-50/50">
-                        {/* Map Area */}
-                        <div className="flex-1 relative isolate z-0 flex flex-col border-r border-gray-200">
-                            {/* Map Toolbar / Header */}
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white shadow-sm shrink-0 z-[400] absolute top-0 left-0 right-0">
-                                <h3 className="text-sm font-semibold text-gray-800">Geospatial Layout</h3>
-                                <button
-                                    onClick={handleSaveMap}
-                                    disabled={savingMap || !rawMapOutput}
-                                    className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition shadow-sm"
-                                >
-                                    {savingMap ? 'Saving Layout...' : '💾 Save Map Layout'}
-                                </button>
-                            </div>
-
-                            {/* Map Component */}
-                            <div className="flex-1 w-full relative z-0 mt-12">
-                                <GeomanMap
-                                    center={dam.latitude && dam.longitude ? [dam.latitude, dam.longitude] : [7.8731, 80.7718]}
-                                    zoom={14}
-                                    initialGeoJson={mapGeoJson}
-                                    onMapChange={setRawMapOutput}
-                                    onShapeDrawn={handleShapeDrawn}
-                                    onShapeEdited={handleShapeEdited}
-                                    onShapeDeleted={handleShapeDeleted}
-                                    activeAreaColor={activeColor}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Right Panel for Creation/Properties */}
-                        <div className="w-80 flex flex-col bg-slate-50 relative z-10 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)]">
-                            {hazardPanelState ? (
-                                <HazardZonePanel
-                                    damId={Number(id)}
-                                    initGeoJson={hazardPanelState.geojson}
-                                    initLayer={hazardPanelState.layer}
-                                    hazardLevels={hazardLevels}
-                                    onCancel={handleHazardPanelCancel}
-                                    onSaved={handleHazardSaved}
-                                />
-                            ) : (
-                                <div className="p-5 flex flex-col h-full text-center items-center justify-center text-gray-500">
-                                    <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                                    </div>
-                                    <h4 className="font-medium text-gray-800 mb-2">Hazard Zones</h4>
-                                    <p className="text-sm mb-6 max-w-[200px]">Use the polygon tool on the map to define a new hazard zone.</p>
-
-                                    <div className="bg-white p-4 rounded-xl border w-full text-left shadow-sm">
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Drawing Color</p>
-                                        <div className="flex gap-2 justify-center flex-wrap">
-                                            {AREA_COLORS.map(color => (
-                                                <button
-                                                    key={color.id}
-                                                    onClick={() => setActiveColor(color)}
-                                                    title={color.name}
-                                                    className={`w-8 h-8 rounded-full border-2 transition-transform ${activeColor.id === color.id ? 'scale-110 ring-4 ring-blue-500/30 ring-offset-1' : 'opacity-70 hover:opacity-100 hover:scale-105'}`}
-                                                    style={{ backgroundColor: color.fill, borderColor: color.border }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* ── Status Tab ───────────────────────────────────────────── */}
                 {activeTab === 'status' && (
@@ -932,16 +596,7 @@ export default function DamDetailPage() {
                     onSaved={handleGateSaved}
                 />
             )}
-            {sensorModal && (
-                <SensorModal
-                    damId={Number(id)}
-                    initLat={sensorModal.lat}
-                    initLng={sensorModal.lng}
-                    sensorTypes={sensorTypes}
-                    onClose={handleSensorModalClose}
-                    onSaved={handleSensorSaved}
-                />
-            )}
+
             {deletingGate && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">

@@ -19,6 +19,8 @@ public class DamGateResponse {
     private String damName;
     private String gateNumber;
     private DamGate.GateType gateType;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
     private BigDecimal maxOpeningMeters;
     private BigDecimal currentOpeningMeters;
     private DamGate.GateStatus status;

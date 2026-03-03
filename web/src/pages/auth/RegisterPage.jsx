@@ -32,8 +32,16 @@ export default function RegisterPage() {
 
     return (
         <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-0.5">Create account</h2>
-            <p className="text-sm text-gray-500 mb-5">Join the DAM Disaster Alert System</p>
+            {/* Desktop heading */}
+            <div className="hidden lg:block mb-8">
+                <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
+                <p className="text-gray-500 mt-1">Join the Dam Disaster Alert System</p>
+            </div>
+            {/* Mobile heading */}
+            <div className="lg:hidden mb-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-0.5">Create account</h2>
+                <p className="text-sm text-gray-500">Join the DAM Disaster Alert System</p>
+            </div>
 
             {error && (
                 <div className="mb-4 flex items-center gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
@@ -44,37 +52,61 @@ export default function RegisterPage() {
                 </div>
             )}
 
-            <form onSubmit={submit} className="space-y-3.5">
-                {[
-                    { name: 'fullName', label: 'Full name *', type: 'text', placeholder: 'John Doe' },
-                    { name: 'email', label: 'Email *', type: 'email', placeholder: 'you@example.com' },
-                    { name: 'phoneNumber', label: 'Phone (optional)', type: 'tel', placeholder: '+94771234567' },
-                    { name: 'password', label: 'Password *', type: 'password', placeholder: 'Min. 8 characters' },
-                    { name: 'confirmPassword', label: 'Confirm password *', type: 'password', placeholder: 'Repeat password' },
-                ].map(({ name, label, type, placeholder }) => (
-                    <div key={name}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                        <input type={type} name={name} value={form[name]} onChange={handle} placeholder={placeholder}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
+            <form onSubmit={submit} className="space-y-4">
+                {/* Two-column row for name & email on desktop */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Full name *</label>
+                        <input type="text" name="fullName" value={form.fullName} onChange={handle} placeholder="John Doe"
+                            className="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" />
                     </div>
-                ))}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
-                    <select name="languagePreference" value={form.languagePreference} onChange={handle}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all">
-                        <option value="en">English</option>
-                        <option value="si">සිංහල</option>
-                        <option value="ta">தமிழ்</option>
-                    </select>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
+                        <input type="email" name="email" value={form.email} onChange={handle} placeholder="you@example.com"
+                            className="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" />
+                    </div>
                 </div>
+
+                {/* Two-column row for phone & language */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone (optional)</label>
+                        <input type="tel" name="phoneNumber" value={form.phoneNumber} onChange={handle} placeholder="+94771234567"
+                            className="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Language</label>
+                        <select name="languagePreference" value={form.languagePreference} onChange={handle}
+                            className="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                            <option value="en">English</option>
+                            <option value="si">සිංහල</option>
+                            <option value="ta">தமிழ்</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Two-column row for passwords */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Password *</label>
+                        <input type="password" name="password" value={form.password} onChange={handle} placeholder="Min. 8 characters"
+                            className="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm password *</label>
+                        <input type="password" name="confirmPassword" value={form.confirmPassword} onChange={handle} placeholder="Repeat password"
+                            className="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" />
+                    </div>
+                </div>
+
                 <button type="submit" disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-medium py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 mt-1">
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 shadow-sm shadow-blue-600/25 hover:shadow-md hover:shadow-blue-600/25 mt-1">
                     {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    {loading ? 'Creating…' : 'Create account'}
+                    {loading ? 'Creating account…' : 'Create account'}
                 </button>
             </form>
-            <p className="text-center text-sm text-gray-500 mt-4">
-                Have an account? <Link to="/login" className="text-blue-600 font-medium hover:underline">Sign in</Link>
+            <p className="text-center text-sm text-gray-500 mt-6">
+                Already have an account?{' '}<Link to="/login" className="text-blue-600 font-medium hover:underline">Sign in</Link>
             </p>
         </div>
     );

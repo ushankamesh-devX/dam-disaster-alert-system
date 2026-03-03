@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-    getDamById, getDamStatus, getDamGates,
+    getDamById, getDamStatus, getDamGates, getDamHazardZones,
     updateDam, deleteDam, createGate, updateGate, deleteGate,
 } from '../../services/dam.service';
-import { getAllRegions } from '../../services/region.service';
+import { getSensorsByDam } from '../../services/sensor.service';
+import { getAllRegionsList } from '../../services/region.service';
 import DamSensorChart from '../../components/dams/DamSensorChart';
+import GeomanMap from '../../components/map/GeomanMap';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,7 +105,7 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
                     <Input label="Name (Sinhala)" value={form.nameSi} onChange={e => set('nameSi', e.target.value)} />
                     <Select label="Region" value={form.regionId} onChange={e => set('regionId', e.target.value)}>
                         <option value="">Select region…</option>
-                        {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        {(regions || []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </Select>
                     <div className="grid grid-cols-2 gap-4">
                         <Select label="Status" value={form.status} onChange={e => set('status', e.target.value)}>
@@ -206,6 +208,7 @@ function GateModal({ damId, gate, onClose, onSaved }) {
     );
 }
 
+
 // ─── Water Level Bar ──────────────────────────────────────────────────────────
 
 function WaterLevelBar({ pct, hazardStatus }) {
@@ -244,30 +247,81 @@ export default function DamDetailPage() {
     const [status, setStatus] = useState(null);
     const [gates, setGates] = useState([]);
     const [regions, setRegions] = useState([]);
+    const [sensors, setSensors] = useState([]);
+    const [hazardZones, setHazardZones] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [editOpen, setEditOpen] = useState(false);
     const [gateModal, setGateModal] = useState(null); // null | 'new' | gate object
     const [deletingGate, setDeletingGate] = useState(null);
-    const [activeTab, setActiveTab] = useState('overview'); // overview | status | gates
+    const [activeTab, setActiveTab] = useState('overview'); // overview | status | gates | charts
+
+    // Build read-only GeoJSON for the map overview from fetched data
+    const mapGeoJson = useMemo(() => {
+        const features = [];
+        hazardZones.forEach(zone => {
+            if (zone.boundaryGeojson) {
+                try {
+                    const geometry = typeof zone.boundaryGeojson === 'string' ? JSON.parse(zone.boundaryGeojson) : zone.boundaryGeojson;
+                    features.push({
+                        type: 'Feature', geometry,
+                        properties: {
+                            type: geometry.type === 'Polygon' ? 'polygon' : 'rectangle',
+                            dbId: zone.id, zoneName: zone.zoneName,
+                            fillColor: zone.fillColor || '#fca5a5', fillOpacity: zone.fillOpacity || 0.4,
+                            strokeColor: zone.strokeColor || '#ef4444', strokeWidth: zone.strokeWidth || 2,
+                        },
+                    });
+                } catch (e) { }
+            }
+        });
+        gates.forEach(gate => {
+            if (gate.latitude && gate.longitude) {
+                features.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [parseFloat(gate.longitude), parseFloat(gate.latitude)] },
+                    properties: { type: 'gateCircle', dbId: gate.id, gateNumber: gate.gateNumber },
+                });
+            }
+        });
+        sensors.forEach(sensor => {
+            if (sensor.latitude && sensor.longitude) {
+                features.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [sensor.longitude, sensor.latitude] },
+                    properties: { type: 'sensorCircle', dbId: sensor.id, name: sensor.name, sensorUid: sensor.sensorUid },
+                });
+            }
+        });
+        if (features.length === 0) return null;
+        return JSON.stringify({ type: 'FeatureCollection', features });
+    }, [hazardZones, gates, sensors]);
 
     useEffect(() => {
         const fetchAll = async () => {
             setLoading(true);
             try {
-                const [damRes, statusRes, gatesRes, regionsRes] = await Promise.allSettled([
+                const [damRes, statusRes, gatesRes, sensorsRes, hazardRes, regionsRes] = await Promise.allSettled([
                     getDamById(id),
                     getDamStatus(id),
                     getDamGates(id),
-                    getAllRegions(),
+                    getSensorsByDam(id),
+                    getDamHazardZones(id),
+                    getAllRegionsList(),
                 ]);
+
                 if (damRes.status === 'fulfilled') setDam(damRes.value);
                 if (statusRes.status === 'fulfilled') setStatus(statusRes.value);
                 if (gatesRes.status === 'fulfilled') setGates(gatesRes.value || []);
+                if (sensorsRes.status === 'fulfilled') setSensors(sensorsRes.value || []);
+                if (hazardRes.status === 'fulfilled') setHazardZones(hazardRes.value || []);
                 if (regionsRes.status === 'fulfilled') setRegions(regionsRes.value || []);
+
                 if (damRes.status !== 'fulfilled') {
                     toast.error('Dam not found'); navigate('/admin/dams');
+                    return;
                 }
+
             } finally {
                 setLoading(false);
             }
@@ -290,6 +344,8 @@ export default function DamDetailPage() {
         }
         setDeletingGate(null);
     };
+
+
 
     if (loading) {
         return (
@@ -325,10 +381,42 @@ export default function DamDetailPage() {
                     </div>
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={() => navigate(`/admin/dams/${id}/map`)}
+                            className="px-4 py-2 text-sm font-medium text-blue-700 border border-blue-300 bg-blue-50 rounded-lg hover:bg-blue-100 transition flex items-center gap-1.5"
+                        >🗺️ Map &amp; Layout</button>
+                        <button
                             onClick={() => setEditOpen(true)}
                             className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                         >Edit Dam</button>
                     </div>
+                </div>
+            </div>
+
+            {/* Full-width Map Overview */}
+            <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <span className="text-sm font-semibold text-gray-700">🗺️ Map &amp; Layout Overview</span>
+                    <button
+                        onClick={() => navigate(`/admin/dams/${id}/map`)}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium transition"
+                    >Edit in full map →</button>
+                </div>
+                <div className="h-64 w-full isolate relative z-0">
+                    {mapGeoJson ? (
+                        <GeomanMap
+                            key={mapGeoJson}
+                            readOnly
+                            initialGeoJson={mapGeoJson}
+                            height="100%"
+                            fitBoundsOnLoad
+                            onMapChange={() => { }}
+                        />
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-gray-400 text-sm gap-2">
+                            <span>No map data yet.</span>
+                            <button onClick={() => navigate(`/admin/dams/${id}/map`)} className="text-blue-600 hover:underline">Add in Map Editor →</button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -391,6 +479,7 @@ export default function DamDetailPage() {
                         </div>
                     </div>
                 )}
+
 
                 {/* ── Status Tab ───────────────────────────────────────────── */}
                 {activeTab === 'status' && (
@@ -507,6 +596,7 @@ export default function DamDetailPage() {
                     onSaved={handleGateSaved}
                 />
             )}
+
             {deletingGate && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">

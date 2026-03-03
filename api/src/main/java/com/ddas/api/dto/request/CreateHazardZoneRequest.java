@@ -20,14 +20,14 @@ public class CreateHazardZoneRequest {
     private Long hazardLevelId;
     
     @NotBlank(message = "Zone code is required")
-    @Size(max = 20, message = "Zone code must be less than 20 characters")
+    @Size(max = 50, message = "Zone code must be less than 50 characters")
     private String zoneCode;
     
     @NotBlank(message = "Zone name is required")
-    @Size(max = 100, message = "Zone name must be less than 100 characters")
+    @Size(max = 200, message = "Zone name must be less than 200 characters")
     private String zoneName;
     
-    @Size(max = 100, message = "Zone name (Sinhala) must be less than 100 characters")
+    @Size(max = 200, message = "Zone name (Sinhala) must be less than 200 characters")
     private String zoneNameSi;
     
     @Size(max = 500, message = "Description must be less than 500 characters")

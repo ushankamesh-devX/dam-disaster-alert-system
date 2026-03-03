@@ -17,7 +17,7 @@ auth:bearer {
 body:json {
   {
     "sensorId": 1,
-    "readingValue": 105.5,
+    "readingValue": 240.5,
     "readingUnit": "meters",
     "readingQuality": "good",
     "isAlert": false,
@@ -33,7 +33,7 @@ tests {
   test("Status code is 201", function() {
     expect(res.getStatus()).to.equal(201);
   });
-
+  
   test("Response contains created reading", function() {
     const data = res.getBody();
     expect(data).to.have.property('id');

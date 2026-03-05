@@ -7,7 +7,7 @@ export default function AuthLayout() {
             <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden">
                 {/* Background image */}
                 <img
-                    src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1600&q=80"
+                    src="https://i2.wp.com/amazinglanka.com/wp/wp-content/uploads/2016/09/IMG-20110419-00085.jpg?ssl=1"
                     alt="Dam aerial view"
                     className="absolute inset-0 w-full h-full object-cover"
                 />

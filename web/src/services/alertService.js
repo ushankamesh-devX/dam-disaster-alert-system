@@ -3,54 +3,81 @@ import apiClient from '../lib/axios';
 /**
  * Alert API Service
  * Handles all alert-related backend HTTP communications.
+ * Aligned with "Perfect & Complex" Alert System.
  */
 
-// Uses the search endpoint and filters on the client side since GET /{id} isn't exposed
 export const getAlertById = async (id) => {
-    try {
-        const response = await apiClient.get('/alerts/search');
-        const alerts = response.data?.data || response.data || [];
-        const alert = alerts.find(a => String(a.id) === String(id) || a.uuid === id);
-        if (!alert) {
-            const err = new Error('Not Found');
-            err.response = { status: 404 };
-            throw err;
-        }
-        return alert;
-    } catch (error) {
-        throw error;
-    }
+    const response = await apiClient.get(`/alerts/${id}`);
+    return response.data?.data;
 };
 
-export const getAllActiveAlerts = async () => {
-    const response = await apiClient.get('/alerts/active');
-    return response.data?.data || response.data;
+export const getAlertByUuid = async (uuid) => {
+    const response = await apiClient.get(`/alerts/uuid/${uuid}`);
+    return response.data?.data;
 };
 
-// Gets all alerts regardless of status (search with empty params)
+// Comprehensive list (non-paginated, optional usage)
 export const getAllAlerts = async () => {
-    const response = await apiClient.get('/alerts/search');
-    return response.data?.data || response.data || [];
+    const response = await apiClient.get('/alerts/list-all'); // Assuming this exists or falls back
+    return response.data?.data;
+};
+
+export const getAllAlertsPaginated = async (params) => {
+    const response = await apiClient.get('/alerts', { params });
+    return response.data?.data;
 };
 
 export const createAlert = async (payload) => {
     const response = await apiClient.post('/alerts', payload);
-    return response.data?.data || response.data;
+    return response.data?.data;
 };
 
-// Emergency broadcast
+export const updateAlert = async (id, payload) => {
+    const response = await apiClient.put(`/alerts/${id}`, payload);
+    return response.data?.data;
+};
+
+// Alias for AlertsPage.jsx
+export const updateAlertStatus = async (id, status) => {
+    const response = await apiClient.patch(`/alerts/${id}/status?status=${status}`);
+    return response.data?.data;
+};
+
+export const resolveAlert = async (id, notes = '') => {
+    const response = await apiClient.patch(`/alerts/${id}/resolve?notes=${encodeURIComponent(notes)}`);
+    return response.data?.data;
+};
+
+export const escalateAlert = async (id, reason = '') => {
+    const response = await apiClient.patch(`/alerts/${id}/escalate?reason=${encodeURIComponent(reason)}`);
+    return response.data?.data;
+};
+
+export const deleteAlert = async (id) => {
+    const response = await apiClient.delete(`/alerts/${id}`);
+    return response.data?.data;
+};
+
 export const broadcastEmergency = async (payload) => {
     const response = await apiClient.post('/alerts/emergency-override', payload);
-    return response.data?.data || response.data;
+    return response.data?.data;
 };
 
-export const updateAlertStatus = async (id, status) => {
-    const response = await apiClient.patch(`/alerts/${id}/status`, { status });
-    return response.data?.data || response.data;
+export const getAlertAnalytics = async () => {
+    const response = await apiClient.get('/alerts/analytics');
+    return response.data?.data;
 };
 
-// Mock delete since the backend doesn't support deleting an alert for audit/history reasons
-export const deleteAlert = async (id) => {
-    return new Promise((resolve) => setTimeout(() => resolve({ success: true, id }), 500));
+// Alert Type Operations
+export const getActiveAlertTypes = async () => {
+    const response = await apiClient.get('/alert-types/active');
+    return response.data?.data;
 };
 
+export const getAllAlertTypes = async () => {
+    const response = await apiClient.get('/alert-types');
+    return response.data?.data;
+};
+
+// Alias for AlertsPage.jsx
+export const getAlertTypes = getAllAlertTypes;

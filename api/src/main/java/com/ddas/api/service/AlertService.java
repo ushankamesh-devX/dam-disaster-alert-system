@@ -1,10 +1,9 @@
 package com.ddas.api.service;
 
 import com.ddas.api.dto.request.AlertRequestDTO;
-import com.ddas.api.dto.request.BroadcastRegionRequestDTO;
+import com.ddas.api.dto.request.AlertTypeRequestDTO;
 import com.ddas.api.dto.request.BulkAlertActionRequestDTO;
-import com.ddas.api.dto.response.AlertAnalyticsResponseDTO;
-import com.ddas.api.dto.response.AlertResponseDTO;
+import com.ddas.api.dto.response.*;
 import com.ddas.api.entity.Alert;
 import com.ddas.api.entity.AlertAuditLog;
 import com.ddas.api.entity.AlertType;
@@ -15,15 +14,21 @@ import com.ddas.api.repository.AlertTypeRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,324 +41,402 @@ public class AlertService {
     private final AlertTypeRepository alertTypeRepository;
     private final AlertAuditLogRepository alertAuditLogRepository;
 
-    // -------------------------------------------------------------------------
-    // Existing Operations (unchanged)
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Alert Operations
+    // =========================================================================
+
+    @Transactional(readOnly = true)
+    public AlertPageResponseDTO getAllAlertsPaged(int page, int size, Alert.AlertStatus status, AlertType.AlertSeverity severity, Long regionId, Long damId) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("issuedAt").descending());
+        Page<Alert> resultPage = alertRepository.searchAlerts(status, severity, regionId, damId, pageable);
+        
+        return AlertPageResponseDTO.builder()
+                .content(resultPage.getContent().stream().map(this::toResponseDTO).toList())
+                .page(resultPage.getNumber())
+                .size(resultPage.getSize())
+                .totalElements(resultPage.getTotalElements())
+                .totalPages(resultPage.getTotalPages())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public AlertResponseDTO getAlertById(Long id) {
+        return alertRepository.findById(id)
+                .map(this::toResponseDTO)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public AlertResponseDTO getAlertByUuid(String uuid) {
+        return alertRepository.findByUuid(uuid)
+                .map(this::toResponseDTO)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with uuid: " + uuid));
+    }
 
     @Transactional
     public AlertResponseDTO createAlert(AlertRequestDTO request) {
-        AlertType alertType = alertTypeRepository.findById(request.getAlertTypeId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Alert type not found with id: " + request.getAlertTypeId()
-                ));
+        AlertType type = resolveAlertType(request.getAlertTypeId());
 
         Alert alert = Alert.builder()
-                .alertType(alertType)
+                .uuid(UUID.randomUUID().toString())
+                .alertType(type)
                 .title(request.getTitle())
+                .titleSi(request.getTitleSi())
+                .titleTa(request.getTitleTa())
                 .message(request.getMessage())
+                .messageSi(request.getMessageSi())
+                .messageTa(request.getMessageTa())
                 .severity(request.getSeverity())
-                .status(request.getStatus() == null ? Alert.AlertStatus.draft : request.getStatus())
-                .damId(request.getDamId())
+                .source(request.getSource() != null ? request.getSource() : Alert.AlertSource.manual)
+                .sourceSystem(request.getSourceSystem())
+                .scope(request.getScope() != null ? request.getScope() : Alert.AlertScope.regional)
                 .regionId(request.getRegionId())
+                .damId(request.getDamId())
+                .hazardZoneId(request.getHazardZoneId())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .radiusKm(request.getRadiusKm())
+                .hazardLevelId(request.getHazardLevelId())
+                .riskScore(request.getRiskScore())
+                .imageUrl(request.getImageUrl())
+                .actionRequired(request.getActionRequired())
+                .actionRequiredSi(request.getActionRequiredSi())
+                .instructions(request.getInstructions())
+                .instructionsSi(request.getInstructionsSi())
+                .status(request.getStatus() != null ? request.getStatus() : Alert.AlertStatus.draft)
+                .issuedAt(resolveIssuedAt(request))
+                .effectiveFrom(request.getEffectiveFrom())
+                .expiresAt(request.getExpiresAt())
+                .simulationMode(request.isSimulationMode())
                 .build();
 
         Alert saved = alertRepository.save(alert);
-        recordAudit("ALERT_CREATED", saved.getId(),
-                "Alert created with status=" + saved.getStatus() + ", severity=" + saved.getSeverity());
+        recordAudit("ALERT_CREATED", saved.getId(), "Created alert: " + saved.getTitle());
         return toResponseDTO(saved);
     }
 
-    @Transactional(readOnly = true)
-    public List<AlertResponseDTO> getAllActiveAlerts() {
-        return alertRepository.findByStatus(Alert.AlertStatus.active)
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<AlertResponseDTO> getActiveAlertsByDamId(Long damId) {
-        return alertRepository.findActiveAlertsByDamId(damId)
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<AlertResponseDTO> searchAlerts(Alert.AlertStatus status,
-                                               AlertType.AlertSeverity severity,
-                                               Long regionId) {
-        return alertRepository.searchAlerts(status, severity, regionId)
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
-    }
-
     @Transactional
-    public AlertResponseDTO updateAlertStatus(Long alertId, Alert.AlertStatus newStatus) {
-        Alert alert = alertRepository.findById(alertId)
-                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + alertId));
+    public AlertResponseDTO updateAlert(Long id, AlertRequestDTO request) {
+        Alert alert = alertRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + id));
 
-        alert.setStatus(newStatus);
+        alert.setAlertType(resolveAlertType(request.getAlertTypeId()));
+        alert.setTitle(request.getTitle());
+        alert.setTitleSi(request.getTitleSi());
+        alert.setTitleTa(request.getTitleTa());
+        alert.setMessage(request.getMessage());
+        alert.setMessageSi(request.getMessageSi());
+        alert.setMessageTa(request.getMessageTa());
+        alert.setSeverity(request.getSeverity());
+        alert.setSource(request.getSource());
+        alert.setSourceSystem(request.getSourceSystem());
+        alert.setScope(request.getScope());
+        alert.setRegionId(request.getRegionId());
+        alert.setDamId(request.getDamId());
+        alert.setHazardZoneId(request.getHazardZoneId());
+        alert.setLatitude(request.getLatitude());
+        alert.setLongitude(request.getLongitude());
+        alert.setRadiusKm(request.getRadiusKm());
+        alert.setHazardLevelId(request.getHazardLevelId());
+        alert.setRiskScore(request.getRiskScore());
+        alert.setImageUrl(request.getImageUrl());
+        alert.setActionRequired(request.getActionRequired());
+        alert.setActionRequiredSi(request.getActionRequiredSi());
+        alert.setInstructions(request.getInstructions());
+        alert.setInstructionsSi(request.getInstructionsSi());
+        alert.setStatus(request.getStatus());
+        alert.setIssuedAt(request.getIssuedAt());
+        alert.setExpiresAt(request.getExpiresAt());
+        alert.setSimulationMode(request.isSimulationMode());
+
         Alert updated = alertRepository.save(alert);
-        recordAudit("ALERT_STATUS_UPDATED", alertId, "Status changed to " + newStatus);
+        recordAudit("ALERT_UPDATED", id, "Updated alert content");
         return toResponseDTO(updated);
     }
 
-    // -------------------------------------------------------------------------
-    // Admin Dashboard – Analytics
-    // -------------------------------------------------------------------------
+    @Transactional
+    public void resolveAlert(Long id, String notes) {
+        Alert alert = alertRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + id));
+        alert.setStatus(Alert.AlertStatus.resolved);
+        alert.setResolvedAt(LocalDateTime.now());
+        alert.setResolutionNotes(notes);
+        alertRepository.save(alert);
+        recordAudit("ALERT_RESOLVED", id, "Reason: " + notes);
+    }
 
-    /**
-     * Returns aggregated metrics for the Admin Dashboard overview panel.
-     * Includes total count, active/resolved totals, active-per-dam map, and
-     * per-dam resolution rate.
-     */
+    @Transactional
+    public void escalateAlert(Long id, String reason) {
+        Alert alert = alertRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + id));
+        AlertType.AlertSeverity nextSeverity = bumpSeverity(alert.getSeverity());
+        alert.setSeverity(nextSeverity);
+        alert.setStatus(Alert.AlertStatus.escalated);
+        alertRepository.save(alert);
+        recordAudit("ALERT_ESCALATED", id, "New severity: " + nextSeverity + ". Reason: " + reason);
+    }
+
+    @Transactional
+    public void cancelAlert(Long id) {
+        Alert alert = alertRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + id));
+        alert.setStatus(Alert.AlertStatus.cancelled);
+        alertRepository.save(alert);
+        recordAudit("ALERT_CANCELLED", id, "Manual cancellation");
+    }
+
+    @Transactional
+    public void updateStatus(Long id, Alert.AlertStatus status) {
+        Alert alert = alertRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + id));
+        Alert.AlertStatus oldStatus = alert.getStatus();
+        alert.setStatus(status);
+        alertRepository.save(alert);
+        recordAudit("STATUS_CHANGED", id, "Changed from " + oldStatus + " to " + status);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AlertResponseDTO> getAllAlertsList() {
+        return alertRepository.findAll(Sort.by("issuedAt").descending()).stream()
+                .map(this::toResponseDTO)
+                .toList();
+    }
+
+    // =========================================================================
+    // Analytics
+    // =========================================================================
+
     @Transactional(readOnly = true)
     public AlertAnalyticsResponseDTO getAlertAnalytics() {
-        long totalAlerts  = alertRepository.count();
-        long totalActive  = alertRepository.countByStatus(Alert.AlertStatus.active);
-        long totalResolved = alertRepository.countByStatus(Alert.AlertStatus.resolved);
+        long totalAlerts = alertRepository.count();
+        
+        Map<String, Long> byStatus = alertRepository.countByStatus().stream()
+                .collect(Collectors.toMap(row -> ((Alert.AlertStatus)row[0]).name(), row -> (Long)row[1]));
+        
+        Map<String, Long> bySeverity = alertRepository.countBySeverity().stream()
+                .collect(Collectors.toMap(row -> ((AlertType.AlertSeverity)row[0]).name(), row -> (Long)row[1]));
 
-        // Build active-alerts-per-dam map
-        List<Alert> activeAlerts = alertRepository.findByStatus(Alert.AlertStatus.active);
-        Map<Long, Long> activeAlertsByDam = activeAlerts.stream()
-                .filter(a -> a.getDamId() != null)
-                .collect(Collectors.groupingBy(Alert::getDamId, Collectors.counting()));
+        Map<String, Long> byCategory = alertRepository.countByCategory().stream()
+                .collect(Collectors.toMap(row -> ((AlertType.AlertCategory)row[0]).name(), row -> (Long)row[1]));
 
-        // Compute resolution rate per dam  (resolved / (resolved + active))
-        List<Alert> resolvedAlerts = alertRepository.findByStatus(Alert.AlertStatus.resolved);
-        Map<Long, Long> resolvedByDam = resolvedAlerts.stream()
-                .filter(a -> a.getDamId() != null)
-                .collect(Collectors.groupingBy(Alert::getDamId, Collectors.counting()));
+        Map<Long, Long> activeByDam = alertRepository.countActiveAlertsByDam().stream()
+                .filter(row -> row[0] != null)
+                .collect(Collectors.toMap(row -> (Long)row[0], row -> (Long)row[1]));
 
-        // Collect all dam IDs present in either map
-        Map<Long, Double> resolutionRateByDam = new HashMap<>();
-        for (Long damId : resolvedByDam.keySet()) {
-            long resolved = resolvedByDam.getOrDefault(damId, 0L);
-            long active   = activeAlertsByDam.getOrDefault(damId, 0L);
-            long total    = resolved + active;
-            resolutionRateByDam.put(damId, total == 0 ? 0.0 : (double) resolved / total);
-        }
+        long totalActive = byStatus.getOrDefault("active", 0L) + byStatus.getOrDefault("escalated", 0L);
+        long totalResolved = byStatus.getOrDefault("resolved", 0L);
 
         return AlertAnalyticsResponseDTO.builder()
                 .totalAlerts(totalAlerts)
                 .totalActive(totalActive)
                 .totalResolved(totalResolved)
-                .activeAlertsByDam(activeAlertsByDam)
-                .resolutionRateByDam(resolutionRateByDam)
+                .totalEscalated(byStatus.getOrDefault("escalated", 0L))
+                .totalExpired(byStatus.getOrDefault("expired", 0L))
+                .totalCancelled(byStatus.getOrDefault("cancelled", 0L))
+                .totalDraft(byStatus.getOrDefault("draft", 0L))
+                .activeAlertsByDam(activeByDam)
+                .bySeverity(bySeverity)
+                .byStatus(byStatus)
+                .byCategory(byCategory)
                 .build();
     }
 
-    // -------------------------------------------------------------------------
-    // Admin Dashboard – Regional Targeting
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Alert Type Management
+    // =========================================================================
 
-    /**
-     * Broadcasts an alert targeted exclusively to a specific region.
-     * People outside that region will NOT receive this alert.
-     */
+    @Transactional(readOnly = true)
+    public List<AlertTypeResponseDTO> getAllAlertTypes() {
+        return alertTypeRepository.findAllByOrderByDisplayOrderAsc().stream()
+                .map(this::toAlertTypeResponseDTO)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AlertTypeResponseDTO> getActiveAlertTypes() {
+        return alertTypeRepository.findByActiveTrue().stream()
+                .map(this::toAlertTypeResponseDTO)
+                .toList();
+    }
+
     @Transactional
-    public AlertResponseDTO broadcastToRegion(Long regionId, BroadcastRegionRequestDTO request) {
-        AlertType alertType = alertTypeRepository.findById(request.getAlertTypeId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Alert type not found with id: " + request.getAlertTypeId()
-                ));
-
-        Alert alert = Alert.builder()
-                .alertType(alertType)
-                .title(request.getTitle())
-                .message(request.getMessage())
+    public AlertTypeResponseDTO createAlertType(AlertTypeRequestDTO request) {
+        if (alertTypeRepository.existsByCode(request.getCode())) {
+            throw new IllegalArgumentException("Code already exists: " + request.getCode());
+        }
+        AlertType type = AlertType.builder()
+                .code(request.getCode())
+                .name(request.getName())
+                .nameSi(request.getNameSi())
+                .nameTa(request.getNameTa())
+                .description(request.getDescription())
+                .category(request.getCategory())
                 .severity(request.getSeverity())
-                .status(Alert.AlertStatus.active)
-                .regionId(regionId)
-                .damId(request.getDamId())
+                .icon(request.getIcon())
+                .color(request.getColor())
+                .sound(request.getSound())
+                .acknowledgmentRequired(request.isAcknowledgmentRequired())
+                .autoExpireHours(request.getAutoExpireHours())
+                .titleTemplate(request.getTitleTemplate())
+                .titleTemplateSi(request.getTitleTemplateSi())
+                .bodyTemplate(request.getBodyTemplate())
+                .bodyTemplateSi(request.getBodyTemplateSi())
+                .active(request.isActive())
+                .displayOrder(request.getDisplayOrder())
                 .build();
-
-        Alert saved = alertRepository.save(alert);
-        recordAudit("REGIONAL_BROADCAST", saved.getId(),
-                "Regional broadcast to regionId=" + regionId + ", severity=" + request.getSeverity());
-        return toResponseDTO(saved);
+        return toAlertTypeResponseDTO(alertTypeRepository.save(type));
     }
 
-    // -------------------------------------------------------------------------
-    // Admin Dashboard – Emergency Override
-    // -------------------------------------------------------------------------
-
-    /**
-     * High-priority emergency broadcast that bypasses standard queues.
-     * Forces severity=emergency and status=active regardless of the request payload.
-     * Intended for imminent dam-breach scenarios.
-     */
     @Transactional
-    public AlertResponseDTO emergencyBroadcast(AlertRequestDTO request) {
-        AlertType alertType = alertTypeRepository.findById(request.getAlertTypeId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Alert type not found with id: " + request.getAlertTypeId()
-                ));
+    public AlertTypeResponseDTO updateAlertType(Long id, AlertTypeRequestDTO request) {
+        AlertType type = alertTypeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert type not found: " + id));
+        
+        type.setName(request.getName());
+        type.setNameSi(request.getNameSi());
+        type.setNameTa(request.getNameTa());
+        type.setDescription(request.getDescription());
+        type.setCategory(request.getCategory());
+        type.setSeverity(request.getSeverity());
+        type.setIcon(request.getIcon());
+        type.setColor(request.getColor());
+        type.setSound(request.getSound());
+        type.setAcknowledgmentRequired(request.isAcknowledgmentRequired());
+        type.setAutoExpireHours(request.getAutoExpireHours());
+        type.setTitleTemplate(request.getTitleTemplate());
+        type.setTitleTemplateSi(request.getTitleTemplateSi());
+        type.setBodyTemplate(request.getBodyTemplate());
+        type.setBodyTemplateSi(request.getBodyTemplateSi());
+        type.setActive(request.isActive());
+        type.setDisplayOrder(request.getDisplayOrder());
 
-        // Force emergency settings — override any payload values
-        Alert alert = Alert.builder()
-                .alertType(alertType)
-                .title(request.getTitle())
-                .message(request.getMessage())
-                .severity(AlertType.AlertSeverity.emergency)   // always overridden
-                .status(Alert.AlertStatus.active)              // always active
-                .damId(request.getDamId())
-                .regionId(request.getRegionId())
-                .build();
-
-        Alert saved = alertRepository.save(alert);
-        recordAudit("EMERGENCY_OVERRIDE", saved.getId(),
-                "Emergency override broadcast. damId=" + saved.getDamId()
-                        + ", regionId=" + saved.getRegionId());
-        log.warn("EMERGENCY_OVERRIDE alert persisted. alertId={}, damId={}, regionId={}",
-                saved.getId(), saved.getDamId(), saved.getRegionId());
-        return toResponseDTO(saved);
+        return toAlertTypeResponseDTO(alertTypeRepository.save(type));
     }
 
-    // -------------------------------------------------------------------------
-    // Admin Dashboard – Simulation Mode
-    // -------------------------------------------------------------------------
-
-    /**
-     * Toggles the simulation flag on an alert.
-     * When simulationMode=true the mobile app must suppress real emergency UI
-     * and display only a drill indicator.
-     */
     @Transactional
-    public AlertResponseDTO toggleSimulationMode(Long alertId, boolean enable) {
-        Alert alert = alertRepository.findById(alertId)
-                .orElseThrow(() -> new ResourceNotFoundException("Alert not found with id: " + alertId));
-
-        alert.setSimulationMode(enable);
-        Alert updated = alertRepository.save(alert);
-        recordAudit("SIMULATION_TOGGLED", alertId,
-                "Simulation mode set to " + enable);
-        return toResponseDTO(updated);
+    public void deleteAlertType(Long id) {
+        AlertType type = alertTypeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert type not found: " + id));
+        type.setActive(false); // Soft delete
+        alertTypeRepository.save(type);
     }
 
-    // -------------------------------------------------------------------------
-    // Admin Dashboard – Bulk Operations
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Helpers & Mappers
+    // =========================================================================
 
-    /**
-     * Resolves all active alerts matching the given criteria (damId and/or severity).
-     * At least one filter must be present.
-     */
-    @Transactional
-    public List<AlertResponseDTO> bulkResolve(BulkAlertActionRequestDTO criteria) {
-        validateBulkCriteria(criteria);
-
-        List<Alert> targets = alertRepository.findActiveAlertsForBulkAction(
-                criteria.getDamId(), criteria.getSeverity());
-
-        List<Alert> resolved = targets.stream()
-                .peek(a -> a.setStatus(Alert.AlertStatus.resolved))
-                .toList();
-
-        alertRepository.saveAll(resolved);
-        recordAudit("BULK_RESOLVE", null,
-                "Bulk resolved " + resolved.size() + " alerts. damId=" + criteria.getDamId()
-                        + ", severity=" + criteria.getSeverity());
-
-        return resolved.stream().map(this::toResponseDTO).toList();
+    private AlertType resolveAlertType(Long id) {
+        return alertTypeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Alert type not found with id: " + id));
     }
 
-    /**
-     * Escalates all active alerts matching the given criteria (damId and/or severity).
-     * At least one filter must be present.
-     */
-    @Transactional
-    public List<AlertResponseDTO> bulkEscalate(BulkAlertActionRequestDTO criteria) {
-        validateBulkCriteria(criteria);
-
-        List<Alert> targets = alertRepository.findActiveAlertsForBulkAction(
-                criteria.getDamId(), criteria.getSeverity());
-
-        List<Alert> escalated = targets.stream()
-                .peek(a -> a.setStatus(Alert.AlertStatus.escalated))
-                .toList();
-
-        alertRepository.saveAll(escalated);
-        recordAudit("BULK_ESCALATE", null,
-                "Bulk escalated " + escalated.size() + " alerts. damId=" + criteria.getDamId()
-                        + ", severity=" + criteria.getSeverity());
-
-        return escalated.stream().map(this::toResponseDTO).toList();
+    private LocalDateTime resolveIssuedAt(AlertRequestDTO request) {
+        if (request.getIssuedAt() != null) return request.getIssuedAt();
+        if (request.getStatus() == Alert.AlertStatus.active) return LocalDateTime.now();
+        return null;
     }
 
-    // -------------------------------------------------------------------------
-    // Audit & Traceability Helpers
-    // -------------------------------------------------------------------------
+    private AlertType.AlertSeverity bumpSeverity(AlertType.AlertSeverity current) {
+        return switch (current) {
+            case info -> AlertType.AlertSeverity.warning;
+            case warning -> AlertType.AlertSeverity.critical;
+            case critical -> AlertType.AlertSeverity.emergency;
+            case emergency -> AlertType.AlertSeverity.emergency;
+        };
+    }
 
-    /**
-     * Records an audit log entry attributed to the currently authenticated admin.
-     * Gracefully falls back to "system" if there is no security context (e.g. tests).
-     *
-     * @param action   Short action code (e.g. "ALERT_CREATED")
-     * @param alertId  The affected alert ID (may be null for bulk ops spanning multiple alerts)
-     * @param detail   Human-readable detail string for the audit record
-     */
     private void recordAudit(String action, Long alertId, String detail) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String adminEmail = "system";
-            Long adminId = null;
-
-            if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof UserDetails userDetails) {
-                adminEmail = userDetails.getUsername();
-                // If your UserDetails implementation exposes an id, extract it here.
-                // For now we keep adminId null and rely on adminEmail for traceability.
-            }
-
-            AlertAuditLog entry = AlertAuditLog.builder()
+            String email = "system";
+            if (auth != null && auth.getPrincipal() instanceof UserDetails ud) email = ud.getUsername();
+            
+            alertAuditLogRepository.save(AlertAuditLog.builder()
                     .alertId(alertId)
-                    .adminId(adminId)
-                    .adminEmail(adminEmail)
+                    .adminEmail(email)
                     .action(action)
                     .detail(detail)
-                    .build();
-
-            alertAuditLogRepository.save(entry);
-            log.info("AUDIT action={} alertId={} admin={} detail={}", action, alertId, adminEmail, detail);
-
-        } catch (Exception ex) {
-            // Audit failures must never break the main operation
-            log.error("Failed to persist audit log for action={}: {}", action, ex.getMessage(), ex);
+                    .build());
+        } catch (Exception e) {
+            log.error("Audit fail", e);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Mapper
-    // -------------------------------------------------------------------------
 
     private AlertResponseDTO toResponseDTO(Alert alert) {
         return AlertResponseDTO.builder()
                 .id(alert.getId())
                 .uuid(alert.getUuid())
                 .alertTypeId(alert.getAlertType().getId())
+                .alertTypeCode(alert.getAlertType().getCode())
                 .alertTypeName(alert.getAlertType().getName())
+                .alertTypeCategory(alert.getAlertType().getCategory())
+                .alertTypeIcon(alert.getAlertType().getIcon())
+                .alertTypeColor(alert.getAlertType().getColor())
                 .title(alert.getTitle())
+                .titleSi(alert.getTitleSi())
+                .titleTa(alert.getTitleTa())
                 .message(alert.getMessage())
+                .messageSi(alert.getMessageSi())
+                .messageTa(alert.getMessageTa())
                 .severity(alert.getSeverity())
-                .status(alert.getStatus())
-                .damId(alert.getDamId())
+                .source(alert.getSource())
+                .sourceSystem(alert.getSourceSystem())
+                .scope(alert.getScope())
                 .regionId(alert.getRegionId())
+                .damId(alert.getDamId())
+                .hazardZoneId(alert.getHazardZoneId())
+                .latitude(alert.getLatitude())
+                .longitude(alert.getLongitude())
+                .radiusKm(alert.getRadiusKm())
+                .hazardLevelId(alert.getHazardLevelId())
+                .riskScore(alert.getRiskScore())
+                .imageUrl(alert.getImageUrl())
+                .actionRequired(alert.getActionRequired())
+                .actionRequiredSi(alert.getActionRequiredSi())
+                .instructions(alert.getInstructions())
+                .instructionsSi(alert.getInstructionsSi())
+                .status(alert.getStatus())
+                .recipientCount(alert.getRecipientCount())
+                .deliveredCount(alert.getDeliveredCount())
+                .readCount(alert.getReadCount())
+                .acknowledgedCount(alert.getAcknowledgedCount())
                 .simulationMode(alert.isSimulationMode())
+                .issuedAt(alert.getIssuedAt())
+                .effectiveFrom(alert.getEffectiveFrom())
+                .expiresAt(alert.getExpiresAt())
+                .resolvedAt(alert.getResolvedAt())
+                .resolutionNotes(alert.getResolutionNotes())
+                .resolvedBy(alert.getResolvedBy())
+                .createdBy(alert.getCreatedBy())
+                .updatedBy(alert.getUpdatedBy())
                 .createdAt(alert.getCreatedAt())
                 .updatedAt(alert.getUpdatedAt())
                 .build();
     }
 
-    // -------------------------------------------------------------------------
-    // Validation Helpers
-    // -------------------------------------------------------------------------
-
-    private void validateBulkCriteria(BulkAlertActionRequestDTO criteria) {
-        if (criteria.getDamId() == null && criteria.getSeverity() == null) {
-            throw new IllegalArgumentException(
-                    "At least one of 'damId' or 'severity' must be provided for bulk operations.");
-        }
+    private AlertTypeResponseDTO toAlertTypeResponseDTO(AlertType type) {
+        return AlertTypeResponseDTO.builder()
+                .id(type.getId())
+                .code(type.getCode())
+                .name(type.getName())
+                .nameSi(type.getNameSi())
+                .nameTa(type.getNameTa())
+                .description(type.getDescription())
+                .category(type.getCategory())
+                .severity(type.getSeverity())
+                .icon(type.getIcon())
+                .color(type.getColor())
+                .sound(type.getSound())
+                .acknowledgmentRequired(type.isAcknowledgmentRequired())
+                .autoExpireHours(type.getAutoExpireHours())
+                .titleTemplate(type.getTitleTemplate())
+                .titleTemplateSi(type.getTitleTemplateSi())
+                .bodyTemplate(type.getBodyTemplate())
+                .bodyTemplateSi(type.getBodyTemplateSi())
+                .active(type.isActive())
+                .displayOrder(type.getDisplayOrder())
+                .createdAt(type.getCreatedAt())
+                .updatedAt(type.getUpdatedAt())
+                .build();
     }
 }

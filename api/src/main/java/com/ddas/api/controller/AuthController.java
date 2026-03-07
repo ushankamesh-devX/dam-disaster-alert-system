@@ -33,8 +33,8 @@ public class AuthController {
     }
 
     @GetMapping("/test")
-    public ResponseEntity<ApiResponse<String>> test() {
-        return ResponseEntity.ok(ApiResponse.success("Authentication module is working!"));
+    public ResponseEntity<ApiResponse<Void>> test() {
+        return ResponseEntity.ok(ApiResponse.message("Authentication module is working!"));
     }
 }
 

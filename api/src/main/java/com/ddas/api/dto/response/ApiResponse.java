@@ -7,6 +7,12 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Standard API Response wrapper.
+ * Handles both data payloads and simple status messages.
+ * 
+ * @param <T> The type of data contained in the response.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,15 +24,16 @@ public class ApiResponse<T> {
     private T data;
     private LocalDateTime timestamp;
 
+    /**
+     * Use when returning data with a default success message.
+     */
     public static <T> ApiResponse<T> success(T data) {
-        return ApiResponse.<T>builder()
-                .success(true)
-                .message("Operation successful")
-                .data(data)
-                .timestamp(LocalDateTime.now())
-                .build();
+        return success("Operation successful", data);
     }
 
+    /**
+     * Use when returning data with a custom success message.
+     */
     public static <T> ApiResponse<T> success(String message, T data) {
         return ApiResponse.<T>builder()
                 .success(true)
@@ -36,6 +43,22 @@ public class ApiResponse<T> {
                 .build();
     }
 
+    /**
+     * Use when returning ONLY a success message (no data).
+     * This avoids type inference conflicts with data-only success methods.
+     */
+    public static ApiResponse<Void> message(String message) {
+        return ApiResponse.<Void>builder()
+                .success(true)
+                .message(message)
+                .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    /**
+     * Error response with custom message.
+     */
     public static <T> ApiResponse<T> error(String message) {
         return ApiResponse.<T>builder()
                 .success(false)
@@ -44,4 +67,3 @@ public class ApiResponse<T> {
                 .build();
     }
 }
-

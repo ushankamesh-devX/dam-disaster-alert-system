@@ -12,24 +12,34 @@ import java.util.Map;
 @Builder
 public class AlertAnalyticsResponseDTO {
 
-    /** Total number of alerts ever created (all statuses). */
+    /** Total alerts created. */
     private long totalAlerts;
 
-    /** Currently active (live) alert count. */
+    /** Currently active. */
     private long totalActive;
 
-    /** Total alerts that have been resolved. */
+    /** Total resolved. */
     private long totalResolved;
 
-    /**
-     * Active alert count keyed by damId.
-     * Example: { 1: 3, 2: 0, 5: 1 }
-     */
-    private Map<Long, Long> activeAlertsByDam;
+    /** Total escalated. */
+    private long totalEscalated;
+
+    /** Total expired. */
+    private long totalExpired;
+
+    /** Total cancelled. */
+    private long totalCancelled;
+
+    /** Total draft. */
+    private long totalDraft;
 
     /**
-     * Resolution rate (0.0–1.0) per dam — resolved / total for that dam.
-     * Example: { 1: 0.75, 2: 1.0 }
+     * Breakdown maps for charts.
      */
+    private Map<Long, Long> activeAlertsByDam;
     private Map<Long, Double> resolutionRateByDam;
+    
+    private Map<String, Long> bySeverity;
+    private Map<String, Long> byStatus;
+    private Map<String, Long> byCategory;
 }

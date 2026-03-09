@@ -28,4 +28,12 @@ tests {
     expect(data.success).to.equal(true);
     expect(data.data.status).to.equal('ok');
   });
+
+  test("Response includes sensor config", function() {
+    const data = res.getBody();
+    expect(data.data).to.have.property('readingIntervalSeconds');
+    expect(data.data).to.have.property('sensorId');
+    expect(data.data).to.have.property('sensorUid');
+    expect(data.data).to.have.property('sensorStatus');
+  });
 }

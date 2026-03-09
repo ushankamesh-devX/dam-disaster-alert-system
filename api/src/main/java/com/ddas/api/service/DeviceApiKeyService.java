@@ -5,6 +5,7 @@ import com.ddas.api.dto.request.CreateSensorReadingRequest;
 import com.ddas.api.dto.request.DeviceReadingRequest;
 import com.ddas.api.dto.response.DeviceApiKeyCreatedResponse;
 import com.ddas.api.dto.response.DeviceApiKeyResponse;
+import com.ddas.api.dto.response.DeviceReadingResponse;
 import com.ddas.api.dto.response.SensorReadingResponse;
 import com.ddas.api.entity.DeviceApiKey;
 import com.ddas.api.entity.Sensor;
@@ -39,6 +40,7 @@ public class DeviceApiKeyService {
     private final SensorRepository sensorRepository;
     private final UserRepository userRepository;
     private final SensorService sensorService;
+    private final SensorReadingBuffer readingBuffer;
 
     private static final String KEY_PREFIX = "ddasdk_";
     private static final int KEY_LENGTH = 48; // bytes before base64
@@ -228,9 +230,14 @@ public class DeviceApiKeyService {
 
     /**
      * Submit a sensor reading from a device.
+     * The reading is buffered in memory. When the sensor's readingIntervalSeconds
+     * has elapsed since the last saved reading, the buffer is flushed and the
+     * mean value is saved to the database.
+     *
+     * Battery level, signal strength, and status are always updated immediately.
      */
     @Transactional
-    public SensorReadingResponse submitReading(String rawApiKey, DeviceReadingRequest request) {
+    public DeviceReadingResponse submitReading(String rawApiKey, DeviceReadingRequest request) {
         DeviceApiKey key = validateApiKey(rawApiKey);
         Sensor sensor = key.getSensor();
 
@@ -239,69 +246,221 @@ public class DeviceApiKeyService {
             throw new ForbiddenException("API key is not authorized for sensor id: " + request.getSensorId());
         }
 
-        // Convert to the existing CreateSensorReadingRequest
-        CreateSensorReadingRequest readingRequest = CreateSensorReadingRequest.builder()
-                .sensorId(sensor.getId())
-                .readingValue(request.getReadingValue())
-                .unit(request.getUnit())
-                .quality(request.getQuality() != null
-                        ? SensorReading.ReadingQuality.valueOf(request.getQuality())
-                        : null)
-                .recordedAt(request.getRecordedAt())
-                .build();
+        // Always update metadata immediately (battery, signal, status)
+        updateSensorMetadata(sensor, request);
 
-        // Use existing SensorService to save reading
-        SensorReadingResponse response = sensorService.createReading(readingRequest);
-
-        // Update last used timestamp (async-safe)
+        // Update last used timestamp
         deviceApiKeyRepository.updateLastUsedAt(key.getId(), LocalDateTime.now());
 
-        log.debug("Device reading submitted via API key {}: sensor={}, value={}",
-                key.getKeyPrefix(), sensor.getSensorUid(), request.getReadingValue());
+        // Determine the quality string
+        String quality = request.getQuality() != null ? request.getQuality() : "good";
 
-        return response;
+        // Buffer the reading value
+        readingBuffer.addReading(sensor.getId(), request.getReadingValue(), request.getUnit(), quality);
+
+        // Get the sensor's configured interval (default 300s if not set)
+        int intervalSeconds = sensor.getReadingIntervalSeconds() != null
+                ? sensor.getReadingIntervalSeconds() : 300;
+
+        // Check if we should flush the buffer (interval elapsed)
+        if (readingBuffer.shouldFlush(sensor.getId(), intervalSeconds, sensor.getLastReadingAt())) {
+            return flushAndSave(sensor, intervalSeconds);
+        }
+
+        // Reading buffered, not yet saved
+        int bufferSize = readingBuffer.getBufferSize(sensor.getId());
+        log.debug("Reading buffered for sensor {} (buffer size: {}, interval: {}s)",
+                sensor.getSensorUid(), bufferSize, intervalSeconds);
+
+        return DeviceReadingResponse.builder()
+                .saved(false)
+                .message("Reading buffered (" + bufferSize + " readings waiting for interval)")
+                .bufferSize(bufferSize)
+                .readingIntervalSeconds(intervalSeconds)
+                .build();
     }
 
     /**
      * Submit batch readings from a device.
+     * All readings are buffered; if the interval has elapsed, the mean is saved.
      */
     @Transactional
-    public List<SensorReadingResponse> submitBatchReadings(String rawApiKey, List<DeviceReadingRequest> requests) {
+    public DeviceReadingResponse submitBatchReadings(String rawApiKey, List<DeviceReadingRequest> requests) {
         if (requests == null || requests.isEmpty()) {
             throw new BadRequestException("At least one reading is required");
         }
 
         DeviceApiKey key = validateApiKey(rawApiKey);
+        Sensor sensor = key.getSensor();
 
         log.info("Device batch submission via API key {}: {} readings",
                 key.getKeyPrefix(), requests.size());
 
-        return requests.stream()
-                .map(request -> submitSingleReading(key, request))
-                .toList();
-    }
+        // Buffer all readings and update metadata from the latest one
+        DeviceReadingRequest lastRequest = null;
+        for (DeviceReadingRequest request : requests) {
+            if (request.getSensorId() != null && !request.getSensorId().equals(sensor.getId())) {
+                throw new ForbiddenException("API key is not authorized for sensor id: " + request.getSensorId());
+            }
 
-    private SensorReadingResponse submitSingleReading(DeviceApiKey key, DeviceReadingRequest request) {
-        Sensor sensor = key.getSensor();
-
-        if (request.getSensorId() != null && !request.getSensorId().equals(sensor.getId())) {
-            throw new ForbiddenException("API key is not authorized for sensor id: " + request.getSensorId());
+            String quality = request.getQuality() != null ? request.getQuality() : "good";
+            readingBuffer.addReading(sensor.getId(), request.getReadingValue(), request.getUnit(), quality);
+            lastRequest = request;
         }
 
-        CreateSensorReadingRequest readingRequest = CreateSensorReadingRequest.builder()
-                .sensorId(sensor.getId())
-                .readingValue(request.getReadingValue())
-                .unit(request.getUnit())
-                .quality(request.getQuality() != null
-                        ? SensorReading.ReadingQuality.valueOf(request.getQuality())
-                        : null)
-                .recordedAt(request.getRecordedAt())
-                .build();
+        // Update metadata from the last reading in the batch
+        if (lastRequest != null) {
+            updateSensorMetadata(sensor, lastRequest);
+        }
 
-        SensorReadingResponse response = sensorService.createReading(readingRequest);
+        // Update last used timestamp
         deviceApiKeyRepository.updateLastUsedAt(key.getId(), LocalDateTime.now());
 
-        return response;
+        // Get the sensor's configured interval
+        int intervalSeconds = sensor.getReadingIntervalSeconds() != null
+                ? sensor.getReadingIntervalSeconds() : 300;
+
+        // Check if we should flush
+        if (readingBuffer.shouldFlush(sensor.getId(), intervalSeconds, sensor.getLastReadingAt())) {
+            return flushAndSave(sensor, intervalSeconds);
+        }
+
+        int bufferSize = readingBuffer.getBufferSize(sensor.getId());
+        return DeviceReadingResponse.builder()
+                .saved(false)
+                .message(requests.size() + " readings buffered (" + bufferSize + " total waiting)")
+                .bufferSize(bufferSize)
+                .readingIntervalSeconds(intervalSeconds)
+                .build();
+    }
+
+    // ============== BUFFER FLUSH ==============
+
+    /**
+     * Flush the reading buffer for a sensor, compute mean, and save to database.
+     * Called when the configured interval has elapsed.
+     *
+     * @param sensor          the sensor entity
+     * @param intervalSeconds the configured interval
+     * @return response with saved reading details
+     */
+    @Transactional
+    public DeviceReadingResponse flushAndSave(Sensor sensor, int intervalSeconds) {
+        SensorReadingBuffer.FlushResult result = readingBuffer.flush(sensor.getId());
+
+        if (result == null) {
+            log.warn("Flush called for sensor {} but buffer was empty", sensor.getSensorUid());
+            return DeviceReadingResponse.builder()
+                    .saved(false)
+                    .message("Buffer was empty, nothing to save")
+                    .bufferSize(0)
+                    .readingIntervalSeconds(intervalSeconds)
+                    .build();
+        }
+
+        // Determine quality — if any reading was suspect/bad, mark the mean as suspect
+        SensorReading.ReadingQuality quality;
+        try {
+            quality = result.quality() != null
+                    ? SensorReading.ReadingQuality.valueOf(result.quality())
+                    : SensorReading.ReadingQuality.good;
+        } catch (IllegalArgumentException e) {
+            quality = SensorReading.ReadingQuality.good;
+        }
+
+        // Save the mean value as a sensor reading
+        CreateSensorReadingRequest readingRequest = CreateSensorReadingRequest.builder()
+                .sensorId(sensor.getId())
+                .readingValue(result.meanValue())
+                .unit(result.unit())
+                .quality(quality)
+                .recordedAt(result.lastReadingAt())
+                .build();
+
+        SensorReadingResponse savedReading = sensorService.createReading(readingRequest);
+
+        log.info("Saved mean reading for sensor {}: mean={}, count={}, min={}, max={}, interval={}s",
+                sensor.getSensorUid(), result.meanValue(), result.readingCount(),
+                result.minValue(), result.maxValue(), intervalSeconds);
+
+        return DeviceReadingResponse.builder()
+                .saved(true)
+                .message("Mean of " + result.readingCount() + " readings saved")
+                .bufferSize(0)
+                .readingIntervalSeconds(intervalSeconds)
+                .savedReading(DeviceReadingResponse.SavedReading.builder()
+                        .id(savedReading.getId())
+                        .meanValue(result.meanValue())
+                        .minValue(result.minValue())
+                        .maxValue(result.maxValue())
+                        .readingCount(result.readingCount())
+                        .unit(result.unit())
+                        .recordedAt(savedReading.getRecordedAt())
+                        .build())
+                .build();
+    }
+
+    /**
+     * Force-flush a sensor's buffer. Used by the stale buffer scheduler.
+     *
+     * @param sensorId the sensor ID to flush
+     * @return the DeviceReadingResponse or null if sensor not found
+     */
+    @Transactional
+    public DeviceReadingResponse forceFlush(Long sensorId) {
+        Sensor sensor = sensorRepository.findById(sensorId).orElse(null);
+        if (sensor == null) {
+            log.warn("Force flush: sensor {} not found, removing buffer", sensorId);
+            readingBuffer.removeBuffer(sensorId);
+            return null;
+        }
+
+        int intervalSeconds = sensor.getReadingIntervalSeconds() != null
+                ? sensor.getReadingIntervalSeconds() : 300;
+
+        return flushAndSave(sensor, intervalSeconds);
+    }
+
+    /**
+     * Get the sensor configuration for a device (used by /ping).
+     */
+    @Transactional(readOnly = true)
+    public Sensor getSensorForApiKey(String rawApiKey) {
+        DeviceApiKey key = validateApiKey(rawApiKey);
+        return key.getSensor();
+    }
+
+    // ============== DEVICE METADATA ==============
+
+    /**
+     * Update sensor battery level, signal strength, and status from device-reported values.
+     */
+    private void updateSensorMetadata(Sensor sensor, DeviceReadingRequest request) {
+        boolean updated = false;
+
+        if (request.getBatteryLevel() != null) {
+            sensor.setBatteryLevel(request.getBatteryLevel());
+            updated = true;
+        }
+        if (request.getSignalStrength() != null) {
+            sensor.setSignalStrength(request.getSignalStrength());
+            updated = true;
+        }
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            try {
+                sensor.setStatus(Sensor.SensorStatus.valueOf(request.getStatus().toLowerCase()));
+                updated = true;
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid sensor status from device: '{}', ignoring", request.getStatus());
+            }
+        }
+
+        if (updated) {
+            sensorRepository.save(sensor);
+            log.debug("Sensor {} metadata updated: battery={}, signal={}, status={}",
+                    sensor.getSensorUid(), sensor.getBatteryLevel(),
+                    sensor.getSignalStrength(), sensor.getStatus());
+        }
     }
 
     // ============== MAPPING ==============

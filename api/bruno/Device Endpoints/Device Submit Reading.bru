@@ -19,23 +19,36 @@ body:json {
     "readingValue": 241.3,
     "unit": "meters",
     "quality": "good",
-    "recordedAt": "2026-03-09T14:30:00"
+    "recordedAt": "2026-03-09T14:30:00",
+    "batteryLevel": 85.50,
+    "signalStrength": -42.00,
+    "status": "active"
   }
 }
 
 assert {
-  res.status: eq 201
+  res.status: in [200, 201]
 }
 
 tests {
-  test("Status code is 201", function() {
-    expect(res.getStatus()).to.equal(201);
+  test("Status code is 200 or 201", function() {
+    const status = res.getStatus();
+    expect(status === 200 || status === 201).to.equal(true);
   });
 
-  test("Response contains reading data", function() {
+  test("Response indicates buffered or saved", function() {
     const data = res.getBody();
     expect(data.success).to.equal(true);
-    expect(data.data).to.have.property('id');
-    expect(data.data).to.have.property('readingValue');
+    expect(data.data).to.have.property('saved');
+    expect(data.data).to.have.property('bufferSize');
+    expect(data.data).to.have.property('readingIntervalSeconds');
+  });
+
+  test("If saved, response contains mean reading", function() {
+    const data = res.getBody();
+    if (data.data.saved) {
+      expect(data.data.savedReading).to.have.property('meanValue');
+      expect(data.data.savedReading).to.have.property('readingCount');
+    }
   });
 }

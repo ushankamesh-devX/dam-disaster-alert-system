@@ -7,8 +7,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Getter
 @RequiredArgsConstructor
@@ -18,9 +19,20 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return user.getRole().getPermissions().stream()
-                .map(permission -> new SimpleGrantedAuthority(permission.getCode()))
-                .collect(Collectors.toList());
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        // Add role as ROLE_<code> so hasRole() / hasAnyRole() checks work
+        if (user.getRole() != null && user.getRole().getCode() != null) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getCode().toUpperCase()));
+        }
+
+        // Add individual permissions so hasAuthority() checks work
+        if (user.getRole() != null && user.getRole().getPermissions() != null) {
+            user.getRole().getPermissions().forEach(permission ->
+                    authorities.add(new SimpleGrantedAuthority(permission.getCode())));
+        }
+
+        return authorities;
     }
 
     @Override

@@ -21,6 +21,7 @@ import MapFuncPage from '../pages/admin/MapFuncPage';
 import MapDetailedPage from '../pages/admin/MapDetailedPage';
 import NewsPage from '../pages/admin/NewsPage';
 import SystemSafeLocationsMapFuncPage from '../pages/admin/SystemSafeLocationsMapFuncPage';
+import DeviceKeysPage from '../pages/admin/DeviceKeysPage';
 
 
 function Soon({ title }) {
@@ -66,6 +67,7 @@ const router = createBrowserRouter([
                     { path: '/admin/dams/:id/map', element: <MapDetailedPage /> },
                     { path: '/admin/sensors', element: <SensorsPage /> },
                     { path: '/admin/sensors/:id', element: <SensorDetailPage /> },
+                    { path: '/admin/device-keys', element: <DeviceKeysPage /> },
                     { path: '/admin/alerts', element: <AlertsPage /> },
                     { path: '/admin/users', element: <UsersPage /> },
                     { path: '/admin/regions', element: <RegionsPage /> },

@@ -105,6 +105,12 @@ export const getDamGates = async (damId) => {
     return r.data;
 };
 
+/** GET /dams/gates/{id}  → DamGateResponse */
+export const getGateById = async (gateId) => {
+    const r = await apiClient.get(`/dams/gates/${gateId}`);
+    return r.data;
+};
+
 /** POST /dams/gates  → DamGateResponse (201) */
 export const createGate = async (payload) => {
     const r = await apiClient.post('/dams/gates', payload);

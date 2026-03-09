@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Cpu, Map, MapPin, Hexagon, Square, Circle, Database, Code, Edit3, Save, Trash2, RefreshCw, Loader2, Download, Droplets } from 'lucide-react';
-import GeomanMap, { AREA_COLORS } from '../../components/map/GeomanMap';
+import GeomanMap, { AREA_COLORS, createGateIcon } from '../../components/map/GeomanMap';
 import { createHazardZone, updateHazardZone, deleteHazardZone, createGate, updateGate, deleteGate, getDamHazardZones, getDamGates, getAllDamsList, createDam, updateDam, deleteDam, getDamById } from '../../services/dam.service';
 import { createSensor, updateSensor, deleteSensor, getSensorsByDam } from '../../services/sensor.service';
 import toast from 'react-hot-toast';
@@ -19,17 +19,44 @@ export default function MapFuncPage() {
     // Selected dam for loading data
     const [selectedDamId, setSelectedDamId] = useState(1);
     const [dams, setDams] = useState([]);
+    // Index of the feature card currently focused from a map click
+    const [focusedIdx, setFocusedIdx] = useState(null);
+    const focusTimerRef = useRef(null);
+    // Refs for each feature card so we can scroll to them
+    const cardRefs = useRef({});
+    // Ref for the scrollable list container (so we scroll IT, not the whole page)
+    const listScrollRef = useRef(null);
 
     // We hold a ref to the map component's feature group to trigger updates if needed
     const mapFeatureGroupRef = useRef(null);
     // Ref to track selectedDamId for use in callbacks
     const selectedDamIdRef = useRef(selectedDamId);
-    
+
     // Keep ref in sync with state
     useEffect(() => {
         selectedDamIdRef.current = selectedDamId;
     }, [selectedDamId]);
-    
+
+    // When focusedIdx is set (by map click), scroll to card and start highlight timer
+    useEffect(() => {
+        if (focusedIdx === null) return;
+        const el = cardRefs.current[focusedIdx];
+        const container = listScrollRef.current;
+        if (el && container) {
+            // Scroll the inner list container so the card is centered — avoids full-page scroll
+            const elRect = el.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const offset = elRect.top - containerRect.top - containerRect.height / 2 + elRect.height / 2;
+            container.scrollBy({ top: offset, behavior: 'smooth' });
+        } else if (el) {
+            // Fallback if container ref isn't available
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+        focusTimerRef.current = setTimeout(() => setFocusedIdx(null), 2200);
+        return () => clearTimeout(focusTimerRef.current);
+    }, [focusedIdx]);
+
     // Callback to let MapFuncPage get the ref to the GeomanMap's feature group
     const handleFeatureGroupRef = (ref) => {
         mapFeatureGroupRef.current = ref;
@@ -74,10 +101,10 @@ export default function MapFuncPage() {
             hazardZones.forEach(zone => {
                 if (zone.boundaryGeojson) {
                     try {
-                        const geometry = typeof zone.boundaryGeojson === 'string' 
-                            ? JSON.parse(zone.boundaryGeojson) 
+                        const geometry = typeof zone.boundaryGeojson === 'string'
+                            ? JSON.parse(zone.boundaryGeojson)
                             : zone.boundaryGeojson;
-                        
+
                         features.push({
                             type: 'Feature',
                             geometry: geometry,
@@ -90,8 +117,8 @@ export default function MapFuncPage() {
                                 zoneName: zone.zoneName,
                                 zoneNameSi: zone.zoneNameSi,
                                 description: zone.description,
-                                boundaryGeojson: typeof zone.boundaryGeojson === 'string' 
-                                    ? zone.boundaryGeojson 
+                                boundaryGeojson: typeof zone.boundaryGeojson === 'string'
+                                    ? zone.boundaryGeojson
                                     : JSON.stringify(zone.boundaryGeojson),
                                 centerLatitude: zone.centerLatitude,
                                 centerLongitude: zone.centerLongitude,
@@ -400,6 +427,16 @@ export default function MapFuncPage() {
                     }
                 }
 
+                // If gate status changes, update the map icon color in real-time
+                if (field === 'status' && feature.properties?.type === 'gateCircle') {
+                    if (mapFeatureGroupRef.current) {
+                        const layers = Object.values(mapFeatureGroupRef.current._layers || {});
+                        if (layers[idx] && layers[idx].setIcon) {
+                            layers[idx].setIcon(createGateIcon(value));
+                        }
+                    }
+                }
+
                 setCurrentGeoJSON(JSON.stringify(parsed));
             }
         } catch (e) {
@@ -565,7 +602,7 @@ export default function MapFuncPage() {
             if (type === 'polygon' || type === 'rectangle' || feature.geometry.type === 'Polygon') {
                 // Update Hazard Zone - always use the current geometry for boundaryGeojson
                 const updatedBoundaryGeojson = JSON.stringify(feature.geometry);
-                
+
                 // Calculate center from the polygon coordinates
                 let centerLat = feature.properties.centerLatitude;
                 let centerLng = feature.properties.centerLongitude;
@@ -576,7 +613,7 @@ export default function MapFuncPage() {
                     centerLat = sumLat / coords.length;
                     centerLng = sumLng / coords.length;
                 }
-                
+
                 const payload = {
                     hazardLevelId: feature.properties.hazardLevelId,
                     zoneName: feature.properties.zoneName,
@@ -597,7 +634,7 @@ export default function MapFuncPage() {
                     showLabel: feature.properties.showLabel,
                     isActive: feature.properties.isActive
                 };
-                
+
                 // Also update the properties in the current GeoJSON state
                 feature.properties.boundaryGeojson = updatedBoundaryGeojson;
                 feature.properties.centerLatitude = centerLat;
@@ -692,9 +729,9 @@ export default function MapFuncPage() {
         const dbId = feature.properties?.dbId;
 
         // Confirm deletion
-        const entityName = type === 'polygon' || type === 'rectangle' ? 'Hazard Zone' : 
-                          type === 'damCircle' ? 'Dam' :
-                          type === 'gateCircle' ? 'Gate' : 'Sensor';
+        const entityName = type === 'polygon' || type === 'rectangle' ? 'Hazard Zone' :
+            type === 'damCircle' ? 'Dam' :
+                type === 'gateCircle' ? 'Gate' : 'Sensor';
         if (!confirm(`Are you sure you want to delete this ${entityName}?`)) {
             return;
         }
@@ -827,6 +864,8 @@ export default function MapFuncPage() {
                             initialGeoJson={initialGeoJSON}
                             // Expose the internal feature group so we can update styles dynamically from inputs
                             onFeatureGroupReady={handleFeatureGroupRef}
+                            // When a layer is clicked, focus its card in the side panel
+                            onLayerClick={(idx) => setFocusedIdx(idx)}
                         />
                     </div>
                 </div>
@@ -895,7 +934,17 @@ export default function MapFuncPage() {
                                 else if (type === 'sensorCircle') { Icon = MapPin; title = 'Sensor Location'; typeColor = 'text-green-600'; }
 
                                 return (
-                                    <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-2">
+                                    <div
+                                        key={idx}
+                                        ref={(el) => { cardRefs.current[idx] = el; }}
+                                        className={[
+                                            'bg-gray-50 border rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2',
+                                            focusedIdx === idx
+                                                ? 'border-blue-500 ring-2 ring-blue-400 ring-offset-1 shadow-blue-100 shadow-md animate-pulse-ring'
+                                                : 'border-gray-200'
+                                        ].join(' ')}
+                                        style={focusedIdx === idx ? { animation: 'mapCardFocus 2.2s ease-out forwards' } : {}}
+                                    >
                                         <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
                                             <div className="flex items-center gap-2 font-medium text-gray-800">
                                                 <div className={`p-1.5 bg-white rounded-md shadow-sm border border-gray-100`}>

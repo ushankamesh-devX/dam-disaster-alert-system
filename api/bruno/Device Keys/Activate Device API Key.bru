@@ -1,0 +1,25 @@
+meta {
+  name: Activate Device API Key
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{base_url}}/device-keys/1/activate
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

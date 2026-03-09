@@ -1,0 +1,40 @@
+meta {
+  name: Create Device API Key
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/device-keys
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "sensorId": 1,
+    "name": "Victoria Dam Water Level ESP32",
+    "description": "ESP32 device at Victoria Dam crest measuring water level",
+    "expiresAt": null
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains API key", function() {
+    const data = res.getBody();
+    expect(data.data).to.have.property('apiKey');
+    expect(data.data.apiKey).to.contain('ddasdk_');
+  });
+}

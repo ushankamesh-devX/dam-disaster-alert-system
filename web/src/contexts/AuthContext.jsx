@@ -9,16 +9,20 @@ export const AuthProvider = ({ children }) => {
         token, user,
         setAuth, setUser, clearAuth,
         isAuthenticated, isAdmin, isDashboardUser,
+        _hasHydrated,
     } = useAuthStore();
 
     // Start loading=true; resolve once we know auth state is finalised
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Don't do anything until Zustand persist has restored from localStorage
+        if (!_hasHydrated) return;
+
         const bootstrap = async () => {
             if (token && user) {
-                // Zustand persist already restored both token + user — no API call needed.
-                // isDashboardUser / isAdmin are already set via setUser on rehydration.
+                // Zustand persist restored token + user, and onRehydrateStorage
+                // already re-derived isAuthenticated / isAdmin / isDashboardUser.
                 setLoading(false);
                 return;
             }
@@ -28,7 +32,7 @@ export const AuthProvider = ({ children }) => {
                 // Verify it by calling /users/me.
                 try {
                     const freshUser = await getCurrentUser(); // GET /users/me  → {success, data: UserResponse}
-                    setUser(freshUser);                        // re-derives isAdmin / isDashboardUser
+                    setAuth(token, freshUser);                // re-derives isAdmin / isDashboardUser
                 } catch {
                     clearAuth();                              // token is invalid/expired → log out
                 }
@@ -39,7 +43,7 @@ export const AuthProvider = ({ children }) => {
         };
 
         bootstrap();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [_hasHydrated]); // re-run when hydration completes
 
     const value = {
         user,

@@ -6,6 +6,8 @@ import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import SensorHoverPopup from './SensorHoverPopup';
 import DamHoverPopup from './DamHoverPopup';
+import GateHoverPopup from './GateHoverPopup';
+import HazardZoneHoverPopup from './HazardZoneHoverPopup';
 
 // Fix for default marker icons in React-Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -29,7 +31,18 @@ const DAM_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fil
 
 const SENSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23047857" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h2"/><path d="M6 8v8"/><path d="M10 4v16"/><path d="M14 6v12"/><path d="M18 10v4"/><path d="M22 12h-2"/></svg>`;
 
-const GATE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23d97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>`;
+// Gate SVG paths — one per status (stroke color encoded)
+const makeGateSvg = (strokeHex) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${strokeHex.replace('#', '%23')}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>`;
+
+// Gate status → visual style mapping
+const GATE_STATUS_STYLES = {
+    closed: { border: '#6b7280', stroke: '#6b7280' },  // gray
+    partial: { border: '#2563eb', stroke: '#2563eb' },  // blue
+    fully_open: { border: '#16a34a', stroke: '#16a34a' },  // green
+    maintenance: { border: '#d97706', stroke: '#d97706' },  // amber (default)
+    jammed: { border: '#dc2626', stroke: '#dc2626' },  // red
+};
 
 // Create map marker icons using SVG
 const createSvgIcon = (svgContent, borderColor) => {
@@ -64,10 +77,16 @@ const createSvgIcon = (svgContent, borderColor) => {
     });
 };
 
-// Pre-create icons for Dam, Sensor, and Gate markers
+// Dynamic gate icon factory — call with status string
+export const createGateIcon = (status = 'closed') => {
+    const style = GATE_STATUS_STYLES[(status || 'closed').toLowerCase()] || GATE_STATUS_STYLES.maintenance;
+    return createSvgIcon(makeGateSvg(style.stroke), style.border);
+};
+
+// Pre-create icons for Dam and Sensor markers
 const DamIcon = createSvgIcon(DAM_SVG, '#1d4ed8');
 const SensorIcon = createSvgIcon(SENSOR_SVG, '#047857');
-const GateIcon = createSvgIcon(GATE_SVG, '#d97706');
+// Gate icon is created dynamically via createGateIcon(status)
 
 // We can inject styles to override the Geoman toolbar icons for our custom tools
 const injectCustomToolbarStyles = () => {
@@ -283,8 +302,8 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
                 } else if (e.shape === 'drawGateCircle') {
                     if (latlng) {
                         map.removeLayer(layer);
-                        layer = L.marker(latlng, { icon: GateIcon });
-                        layer.feature = { type: 'Feature', properties: { type: 'gateCircle' }, geometry: { type: 'Point', coordinates: [latlng.lng, latlng.lat] } };
+                        layer = L.marker(latlng, { icon: createGateIcon('closed') });
+                        layer.feature = { type: 'Feature', properties: { type: 'gateCircle', status: 'closed' }, geometry: { type: 'Point', coordinates: [latlng.lng, latlng.lat] } };
                     }
                 } else if (e.shape === 'drawSensorCircle') {
                     if (latlng) {
@@ -391,22 +410,37 @@ export default function GeomanMap({
     readOnly = false,
     activeAreaColor = AREA_COLORS[0], // Default to Red
     fitBoundsOnLoad = true,
-    onFeatureGroupReady = null
+    onFeatureGroupReady = null,
+    onLayerClick = null   // Called with feature index when user clicks a layer
 }) {
     const featureGroupRef = useRef(null);
     const mapRef = useRef(null);
     const hasLoadedInitialData = useRef(false); // Track if initial data has been loaded
     const [featureGroupReady, setFeatureGroupReady] = useState(false); // Track when FeatureGroup is mounted
-    
+
+    // Keep onLayerClick fresh — effects capture stale closures, so we use a ref
+    const onLayerClickRef = useRef(onLayerClick);
+    useEffect(() => { onLayerClickRef.current = onLayerClick; }); // no deps = runs every render
+
     // Sensor hover popup state
     const [hoveredSensor, setHoveredSensor] = useState(null);
     const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
     const hoverTimeoutRef = useRef(null);
-    
+
     // Dam hover popup state
     const [hoveredDam, setHoveredDam] = useState(null);
     const [damHoverPosition, setDamHoverPosition] = useState({ x: 0, y: 0 });
     const damHoverTimeoutRef = useRef(null);
+
+    // Gate hover popup state
+    const [hoveredGate, setHoveredGate] = useState(null);
+    const [gateHoverPosition, setGateHoverPosition] = useState({ x: 0, y: 0 });
+    const gateHoverTimeoutRef = useRef(null);
+
+    // Hazard zone hover popup state
+    const [hoveredZone, setHoveredZone] = useState(null);   // stores feature.properties
+    const [zoneHoverPosition, setZoneHoverPosition] = useState({ x: 0, y: 0 });
+    const zoneHoverTimeoutRef = useRef(null);
 
     // Gather all shapes and export as GeoJSON
     const handleMapChange = () => {
@@ -449,15 +483,15 @@ export default function GeomanMap({
             hasLoadedInitialData: hasLoadedInitialData.current,
             hasInitialGeoJson: !!initialGeoJson
         });
-        
+
         // Skip if FeatureGroup not ready, already loaded, or no data
         if (!featureGroupReady || !featureGroupRef.current || hasLoadedInitialData.current || !initialGeoJson) return;
-        
+
         // Mark as loaded to prevent re-loading on edits
         hasLoadedInitialData.current = true;
-        
+
         console.log('Loading initial GeoJSON into map...');
-        
+
         try {
             let parsedGeoJson = typeof initialGeoJson === 'string'
                 ? JSON.parse(initialGeoJson)
@@ -472,7 +506,7 @@ export default function GeomanMap({
                             // Use Dam icon marker with hover events
                             const marker = L.marker(latlng, { icon: DamIcon });
                             marker.feature = feature; // Preserve feature properties
-                            
+
                             // Add hover events for dam popup
                             const damDbId = feature.properties.dbId;
                             if (damDbId) {
@@ -492,18 +526,40 @@ export default function GeomanMap({
                                     setDamHoverPosition({ x: clientX, y: clientY });
                                 });
                             }
-                            
+
                             return marker;
                         } else if (feature.properties && feature.properties.type === 'gateCircle') {
-                            // Use Gate icon marker
-                            const marker = L.marker(latlng, { icon: GateIcon });
+                            // Use status-based Gate icon marker
+                            const gateStatus = feature.properties?.status || 'closed';
+                            const marker = L.marker(latlng, { icon: createGateIcon(gateStatus) });
                             marker.feature = feature; // Preserve feature properties
+
+                            // Add hover events for gate popup
+                            const gateDbId = feature.properties.dbId;
+                            if (gateDbId) {
+                                marker.on('mouseover', (e) => {
+                                    if (gateHoverTimeoutRef.current) clearTimeout(gateHoverTimeoutRef.current);
+                                    const { clientX, clientY } = e.originalEvent;
+                                    setGateHoverPosition({ x: clientX, y: clientY });
+                                    setHoveredGate(gateDbId);
+                                });
+                                marker.on('mouseout', () => {
+                                    gateHoverTimeoutRef.current = setTimeout(() => {
+                                        setHoveredGate(null);
+                                    }, 300);
+                                });
+                                marker.on('mousemove', (e) => {
+                                    const { clientX, clientY } = e.originalEvent;
+                                    setGateHoverPosition({ x: clientX, y: clientY });
+                                });
+                            }
+
                             return marker;
                         } else if (feature.properties && feature.properties.type === 'sensorCircle') {
                             // Use Sensor icon marker with hover events
                             const marker = L.marker(latlng, { icon: SensorIcon });
                             marker.feature = feature; // Preserve feature properties
-                            
+
                             // Add hover events for sensor popup
                             const sensorDbId = feature.properties.dbId;
                             if (sensorDbId) {
@@ -523,7 +579,7 @@ export default function GeomanMap({
                                     setHoverPosition({ x: clientX, y: clientY });
                                 });
                             }
-                            
+
                             return marker;
                         }
                         return L.marker(latlng, { icon: DefaultIcon });
@@ -544,8 +600,48 @@ export default function GeomanMap({
                     }
                 });
 
+                let featureIdx = 0;
                 layer.eachLayer((l) => {
+                    // Stamp the sequential feature index for click-to-focus
+                    l._featureIndex = featureIdx++;
                     featureGroupRef.current.addLayer(l);
+
+                    // Click handler → notify parent to focus the matching card
+                    // Use ref so we always get the latest onLayerClick, not a stale closure
+                    l.on('click', (e) => {
+                        L.DomEvent.stopPropagation(e); // prevent map click from deselecting
+                        if (onLayerClickRef.current) onLayerClickRef.current(l._featureIndex);
+                    });
+
+                    // Hover popup for hazard zone polygons / rectangles
+                    const ftype = l.feature?.properties?.type;
+                    const isZone = ftype === 'polygon' || ftype === 'rectangle' ||
+                        l.feature?.geometry?.type === 'Polygon';
+                    if (isZone && l.feature?.properties) {
+                        l.on('mouseover', (e) => {
+                            if (zoneHoverTimeoutRef.current) clearTimeout(zoneHoverTimeoutRef.current);
+                            const { clientX, clientY } = e.originalEvent;
+                            setZoneHoverPosition({ x: clientX, y: clientY });
+                            setHoveredZone(l.feature.properties);
+                            // Highlight polygon on hover
+                            l.setStyle({ weight: 3, fillOpacity: (l.feature.properties.fillOpacity || 0.4) + 0.15 });
+                        });
+                        l.on('mouseout', () => {
+                            zoneHoverTimeoutRef.current = setTimeout(() => {
+                                setHoveredZone(null);
+                            }, 300);
+                            // Restore style
+                            l.setStyle({
+                                weight: l.feature.properties.strokeWidth || 2,
+                                fillOpacity: l.feature.properties.fillOpacity || 0.4
+                            });
+                        });
+                        l.on('mousemove', (e) => {
+                            const { clientX, clientY } = e.originalEvent;
+                            setZoneHoverPosition({ x: clientX, y: clientY });
+                        });
+                    }
+
                     if (!readOnly && l.pm) {
                         // When layer is edited, update its feature geometry
                         l.on('pm:edit', () => {
@@ -622,7 +718,7 @@ export default function GeomanMap({
                 activeAreaColor={activeAreaColor}
             />
         </MapContainer>
-        
+
         {/* Sensor Hover Popup */}
         {hoveredSensor && (
             <SensorHoverPopup
@@ -631,13 +727,30 @@ export default function GeomanMap({
                 onClose={() => setHoveredSensor(null)}
             />
         )}
-        
+
         {/* Dam Hover Popup */}
         {hoveredDam && (
             <DamHoverPopup
                 damId={hoveredDam}
                 position={damHoverPosition}
                 onClose={() => setHoveredDam(null)}
+            />
+        )}
+
+        {/* Gate Hover Popup */}
+        {hoveredGate && (
+            <GateHoverPopup
+                gateId={hoveredGate}
+                position={gateHoverPosition}
+                onClose={() => setHoveredGate(null)}
+            />
+        )}
+
+        {/* Hazard Zone Hover Popup */}
+        {hoveredZone && (
+            <HazardZoneHoverPopup
+                zoneData={hoveredZone}
+                position={zoneHoverPosition}
             />
         )}
     </>

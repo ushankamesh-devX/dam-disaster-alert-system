@@ -1,0 +1,31 @@
+meta {
+  name: Device Ping
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/device/ping
+  body: none
+  auth: none
+}
+
+headers {
+  X-Device-API-Key: ddasdk_YOUR_DEVICE_API_KEY_HERE
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Device is authenticated", function() {
+    const data = res.getBody();
+    expect(data.success).to.equal(true);
+    expect(data.data.status).to.equal('ok');
+  });
+}

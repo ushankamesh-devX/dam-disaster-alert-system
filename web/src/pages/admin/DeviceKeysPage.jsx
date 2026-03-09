@@ -276,27 +276,47 @@ export default function DeviceKeysPage() {
                 </h3>
                 <div className="bg-gray-900 rounded-lg p-4 text-xs font-mono text-green-400 overflow-x-auto">
                     <pre>{`// ESP32 Arduino Code Snippet
+// Server buffers readings & saves mean at configured interval
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <ArduinoJson.h>
 
-const char* ssid = "YOUR_WIFI";
-const char* password = "YOUR_PASSWORD";
-const char* serverUrl = "https://YOUR_SERVER/api/v1/device/readings";
-const char* apiKey = "ddasdk_YOUR_KEY_HERE";
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* baseUrl  = "https://YOUR_SERVER/api/v1/device";
+const char* apiKey   = "ddasdk_YOUR_KEY_HERE";
 
-void sendReading(float value) {
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+  Serial.println("WiFi connected!");
+}
+
+void sendReading(float value, float battery, float signal) {
   HTTPClient http;
-  http.begin(serverUrl);
+  http.begin(String(baseUrl) + "/readings");
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-API-Key", apiKey);
 
-  String json = "{\\"readingValue\\":" + String(value, 2)
-    + ",\\"unit\\":\\"meters\\",\\"quality\\":\\"good\\"}";
+  JsonDocument doc;
+  doc["readingValue"]   = value;
+  doc["unit"]           = "meters";
+  doc["quality"]        = "good";
+  doc["batteryLevel"]   = battery;    // 0-100 %
+  doc["signalStrength"] = signal;     // dBm (-100 to 0)
+  doc["status"]         = "active";
+
+  String json;
+  serializeJson(doc, json);
 
   int code = http.POST(json);
-  Serial.println("Response: " + String(code));
+  // 200 = buffered, 201 = mean saved to DB
   http.end();
-}`}</pre>
+}
+
+// Send as fast as you want (e.g. every 100ms)
+// Server averages readings per interval set in dashboard`}</pre>
                 </div>
             </div>
 

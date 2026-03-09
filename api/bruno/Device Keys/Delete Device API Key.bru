@@ -1,0 +1,25 @@
+meta {
+  name: Delete Device API Key
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{base_url}}/device-keys/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 204
+}
+
+tests {
+  test("Status code is 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

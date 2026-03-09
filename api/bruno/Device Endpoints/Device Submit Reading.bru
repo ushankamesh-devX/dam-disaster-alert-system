@@ -1,0 +1,41 @@
+meta {
+  name: Device Submit Reading
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/device/readings
+  body: json
+  auth: none
+}
+
+headers {
+  X-Device-API-Key: ddasdk_YOUR_DEVICE_API_KEY_HERE
+}
+
+body:json {
+  {
+    "readingValue": 241.3,
+    "unit": "meters",
+    "quality": "good",
+    "recordedAt": "2026-03-09T14:30:00"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains reading data", function() {
+    const data = res.getBody();
+    expect(data.success).to.equal(true);
+    expect(data.data).to.have.property('id');
+    expect(data.data).to.have.property('readingValue');
+  });
+}

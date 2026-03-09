@@ -1,5 +1,6 @@
 package com.ddas.api.config;
 
+import com.ddas.api.security.DeviceApiKeyAuthFilter;
 import com.ddas.api.security.JwtAuthenticationEntryPoint;
 import com.ddas.api.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final DeviceApiKeyAuthFilter deviceApiKeyAuthFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final UserDetailsService userDetailsService;
 
@@ -45,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
+                                "/api/v1/device/**",
                                 "/actuator/**",
                                 "/error")
                         .permitAll()
@@ -53,6 +56,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
+                .addFilterBefore(deviceApiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint));

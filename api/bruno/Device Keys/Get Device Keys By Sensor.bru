@@ -1,0 +1,25 @@
+meta {
+  name: Get Device Keys By Sensor
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/device-keys/sensor/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

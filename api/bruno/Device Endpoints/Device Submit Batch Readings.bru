@@ -1,0 +1,57 @@
+meta {
+  name: Device Submit Batch Readings
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/device/readings/batch
+  body: json
+  auth: none
+}
+
+headers {
+  X-Device-API-Key: ddasdk_YOUR_DEVICE_API_KEY_HERE
+}
+
+body:json {
+  {
+    "readings": [
+      {
+        "readingValue": 241.3,
+        "unit": "meters",
+        "quality": "good",
+        "recordedAt": "2026-03-09T14:25:00"
+      },
+      {
+        "readingValue": 241.5,
+        "unit": "meters",
+        "quality": "good",
+        "recordedAt": "2026-03-09T14:30:00"
+      },
+      {
+        "readingValue": 241.7,
+        "unit": "meters",
+        "quality": "good",
+        "recordedAt": "2026-03-09T14:35:00"
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains batch results", function() {
+    const data = res.getBody();
+    expect(data.success).to.equal(true);
+    expect(data.data).to.be.an('array');
+    expect(data.data.length).to.equal(3);
+  });
+}

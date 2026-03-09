@@ -16,6 +16,7 @@ const useAuthStore = create(
             isAuthenticated: false,
             isAdmin: false,        // true for SUPER_ADMIN | ADMIN
             isDashboardUser: false, // true for any non-NORMAL_USER role
+            _hasHydrated: false,   // true after Zustand persist rehydration completes
 
             setAuth: (token, user) => {
                 set({
@@ -45,5 +46,28 @@ const useAuthStore = create(
         }
     )
 );
+
+// Re-derive computed flags after Zustand restores token + user from localStorage.
+// Must be done AFTER create() so useAuthStore is in scope (avoids TDZ).
+const finalizeHydration = () => {
+    const { token, user } = useAuthStore.getState();
+    useAuthStore.setState({
+        _hasHydrated: true,
+        ...(token && user
+            ? {
+                  isAuthenticated: true,
+                  isAdmin: ['SUPER_ADMIN', 'ADMIN'].includes(user?.role?.code?.toUpperCase()),
+                  isDashboardUser: isDashboard(user),
+              }
+            : {}),
+    });
+};
+
+// localStorage hydration is synchronous, so it's usually already done
+if (useAuthStore.persist.hasHydrated()) {
+    finalizeHydration();
+} else {
+    useAuthStore.persist.onFinishHydration(finalizeHydration);
+}
 
 export default useAuthStore;

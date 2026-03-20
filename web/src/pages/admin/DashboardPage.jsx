@@ -1,13 +1,15 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend,
 } from 'recharts';
-import { getDamStatistics, getAllDamStatuses, getHighRiskDamStatuses, getAllDamsList } from '../../services/dam.service';
+import { getDamStatistics, getAllDamStatuses, getHighRiskDamStatuses, getAllDamsList, getOpenGates, getActiveHazardZones } from '../../services/dam.service';
 import { getSensorsByStatus } from '../../services/sensor.service';
-import { getCurrentUser, getUserStats } from '../../services/user.service';
+import { getCurrentUser, getUserStats, getCurrentUserActivities } from '../../services/user.service';
 import { getAlertAnalytics, getAllActiveAlerts, getAllAlerts } from '../../services/alertService';
+import { getNewsArticles } from '../../services/news.service';
+import { getAllRegionsList } from '../../services/region.service';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -106,6 +108,9 @@ export default function DashboardPage() {
     const [alertAnalytics, setAlertAnalytics] = useState(null);
     const [recentAlerts, setRecentAlerts] = useState([]);
     const [allAlertsList, setAllAlertsList] = useState([]);
+    const [news, setNews] = useState([]);
+    const [activities, setActivities] = useState([]);
+    const [regionalImpact, setRegionalImpact] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -127,20 +132,71 @@ export default function DashboardPage() {
                     getSensorsByStatus('inactive'),
                     getSensorsByStatus('faulty'),
                     getSensorsByStatus('maintenance'),
+                    getNewsArticles(0, 5, 'published'),
+                    getCurrentUserActivities(0, 10),
+                    getAllRegionsList()
                 ]);
                 if (cancelled) return;
 
-                const [damStatsR, damStatusesR, highRiskR, allDamsR, userR, userStatsR, alertAnalR, activeAlertsR, allAlertsR, activeS, inactiveS, faultyS, maintS] = results;
+                const [
+                    damStatsR, damStatusesR, highRiskR, allDamsR, userR, userStatsR, 
+                    alertAnalR, activeAlertsR, allAlertsR, activeS, inactiveS, faultyS, maintS,
+                    newsR, activitiesR, regionsR
+                ] = results;
 
                 if (damStatsR.status === 'fulfilled') setDamStats(damStatsR.value);
                 if (damStatusesR.status === 'fulfilled') setDamStatuses(damStatusesR.value || []);
-                if (highRiskR.status === 'fulfilled') setHighRisk(highRiskR.value || []);
                 if (allDamsR.status === 'fulfilled') setAllDams(allDamsR.value || []);
                 if (userR.status === 'fulfilled') setUser(userR.value);
                 if (userStatsR.status === 'fulfilled') setUserStats(userStatsR.value);
                 if (alertAnalR.status === 'fulfilled') setAlertAnalytics(alertAnalR.value);
-                if (activeAlertsR.status === 'fulfilled') setRecentAlerts(activeAlertsR.value || []);
                 if (allAlertsR.status === 'fulfilled') setAllAlertsList(allAlertsR.value || []);
+                
+                const activeAlerts = activeAlertsR.status === 'fulfilled' ? (activeAlertsR.value || []) : [];
+                setRecentAlerts(activeAlerts);
+                if (newsR.status === 'fulfilled') setNews(newsR.value?.content || []);
+                if (activitiesR.status === 'fulfilled') setActivities(activitiesR.value?.content || []);
+                
+                let regionsList = [];
+                if (regionsR.status === 'fulfilled') {
+                    regionsList = regionsR.value || [];
+                }
+
+                // regional impact computation
+                const impactMap = activeAlerts.reduce((acc, alert) => {
+                    if (!alert.regionId) return acc;
+                    if (!acc[alert.regionId]) {
+                        acc[alert.regionId] = { regionId: alert.regionId, activeAlerts: 0, regionName: 'Unknown' };
+                    }
+                    acc[alert.regionId].activeAlerts++;
+                    return acc;
+                }, {});
+                
+                const impactArr = Object.values(impactMap);
+                impactArr.forEach(ri => {
+                    const r = regionsList.find(r => r.id === ri.regionId);
+                    if (r) ri.regionName = r.name;
+                    ri.affectedPopulation = ri.activeAlerts * 1000;
+                });
+                impactArr.sort((a,b) => b.activeAlerts - a.activeAlerts);
+                setRegionalImpact(impactArr);
+                
+                let initHighRisk = highRiskR.status === 'fulfilled' ? (highRiskR.value || []) : [];
+                setHighRisk(initHighRisk);
+                
+                if (initHighRisk.length > 0) {
+                    Promise.allSettled(initHighRisk.map(async dam => {
+                        const [gatesR, zonesR] = await Promise.allSettled([
+                            getOpenGates(dam.damId || dam.id),
+                            getActiveHazardZones(dam.damId || dam.id)
+                        ]);
+                        dam.openGates = gatesR.status === 'fulfilled' ? (gatesR.value?.length || 0) : 0;
+                        dam.activeZones = zonesR.status === 'fulfilled' ? (zonesR.value?.length || 0) : 0;
+                        return dam;
+                    })).then(() => {
+                        if (!cancelled) setHighRisk([...initHighRisk]);
+                    });
+                }
 
                 setSensors({
                     active: activeS.status === 'fulfilled' ? (activeS.value?.length ?? 0) : 0,
@@ -491,6 +547,12 @@ export default function DashboardPage() {
                                                         <> · Rain: <span className="font-medium">{Number(dam.rainfallLast24hrMm).toFixed(1)}mm</span></>
                                                     )}
                                                 </p>
+                                                {(dam.openGates != null || dam.activeZones != null) && (dam.openGates > 0 || dam.activeZones > 0) && (
+                                                    <div className="flex gap-2 mt-1.5 flex-wrap">
+                                                        {dam.openGates > 0 && <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">🌊 {dam.openGates} Gates Open</span>}
+                                                        {dam.activeZones > 0 && <span className="text-[10px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-200">⚠ {dam.activeZones} Active Zones</span>}
+                                                    </div>
+                                                )}
                                             </div>
                                             <Badge status={dam.hazardStatus} />
                                         </div>
@@ -692,6 +754,93 @@ export default function DashboardPage() {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* ── Row 5: Recent News + Admin Activity + Regional Impact ────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                
+                {/* Recent News & Updates (2 cols) */}
+                <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                        <h2 className="text-sm font-semibold text-gray-800">Recent News & Updates</h2>
+                        <button onClick={() => navigate('/admin/news')} className="text-xs text-blue-600 font-medium hover:underline">
+                            View all →
+                        </button>
+                    </div>
+                    {loading ? (
+                        <div className="p-5 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12" />)}</div>
+                    ) : news.length === 0 ? (
+                        <div className="flex items-center justify-center h-48 text-sm text-gray-400">No recent news</div>
+                    ) : (
+                        <ul className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+                            {news.map((item) => (
+                                <li key={item.id} className="px-5 py-3 hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => navigate('/admin/news')}>
+                                    <p className="text-xs font-semibold text-gray-800 mb-0.5 line-clamp-1">{item.title}</p>
+                                    <p className="text-[10px] text-gray-400">
+                                        {timeAgo(item.publishDate || item.createdAt)} · By {item.authorName || 'Admin'}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
+                {/* Regional Impact (1 col) */}
+                <div className="lg:col-span-1 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                        <h2 className="text-sm font-semibold text-gray-800">Regional Impact</h2>
+                    </div>
+                    {loading ? (
+                        <div className="p-5 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10" />)}</div>
+                    ) : regionalImpact.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-48 text-sm text-gray-400 text-center px-4">
+                            <span className="text-2xl mb-2">🌍</span>
+                            <span>No active regional alerts</span>
+                        </div>
+                    ) : (
+                        <ul className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+                            {regionalImpact.map((ri) => (
+                                <li key={ri.regionId} className="px-5 py-3">
+                                    <p className="text-xs font-semibold text-gray-800 truncate">{ri.regionName}</p>
+                                    <div className="flex flex-col gap-0.5 mt-1.5">
+                                        <span className="text-[10px] text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded w-fit font-medium">
+                                            🚨 {ri.activeAlerts} Alerts
+                                        </span>
+                                        <span className="text-[10px] text-gray-500 mt-0.5">
+                                            Est. Impact: <span className="font-semibold text-gray-700">{ri.affectedPopulation.toLocaleString()}</span> people
+                                        </span>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
+                {/* Admin Activity Log (2 cols) */}
+                <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                        <h2 className="text-sm font-semibold text-gray-800">My Recent Activity</h2>
+                        <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Audit Log</span>
+                    </div>
+                    {loading ? (
+                        <div className="p-5 space-y-3">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10" />)}</div>
+                    ) : activities.length === 0 ? (
+                        <div className="flex items-center justify-center h-48 text-sm text-gray-400">No recent activity</div>
+                    ) : (
+                        <ul className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+                            {activities.map((act) => (
+                                <li key={act.id} className="px-5 py-3 flex gap-3 hover:bg-gray-50/50 transition-colors">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-semibold text-gray-800 capitalize">{(act.activityType || '').replace('_', ' ')}</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">{act.description}</p>
+                                        <p className="text-[9px] text-gray-400 mt-1">{new Date(act.createdAt).toLocaleString()} · IP: {act.ipAddress || 'unknown'}</p>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+                
             </div>
 
             {/* ── Quick Actions ─────────────────────────────────────────────────── */}

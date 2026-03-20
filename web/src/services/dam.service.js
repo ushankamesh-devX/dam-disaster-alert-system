@@ -105,6 +105,12 @@ export const getDamGates = async (damId) => {
     return r.data;
 };
 
+/** GET /dams/{id}/gates/open  → List<DamGateResponse> */
+export const getOpenGates = async (damId) => {
+    const r = await apiClient.get(`/dams/${damId}/gates/open`);
+    return r.data;
+};
+
 /** GET /dams/gates/{id}  → DamGateResponse */
 export const getGateById = async (gateId) => {
     const r = await apiClient.get(`/dams/gates/${gateId}`);
@@ -133,6 +139,12 @@ export const deleteGate = async (gateId) => {
 /** GET /dams/{id}/hazard-zones  → List<DamHazardZoneResponse> */
 export const getDamHazardZones = async (damId) => {
     const r = await apiClient.get(`/dams/${damId}/hazard-zones`);
+    return r.data;
+};
+
+/** GET /dams/{id}/hazard-zones/active  → List<DamHazardZoneResponse> */
+export const getActiveHazardZones = async (damId) => {
+    const r = await apiClient.get(`/dams/${damId}/hazard-zones/active`);
     return r.data;
 };
 

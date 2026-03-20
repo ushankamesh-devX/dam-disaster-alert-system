@@ -64,6 +64,8 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
         name: dam.name || '',
         nameSi: dam.nameSi || '',
         locationDescription: dam.locationDescription || '',
+        latitude: dam.latitude || '',
+        longitude: dam.longitude || '',
         status: dam.status || '',
         riskClassification: dam.riskClassification || '',
         operatorOrganization: dam.operatorOrganization || '',
@@ -82,6 +84,8 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
         try {
             const payload = { ...form };
             if (payload.regionId) payload.regionId = Number(payload.regionId);
+            if (payload.latitude !== '') payload.latitude = Number(payload.latitude); else delete payload.latitude;
+            if (payload.longitude !== '') payload.longitude = Number(payload.longitude); else delete payload.longitude;
             const updated = await updateDam(dam.id, payload);
             toast.success('Dam updated');
             onUpdated(updated);
@@ -107,6 +111,10 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
                         <option value="">Select region…</option>
                         {(regions || []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input label="Latitude" type="number" step="any" placeholder="7.2276" value={form.latitude} onChange={e => set('latitude', e.target.value)} />
+                        <Input label="Longitude" type="number" step="any" placeholder="80.7867" value={form.longitude} onChange={e => set('longitude', e.target.value)} />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Select label="Status" value={form.status} onChange={e => set('status', e.target.value)}>
                             {DAM_STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
@@ -140,15 +148,22 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
 const GATE_TYPES = ['radial', 'slide', 'flap', 'drum', 'sector', 'overflow'];
 const GATE_STATUSES = ['open', 'closed', 'partially_open', 'stuck', 'maintenance'];
 
-function GateModal({ damId, gate, onClose, onSaved }) {
+function GateModal({ damId, damName, gate, onClose, onSaved }) {
     const editing = !!gate;
-    const [form, setForm] = useState({
-        damId,
-        gateNumber: gate?.gateNumber || '',
-        gateType: gate?.gateType || 'radial',
-        maxOpeningMeters: gate?.maxOpeningMeters || '',
-        currentOpeningMeters: gate?.currentOpeningMeters || '',
-        status: gate?.status || 'closed',
+    const [form, setForm] = useState(() => {
+        let gateNumber = gate?.gateNumber || '';
+        if (!gate) {
+            const initials = (damName || '').split(' ').filter(Boolean).map(w => w[0].toUpperCase()).join('');
+            gateNumber = `${initials}-G${Math.floor(100 + Math.random() * 900)}`;
+        }
+        return {
+            damId,
+            gateNumber,
+            gateType: gate?.gateType || 'radial',
+            maxOpeningMeters: gate?.maxOpeningMeters || '',
+            currentOpeningMeters: gate?.currentOpeningMeters || '',
+            status: gate?.status || 'closed',
+        };
     });
     const [saving, setSaving] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -591,6 +606,7 @@ export default function DamDetailPage() {
             {gateModal && (
                 <GateModal
                     damId={Number(id)}
+                    damName={dam.name}
                     gate={gateModal === 'new' ? null : gateModal}
                     onClose={() => setGateModal(null)}
                     onSaved={handleGateSaved}

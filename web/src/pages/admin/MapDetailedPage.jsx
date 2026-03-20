@@ -29,24 +29,20 @@ export default function MapDetailedPage() {
     // Load dam info + all geo data on mount
     useEffect(() => {
         if (!damId) return;
-        const init = async () => {
-            try {
-                const damInfo = await getDamById(damId).catch(() => null);
-                if (damInfo) setDam(damInfo);
-            } catch (e) { /* silent */ }
-            loadSavedData(damId);
-        };
-        init();
+        loadSavedData(damId);
     }, [damId]);
 
     const loadSavedData = async (dId) => {
         setIsLoadingData(true);
         try {
-            const [hazardZones, gates, sensors] = await Promise.all([
+            const [hazardZones, gates, sensors, currentDam] = await Promise.all([
                 getDamHazardZones(dId).catch(() => []),
                 getDamGates(dId).catch(() => []),
                 getSensorsByDam(dId).catch(() => []),
+                getDamById(dId).catch(() => null),
             ]);
+
+            if (currentDam) setDam(currentDam);
 
             const features = [];
 
@@ -119,6 +115,17 @@ export default function MapDetailedPage() {
                 }
             });
 
+            if (currentDam && currentDam.latitude && currentDam.longitude) {
+                features.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [parseFloat(currentDam.longitude), parseFloat(currentDam.latitude)] },
+                    properties: {
+                        type: 'damCircle', dbId: currentDam.id, damId: currentDam.id,
+                        latitude: parseFloat(currentDam.latitude), longitude: parseFloat(currentDam.longitude)
+                    }
+                });
+            }
+
             if (features.length > 0) {
                 const geoJSON = { type: 'FeatureCollection', features };
                 setInitialGeoJSON(JSON.stringify(geoJSON));
@@ -174,13 +181,29 @@ export default function MapDetailedPage() {
                             }
                             modified = true;
                         }
-                    } else if (type === 'gateCircle') {
-                        if (!feature.properties.gateNumber) {
+                    } else if (type === 'damCircle') {
+                        if (!feature.properties.dbId) {
                             modified = true;
                             feature.properties = {
                                 ...feature.properties,
+                                dbId: damId, damId: damId,
+                                latitude: feature.geometry.coordinates[1],
+                                longitude: feature.geometry.coordinates[0]
+                            };
+                        } else {
+                            feature.properties.latitude = feature.geometry.coordinates[1];
+                            feature.properties.longitude = feature.geometry.coordinates[0];
+                            modified = true;
+                        }
+                    } else if (type === 'gateCircle') {
+                        if (!feature.properties.gateNumber) {
+                            modified = true;
+                            const initials = (dam?.name || '').split(' ').filter(Boolean).map(w => w[0].toUpperCase()).join('');
+                            const uniqueSuffix = Math.floor(100 + Math.random() * 900);
+                            feature.properties = {
+                                ...feature.properties,
                                 damId,
-                                gateNumber: `G${String(index + 1).padStart(2, '0')}`,
+                                gateNumber: `${initials}-G${uniqueSuffix}`,
                                 gateType: 'radial', maxOpeningMeters: 12.5,
                                 currentOpeningMeters: 0.0, status: 'closed',
                                 latitude: feature.geometry.coordinates[1],
@@ -194,9 +217,11 @@ export default function MapDetailedPage() {
                     } else if (type === 'sensorCircle') {
                         if (!feature.properties.sensorUid) {
                             modified = true;
+                            const initials = (dam?.name || '').split(' ').filter(Boolean).map(w => w[0].toUpperCase()).join('');
+                            const uniqueSuffix = Math.floor(100 + Math.random() * 900);
                             feature.properties = {
                                 ...feature.properties,
-                                sensorUid: `SEN-${index + 1}`,
+                                sensorUid: `${initials}-S${uniqueSuffix}`,
                                 damId,
                                 sensorTypeId: 1,
                                 name: `Sensor ${index + 1}`,
@@ -400,6 +425,13 @@ export default function MapDetailedPage() {
                 await updateHazardZone(dbId, payload);
                 toast.success(`Hazard Zone "${feature.properties.zoneName}" updated!`);
                 loadSavedData(damId);
+            } else if (type === 'damCircle') {
+                await updateDam(dbId, {
+                    latitude: feature.properties.latitude,
+                    longitude: feature.properties.longitude
+                });
+                toast.success(`Dam Location updated!`);
+                loadSavedData(damId);
             } else if (type === 'gateCircle') {
                 await updateGate(dbId, {
                     gateType: feature.properties.gateType,
@@ -437,12 +469,17 @@ export default function MapDetailedPage() {
     const handleDelete = async (idx, feature) => {
         const type = feature.properties?.type || feature.geometry.type;
         const dbId = feature.properties?.dbId;
-        const entityName = type === 'polygon' || type === 'rectangle' ? 'Hazard Zone' : type === 'gateCircle' ? 'Gate' : 'Sensor';
+        const entityName = type === 'polygon' || type === 'rectangle' ? 'Hazard Zone' : type === 'gateCircle' ? 'Gate' : type === 'damCircle' ? 'Dam Location' : 'Sensor';
         if (!confirm(`Are you sure you want to delete this ${entityName}?`)) return;
         setLoading(idx, 'delete', true);
         try {
             if (dbId) {
-                if (type === 'polygon' || type === 'rectangle' || feature.geometry.type === 'Polygon') { await deleteHazardZone(dbId); toast.success('Hazard Zone deleted!'); }
+                if (type === 'damCircle') {
+                    toast.error('Cannot delete Dam Location. You can only move it.');
+                    setLoading(idx, 'delete', false);
+                    return;
+                }
+                else if (type === 'polygon' || type === 'rectangle' || feature.geometry.type === 'Polygon') { await deleteHazardZone(dbId); toast.success('Hazard Zone deleted!'); }
                 else if (type === 'gateCircle') { await deleteGate(dbId); toast.success('Gate deleted!'); }
                 else if (type === 'sensorCircle') { await deleteSensor(dbId); toast.success('Sensor deleted!'); }
             }

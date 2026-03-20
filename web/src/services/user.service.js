@@ -12,6 +12,12 @@ export const getCurrentUser = async () => {
     return d(r);
 };
 
+/** GET /user-activities/me → ApiResponse<Page<UserActivityLogResponse>> */
+export const getCurrentUserActivities = async (page = 0, size = 15) => {
+    const r = await apiClient.get('/user-activities/me', { params: { page, size } });
+    return d(r);
+};
+
 // ── Users CRUD ────────────────────────────────────────────────────────────────
 
 /** GET /users?page=&size=&sortBy=&sortDirection= → ApiResponse<Page<UserResponse>> */

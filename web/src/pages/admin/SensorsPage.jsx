@@ -56,7 +56,22 @@ function CreateSensorModal({ dams, sensorTypes, onClose, onCreated }) {
     const [form, setForm] = useState(EMPTY);
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
-    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+    
+    const set = (k, v) => {
+        setForm(f => {
+            const next = { ...f, [k]: v };
+            // Auto-generate sensor UID when dam is selected
+            if (k === 'damId' && v) {
+                const selectedDam = dams.find(d => String(d.id) === String(v));
+                if (selectedDam && (!f.sensorUid || f.sensorUid === '' || /-S\d+$/.test(f.sensorUid))) {
+                    const initials = (selectedDam.name || '').split(' ').filter(Boolean).map(w => w[0].toUpperCase()).join('');
+                    const uniqueSuffix = Math.floor(100 + Math.random() * 900);
+                    next.sensorUid = `${initials}-S${uniqueSuffix}`;
+                }
+            }
+            return next;
+        });
+    };
 
     const validate = () => {
         const e = {};

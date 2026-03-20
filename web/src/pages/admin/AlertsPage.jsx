@@ -1,4 +1,60 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+// ─── Warning Alert Sound (Web Audio API) ──────────────────────────────────────
+function useWarningSound() {
+    const [muted, setMuted] = useState(false);
+    const audioCtxRef = useRef(null);
+    const intervalRef = useRef(null);
+
+    // One siren "wail": frequency sweeps 1400 Hz → 900 Hz and back,
+    // volume swells up from 0 → 0.55 then fades back to 0 over ~1.8 s.
+    const playWail = () => {
+        if (!audioCtxRef.current) {
+            audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const now = ctx.currentTime;
+        const duration = 1.8; // seconds per wail
+
+        // ── Oscillator (frequency sweep) ──────────────────────────────────────
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        // Sweep: rise 1400 → 900 Hz in 0.9 s, then fall 900 → 1400 Hz back
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.linearRampToValueAtTime(900, now + duration * 0.5);
+        osc.frequency.linearRampToValueAtTime(1400, now + duration);
+
+        // ── Gain (volume swell: 0 → peak → 0) ──────────────────────────────
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.55, now + duration * 0.35); // rise fast
+        gain.gain.linearRampToValueAtTime(0.55, now + duration * 0.65); // hold peak
+        gain.gain.linearRampToValueAtTime(0, now + duration);            // fade out
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration + 0.05);
+    };
+
+    const start = () => {
+        if (intervalRef.current) return;
+        playWail();
+        // Repeat every 2 s so wails overlap slightly for a continuous siren
+        intervalRef.current = setInterval(playWail, 2000);
+    };
+
+    const stop = () => {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+    };
+
+    useEffect(() => () => stop(), []);
+
+    return { muted, setMuted, start, stop };
+}
 import toast from 'react-hot-toast';
 import {
     getAllAlerts, searchAlerts, getAlertAnalytics,
@@ -531,6 +587,20 @@ export default function AlertsPage() {
     const [dams, setDams] = useState([]);
     const [regions, setRegions] = useState([]);
 
+    // ── Warning sound ──────────────────────────────────────────────────────────
+    const { muted, setMuted, start: startSiren, stop: stopSiren } = useWarningSound();
+    const ALERT_SEVERITIES = new Set(['warning', 'critical', 'emergency']);
+    const hasActiveWarning = alerts.some(
+        a => a.status === 'active' && ALERT_SEVERITIES.has((a.severity || '').toLowerCase())
+    );
+    useEffect(() => {
+        if (!muted && hasActiveWarning) {
+            startSiren();
+        } else {
+            stopSiren();
+        }
+    }, [muted, hasActiveWarning]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // UI State
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -646,6 +716,20 @@ export default function AlertsPage() {
                     <p className="text-sm text-gray-400">{loading ? '…' : `${alerts.length} alerts displayed`}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                    {/* Mute / Unmute warning siren */}
+                    {hasActiveWarning && (
+                        <button
+                            onClick={() => setMuted(m => !m)}
+                            title={muted ? 'Unmute warning siren' : 'Mute warning siren'}
+                            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition shadow-sm ${
+                                muted
+                                    ? 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'
+                                    : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 animate-pulse'
+                            }`}
+                        >
+                            {muted ? '🔇 Unmute' : '🔊 Mute'}
+                        </button>
+                    )}
                     <button onClick={() => setShowCreate(true)}
                         className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm">
                         <span className="text-base leading-none">+</span> Create Alert

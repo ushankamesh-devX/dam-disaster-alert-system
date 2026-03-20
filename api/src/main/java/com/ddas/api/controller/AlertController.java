@@ -202,10 +202,10 @@ public class AlertController {
      * <p>
      * High-priority Emergency Broadcast that bypasses standard queuing.
      * Severity is forced to 'emergency' and status to 'active' regardless of payload.
-     * Intended for imminent dam-breach scenarios. Restricted to SUPER_ADMIN only.
+     * Intended for imminent dam-breach scenarios. Restricted to ADMIN and SUPER_ADMIN.
      */
     @PostMapping("/emergency-override")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AlertResponseDTO>> emergencyOverrideBroadcast(
             @Valid @RequestBody AlertRequestDTO request) {
         AlertResponseDTO response = alertService.emergencyBroadcast(request);

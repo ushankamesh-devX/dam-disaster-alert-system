@@ -1,10 +1,11 @@
 // app/(tabs)/news.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ScrollView, View, RefreshControl } from 'react-native';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { NewsCard } from '@/components/pages/News/NewsCard';
 import { NewsFilterTabs } from '@/components/pages/News/NewsFilterTabs';
 import { NewsDetailModal } from '@/components/pages/News/NewsDetailModal';
+import { newsService } from '@/services/news/news.service';
 
 // Realistic news data with weather, safety alerts, and community welfare
 const newsData = [
@@ -112,28 +113,69 @@ const newsData = [
 
 import { useTranslation } from 'react-i18next';
 
+type NewsItem = typeof newsData[0];
+
+function mapApiArticle(item: Record<string, unknown>): NewsItem {
+  const category = (item.category as Record<string, unknown>)?.name ?? item.categoryName ?? item.category ?? '';
+  const createdAt = item.publishedAt ?? item.createdAt;
+  const timeAgo = createdAt
+    ? new Date(String(createdAt)).toLocaleDateString([], { month: 'short', day: 'numeric' })
+    : '';
+  return {
+    id: String(item.id ?? ''),
+    image: String(item.imageUrl ?? item.thumbnailUrl ?? item.image ?? ''),
+    category: String(category),
+    title: String(item.title ?? ''),
+    description: String(item.summary ?? item.description ?? item.content ?? ''),
+    timeAgo,
+    filter: String(item.filterTag ?? item.categorySlug ?? category).toLowerCase(),
+  } as NewsItem;
+}
+
 export default function NewsScreen() {
   const { t } = useTranslation();
+  const [articles, setArticles] = useState<NewsItem[]>(newsData as NewsItem[]);
   const [activeFilter, setActiveFilter] = useState('all');
-  const [selectedNews, setSelectedNews] = useState<typeof newsData[0] | null>(null);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    // Simulate API call to fetch latest news
-    setTimeout(() => {
-      setRefreshing(false);
-      // In production, fetch new data here
-    }, 1500);
+  const fetchNews = useCallback(() => {
+    newsService
+      .getAll()
+      .then((res) => {
+        const raw: Record<string, unknown>[] = Array.isArray(res.data)
+          ? res.data
+          : (res.data?.data ?? res.data?.content ?? res.data?.articles ?? []);
+        if (raw.length > 0) setArticles(raw.map(mapApiArticle));
+      })
+      .catch(() => {/* keep existing articles on error */});
   }, []);
 
-  const handleNewsPress = (news: typeof newsData[0]) => {
+  useEffect(() => {
+    fetchNews();
+  }, [fetchNews]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    newsService
+      .getAll()
+      .then((res) => {
+        const raw: Record<string, unknown>[] = Array.isArray(res.data)
+          ? res.data
+          : (res.data?.data ?? res.data?.content ?? res.data?.articles ?? []);
+        if (raw.length > 0) setArticles(raw.map(mapApiArticle));
+      })
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }, []);
+
+  const handleNewsPress = (news: NewsItem) => {
     setSelectedNews(news);
     setModalVisible(true);
   };
 
-  const filteredNews = newsData.filter(news =>
+  const filteredNews = articles.filter(news =>
     activeFilter === 'all' || news.filter === activeFilter
   );
 

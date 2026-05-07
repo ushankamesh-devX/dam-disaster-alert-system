@@ -1,5 +1,5 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { API_BASE_URL, API_TIMEOUT } from "@env";
+import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
+import { API_BASE_URL, API_TIMEOUT, VIEWER_EMAIL, VIEWER_PASSWORD } from "@env";
 import { tokenStorage } from "./token.storage";
 
 export const axiosInstance = axios.create({
@@ -24,8 +24,28 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
       await tokenStorage.clear();
+      try {
+        // Re-login with viewer credentials and retry the original request
+        const loginRes = await axios.post(`${API_BASE_URL}${"/auth/login"}`, {
+          email: VIEWER_EMAIL,
+          password: VIEWER_PASSWORD,
+        });
+        const newToken: string =
+          loginRes.data?.token ?? loginRes.data?.data?.token ?? loginRes.data?.accessToken;
+        if (newToken) {
+          await tokenStorage.set(newToken);
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          }
+          return axiosInstance(originalRequest);
+        }
+      } catch {
+        // Re-login failed — reject original error
+      }
     }
     return Promise.reject(error);
   }

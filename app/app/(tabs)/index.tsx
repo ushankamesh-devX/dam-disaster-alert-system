@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Text, ScrollView } from 'react-native';
+import { Linking, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { HazardCard } from '@/components/pages/Dashboard/HazardCard';
@@ -70,7 +70,7 @@ export default function HomeScreen() {
   };
 
   const handleShelterLocations = () => {
-    console.log('Shelter Locations pressed');
+    router.push('/(tabs)/emergency');
   };
 
   const handleShareLocation = () => {
@@ -78,7 +78,7 @@ export default function HomeScreen() {
   };
 
   const handleEmergencyContact = () => {
-    console.log('Emergency Contact pressed');
+    Linking.openURL('tel:117').catch(() => {});
   };
 
   return (

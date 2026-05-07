@@ -1,8 +1,22 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { safeLocationService } from '@/services/safe-locations/safe-location.service';
+import { EvacuationMapView } from './EvacuationMapView';
+
+// Default emergency number for Sri Lanka Disaster Management Centre
+const DEFAULT_EMERGENCY_NUMBER = '117';
 
 type LocationTag = 'Nearby' | 'Emergency' | 'Safe' | 'Shelter';
 
@@ -12,13 +26,9 @@ type SafeLocation = {
   area: string;
   distanceKm: number;
   tag: LocationTag;
-};
-
-type MapMarker = {
-  id: SafeLocation['id'];
-  topPct: number;
-  leftPct: number;
-  color: string;
+  phoneNumber: string;
+  latitude: number;
+  longitude: number;
 };
 
 type FacilityDetail = {
@@ -32,21 +42,55 @@ type FacilityDetail = {
 type Amenity = {
   id: string;
   label: string;
-  value?: string; // dummy for lint
 };
+
+const TAG_CYCLE: LocationTag[] = ['Nearby', 'Emergency', 'Safe', 'Shelter'];
+
+const FALLBACK_LOCATIONS: SafeLocation[] = [
+  { id: '1', name: 'Central Evacuation Center', area: 'City Hall area', distanceKm: 2.1, tag: 'Nearby', phoneNumber: DEFAULT_EMERGENCY_NUMBER, latitude: 6.9271, longitude: 79.8612 },
+  { id: '2', name: 'Riverside Community Hall', area: 'Riverside', distanceKm: 3.4, tag: 'Emergency', phoneNumber: DEFAULT_EMERGENCY_NUMBER, latitude: 6.9319, longitude: 79.8478 },
+  { id: '3', name: 'Northside School Shelter', area: 'North District', distanceKm: 5.7, tag: 'Safe', phoneNumber: DEFAULT_EMERGENCY_NUMBER, latitude: 6.9530, longitude: 79.8500 },
+  { id: '4', name: 'Downtown Safe Zone', area: 'Downtown', distanceKm: 1.8, tag: 'Shelter', phoneNumber: DEFAULT_EMERGENCY_NUMBER, latitude: 6.9147, longitude: 79.9714 },
+];
+
+function mapApiLocation(item: Record<string, unknown>, index: number): SafeLocation {
+  const pos = MARKER_POSITIONS[index % MARKER_POSITIONS.length];
+  return {
+    id: String(item.id ?? item.uuid ?? index),
+    name: String(item.name ?? item.locationName ?? ''),
+    area: String(item.area ?? item.address ?? item.district ?? item.code ?? ''),
+    distanceKm: Number(item.distanceKm ?? item.distance ?? 0),
+    tag: TAG_CYCLE[index % TAG_CYCLE.length],
+    phoneNumber: String(item.phoneNumber ?? item.contactNumber ?? item.phone ?? DEFAULT_EMERGENCY_NUMBER),
+    latitude: Number(item.latitude ?? item.lat ?? 0),
+    longitude: Number(item.longitude ?? item.lng ?? item.lon ?? 0),
+  };
+}
+
+function openDirections(lat: number, lng: number, name: string) {
+  const encoded = encodeURIComponent(name);
+  const url = Platform.select({
+    ios: lat && lng
+      ? `maps:?daddr=${lat},${lng}&q=${encoded}`
+      : `maps:?q=${encoded}`,
+    default: lat && lng
+      ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encoded}`,
+  });
+  if (url) Linking.openURL(url).catch(() => {});
+}
+
+function makeCall(phone: string) {
+  Linking.openURL(`tel:${phone}`).catch(() => {});
+}
 
 function getTagStyles(tag: LocationTag) {
   switch (tag) {
-    case 'Nearby':
-      return { pill: 'bg-green-100', text: 'text-green-700' };
-    case 'Emergency':
-      return { pill: 'bg-red-100', text: 'text-red-700' };
-    case 'Safe':
-      return { pill: 'bg-blue-100', text: 'text-blue-700' };
-    case 'Shelter':
-      return { pill: 'bg-purple-100', text: 'text-purple-700' };
-    default:
-      return { pill: 'bg-gray-100', text: 'text-gray-700' };
+    case 'Nearby':   return { pill: 'bg-green-100', text: 'text-green-700' };
+    case 'Emergency': return { pill: 'bg-red-100', text: 'text-red-700' };
+    case 'Safe':     return { pill: 'bg-blue-100', text: 'text-blue-700' };
+    case 'Shelter':  return { pill: 'bg-purple-100', text: 'text-purple-700' };
+    default:         return { pill: 'bg-gray-100', text: 'text-gray-700' };
   }
 }
 
@@ -54,34 +98,31 @@ export function EmergencySafeLocationFlow() {
   const router = useRouter();
   const { t } = useTranslation();
   const [selected, setSelected] = useState<SafeLocation | null>(null);
-
-  const mapImage = useMemo(
-    () => require('../../assets/images/Emergency Contact/Google map.png'),
-    [],
-  );
+  const [locations, setLocations] = useState<SafeLocation[]>(FALLBACK_LOCATIONS);
+  const [loading, setLoading] = useState(true);
 
   const evacuationCenterImage = useMemo(
     () => require('../../assets/images/Emergency Contact/EvacuationCenter.jpg'),
     [],
   );
 
-  const locations: SafeLocation[] = useMemo(
-    () => [
-      { id: '1', name: 'Central Evacuation Center', area: 'City Hall area', distanceKm: 2.1, tag: 'Nearby' },
-      { id: '2', name: 'Riverside Community Hall', area: 'Riverside', distanceKm: 3.4, tag: 'Emergency' },
-      { id: '3', name: 'Northside School Shelter', area: 'North District', distanceKm: 5.7, tag: 'Safe' },
-      { id: '4', name: 'Downtown Safe Zone', area: 'Downtown', distanceKm: 1.8, tag: 'Shelter' },
-    ],
-    [],
-  );
+  useEffect(() => {
+    safeLocationService
+      .getList()
+      .then((res) => {
+        const raw: Record<string, unknown>[] = Array.isArray(res.data)
+          ? res.data
+          : (res.data?.data ?? res.data?.content ?? res.data?.locations ?? []);
+        if (raw.length > 0) setLocations(raw.map(mapApiLocation));
+      })
+      .catch(() => {/* keep fallback */})
+      .finally(() => setLoading(false));
+  }, []);
 
-  const markers: MapMarker[] = useMemo(
-    () => [
-      { id: '1', topPct: 54, leftPct: 26, color: '#22C55E' }, // Nearby (green)
-      { id: '2', topPct: 48, leftPct: 62, color: '#EF4444' }, // Emergency (red)
-      { id: '3', topPct: 64, leftPct: 74, color: '#3B82F6' }, // Safe (blue)
-      { id: '4', topPct: 40, leftPct: 52, color: '#8B5CF6' }, // Shelter (purple)
-    ],
+  const onMapLocationSelect = useCallback(
+    (raw: Record<string, unknown>) => {
+      setSelected(mapApiLocation(raw, 0));
+    },
     [],
   );
 
@@ -89,9 +130,9 @@ export function EmergencySafeLocationFlow() {
     () => [
       { id: 'cap', label: t('cap_capacity'), value: '500 people', icon: 'account-group-outline', status: t('status_available') },
       { id: 'hours', label: t('cap_hours'), value: '24/7 Emergency', icon: 'clock-outline', status: t('status_available') },
-      { id: 'loc', label: t('cap_location'), value: '123 Main Street', icon: 'map-marker-outline' },
+      { id: 'loc', label: t('cap_location'), value: selected ? `${selected.latitude.toFixed(4)}, ${selected.longitude.toFixed(4)}` : '—', icon: 'map-marker-outline' },
     ],
-    [t],
+    [t, selected],
   );
 
   const amenities: Amenity[] = useMemo(
@@ -108,14 +149,15 @@ export function EmergencySafeLocationFlow() {
 
   const getTagLabel = (tag: LocationTag) => {
     switch (tag) {
-      case 'Nearby': return t('tag_nearby');
+      case 'Nearby':    return t('tag_nearby');
       case 'Emergency': return t('tag_emergency');
-      case 'Safe': return t('tag_safe');
-      case 'Shelter': return t('tag_shelter');
-      default: return tag;
+      case 'Safe':      return t('tag_safe');
+      case 'Shelter':   return t('tag_shelter');
+      default:          return tag;
     }
-  }
+  };
 
+  // ── Detail view ──────────────────────────────────────────────────────────────
   if (selected) {
     const tagStyles = getTagStyles(selected.tag);
 
@@ -156,6 +198,7 @@ export function EmergencySafeLocationFlow() {
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Directions"
+                onPress={() => openDirections(selected.latitude, selected.longitude, selected.name)}
                 className="flex-1 rounded-xl bg-blue-600 py-3 items-center justify-center flex-row"
               >
                 <MaterialCommunityIcons name="navigation-variant" size={18} color="white" />
@@ -165,6 +208,7 @@ export function EmergencySafeLocationFlow() {
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Call"
+                onPress={() => makeCall(selected.phoneNumber)}
                 className="flex-1 rounded-xl bg-green-600 py-3 items-center justify-center flex-row"
               >
                 <MaterialCommunityIcons name="phone" size={18} color="white" />
@@ -190,7 +234,6 @@ export function EmergencySafeLocationFlow() {
                     </Text>
                   </View>
                 </View>
-
                 {d.status ? <Text className="text-green-700 text-xs font-semibold">{d.status}</Text> : null}
               </View>
             ))}
@@ -214,11 +257,27 @@ export function EmergencySafeLocationFlow() {
           </View>
         </View>
 
+        {/* Quick emergency call strip */}
+        <View className="mt-2 mb-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3 flex-row items-center justify-between">
+          <View className="flex-1 pr-3">
+            <Text className="text-red-700 text-xs font-bold uppercase">Emergency Hotline</Text>
+            <Text className="text-red-900 text-sm font-semibold mt-0.5">{selected.phoneNumber}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => makeCall(selected.phoneNumber)}
+            className="bg-red-600 rounded-xl px-4 py-2 flex-row items-center"
+          >
+            <MaterialCommunityIcons name="phone" size={16} color="white" />
+            <Text className="text-white text-xs font-bold ml-1">Call Now</Text>
+          </TouchableOpacity>
+        </View>
+
         <View className="h-8" />
       </ScrollView>
     );
   }
 
+  // ── List view ────────────────────────────────────────────────────────────────
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       <View className="flex-row items-center justify-between mb-3">
@@ -239,55 +298,49 @@ export function EmergencySafeLocationFlow() {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Refresh"
+          onPress={() => {
+            setLoading(true);
+            safeLocationService
+              .getList()
+              .then((res) => {
+                const raw: Record<string, unknown>[] = Array.isArray(res.data)
+                  ? res.data
+                  : (res.data?.data ?? res.data?.content ?? res.data?.locations ?? []);
+                if (raw.length > 0) setLocations(raw.map(mapApiLocation));
+              })
+              .catch(() => {})
+              .finally(() => setLoading(false));
+          }}
           className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
         >
           <MaterialCommunityIcons name="compass-outline" size={22} color="#111827" />
         </TouchableOpacity>
       </View>
 
-      <View className="rounded-3xl overflow-hidden border border-gray-200 bg-slate-100 h-60 relative">
-        <Image source={mapImage} resizeMode="cover" className="w-full h-full absolute" />
-        <View className="absolute inset-0 bg-white/10" />
+      <EvacuationMapView height={260} onLocationSelect={onMapLocationSelect} />
 
-        {/* Safe location markers */}
-        {markers.map((m) => {
-          const loc = locations.find((l) => l.id === m.id);
-          if (!loc) return null;
-          return (
-            <TouchableOpacity
-              key={m.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${loc.name}`}
-              onPress={() => setSelected(loc)}
-              style={{
-                position: 'absolute',
-                top: `${m.topPct}%`,
-                left: `${m.leftPct}%`,
-                transform: [{ translateX: -16 }, { translateY: -16 }],
-              }}
-              className="h-8 w-8 rounded-full items-center justify-center"
-            >
-              <View
-                className="h-8 w-8 rounded-full items-center justify-center"
-                style={{ backgroundColor: `${m.color}33` }}
-              >
-                <View className="h-4 w-4 rounded-full" style={{ backgroundColor: m.color }} />
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="My location"
-          className="absolute right-4 top-4 h-11 w-11 rounded-full bg-blue-600 items-center justify-center shadow"
-        >
-          <MaterialCommunityIcons name="crosshairs-gps" size={22} color="white" />
-        </TouchableOpacity>
-      </View>
+      {/* National emergency call banner */}
+      <TouchableOpacity
+        onPress={() => makeCall(DEFAULT_EMERGENCY_NUMBER)}
+        className="mt-4 bg-red-600 rounded-2xl px-4 py-3 flex-row items-center justify-between"
+        activeOpacity={0.85}
+      >
+        <View className="flex-row items-center">
+          <MaterialCommunityIcons name="phone-alert" size={22} color="white" />
+          <View className="ml-3">
+            <Text className="text-white text-xs font-bold uppercase tracking-wide">Disaster Management Centre</Text>
+            <Text className="text-white text-base font-bold">{DEFAULT_EMERGENCY_NUMBER}</Text>
+          </View>
+        </View>
+        <View className="bg-white/20 rounded-xl px-3 py-1">
+          <Text className="text-white text-xs font-bold">Call Now</Text>
+        </View>
+      </TouchableOpacity>
 
       <View className="mt-5">
         <Text className="text-gray-900 text-base font-semibold mb-3">{t('nearby_safe_locations')}</Text>
+
+        {loading && <ActivityIndicator size="small" color="#2563eb" className="mb-3" />}
 
         <View className="gap-3">
           {locations.map((loc) => {
@@ -314,7 +367,16 @@ export function EmergencySafeLocationFlow() {
                   </View>
                 </View>
 
-                <View className="flex-row items-center justify-end mt-2">
+                <View className="flex-row items-center justify-between mt-2">
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); makeCall(loc.phoneNumber); }}
+                    className="flex-row items-center"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <MaterialCommunityIcons name="phone-outline" size={14} color="#16A34A" />
+                    <Text className="text-green-600 text-xs font-semibold ml-1">Call</Text>
+                  </TouchableOpacity>
+
                   <View className="flex-row items-center">
                     <Text className="text-blue-600 text-xs font-semibold">{t('details')}</Text>
                     <MaterialCommunityIcons name="chevron-right" size={18} color="#2563EB" />

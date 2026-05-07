@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   Linking,
   Image,
   StyleSheet,
+  ActivityIndicator,
   type ImageSourcePropType,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { safeLocationService } from '@/services/safe-locations/safe-location.service';
 
 export type SafeLocationsProps = {
   mapImageSource?: ImageSourcePropType;
@@ -61,49 +63,86 @@ function openDirections(query: string) {
   });
 }
 
+const FALLBACK_LOCATIONS: SafeLocation[] = [
+  {
+    id: '1',
+    name: 'Central Evacuation Center',
+    area: 'City Hall area',
+    distanceKm: 2.1,
+    tag: 'Nearby',
+    query: 'Central Evacuation Center',
+    marker: { top: 55, left: 20, color: '#F59E0B' },
+  },
+  {
+    id: '2',
+    name: 'Riverside Community Hall',
+    area: 'Riverside',
+    distanceKm: 3.4,
+    tag: 'Emergency',
+    query: 'Riverside Community Hall',
+    marker: { top: 50, left: 62, color: '#22C55E' },
+  },
+  {
+    id: '3',
+    name: 'Northside School Shelter',
+    area: 'North District',
+    distanceKm: 5.7,
+    tag: 'Safe',
+    query: 'Northside School Shelter',
+    marker: { top: 64, left: 72, color: '#22C55E' },
+  },
+  {
+    id: '4',
+    name: 'Downtown Safe Zone',
+    area: 'Downtown',
+    distanceKm: 1.8,
+    tag: 'Shelter',
+    query: 'Downtown Safe Zone',
+    marker: { top: 40, left: 52, color: '#3B82F6' },
+  },
+];
+
+const MARKER_COLORS = ['#F59E0B', '#22C55E', '#22C55E', '#3B82F6'];
+const MARKER_POSITIONS = [
+  { top: 55, left: 20 },
+  { top: 50, left: 62 },
+  { top: 64, left: 72 },
+  { top: 40, left: 52 },
+];
+const TAG_CYCLE: LocationTag[] = ['Nearby', 'Emergency', 'Safe', 'Shelter'];
+
+function mapApiLocation(item: Record<string, unknown>, index: number): SafeLocation {
+  const pos = MARKER_POSITIONS[index % MARKER_POSITIONS.length];
+  return {
+    id: String(item.id ?? item.uuid ?? index),
+    name: String(item.name ?? item.locationName ?? ''),
+    area: String(item.area ?? item.address ?? item.district ?? ''),
+    distanceKm: Number(item.distanceKm ?? item.distance ?? 0),
+    tag: TAG_CYCLE[index % TAG_CYCLE.length],
+    query: String(item.name ?? item.locationName ?? ''),
+    marker: { top: pos.top, left: pos.left, color: MARKER_COLORS[index % MARKER_COLORS.length] },
+  };
+}
+
 export function SafeLocations({ mapImageSource }: SafeLocationsProps = {}) {
   const router = useRouter();
-  const locations: SafeLocation[] = useMemo(
-    () => [
-      {
-        id: '1',
-        name: 'Central Evacuation Center',
-        area: 'City Hall area',
-        distanceKm: 2.1,
-        tag: 'Nearby',
-        query: 'Central Evacuation Center',
-        marker: { top: 55, left: 20, color: '#F59E0B' },
-      },
-      {
-        id: '2',
-        name: 'Riverside Community Hall',
-        area: 'Riverside',
-        distanceKm: 3.4,
-        tag: 'Emergency',
-        query: 'Riverside Community Hall',
-        marker: { top: 50, left: 62, color: '#22C55E' },
-      },
-      {
-        id: '3',
-        name: 'Northside School Shelter',
-        area: 'North District',
-        distanceKm: 5.7,
-        tag: 'Safe',
-        query: 'Northside School Shelter',
-        marker: { top: 64, left: 72, color: '#22C55E' },
-      },
-      {
-        id: '4',
-        name: 'Downtown Safe Zone',
-        area: 'Downtown',
-        distanceKm: 1.8,
-        tag: 'Shelter',
-        query: 'Downtown Safe Zone',
-        marker: { top: 40, left: 52, color: '#3B82F6' },
-      },
-    ],
-    [],
-  );
+  const [locations, setLocations] = useState<SafeLocation[]>(FALLBACK_LOCATIONS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    safeLocationService
+      .getList()
+      .then((res) => {
+        const raw: Record<string, unknown>[] = Array.isArray(res.data)
+          ? res.data
+          : (res.data?.data ?? res.data?.content ?? res.data?.locations ?? []);
+        if (raw.length > 0) setLocations(raw.map(mapApiLocation));
+      })
+      .catch(() => {/* keep fallback locations */})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const displayLocations = useMemo(() => locations, [locations]);
 
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -159,7 +198,7 @@ export function SafeLocations({ mapImageSource }: SafeLocationsProps = {}) {
         </View>
 
         {/* Markers */}
-        {locations.slice(0, 3).map((loc) => (
+        {displayLocations.slice(0, 3).map((loc) => (
           <View
             key={loc.id}
             style={{
@@ -189,8 +228,9 @@ export function SafeLocations({ mapImageSource }: SafeLocationsProps = {}) {
       <View className="mt-5">
         <Text className="text-gray-900 text-base font-semibold mb-3">Nearby Safe Locations</Text>
 
+        {loading && <ActivityIndicator size="small" color="#2563eb" className="mb-3" />}
         <View className="gap-3">
-          {locations.map((loc) => {
+          {displayLocations.map((loc) => {
             const tag = getTagStyles(loc.tag);
             return (
               <TouchableOpacity

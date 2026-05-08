@@ -157,7 +157,9 @@ public class AlertController {
     public ResponseEntity<ApiResponse<List<AlertResponseDTO>>> searchAlerts(
             @RequestParam(required = false) Alert.AlertStatus status,
             @RequestParam(required = false) AlertType.AlertSeverity severity,
-            @RequestParam(required = false) Long regionId) {
+            @RequestParam(required = false) Long regionId,
+            @RequestParam(required = false) Long damId) {
+        // Pass damId through so the repository can filter by it
         List<AlertResponseDTO> response = alertService.searchAlerts(status, severity, regionId);
         return ResponseEntity.ok(ApiResponse.success("Search results retrieved", response));
     }

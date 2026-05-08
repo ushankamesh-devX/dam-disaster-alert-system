@@ -11,6 +11,119 @@ import { getAlertAnalytics, getAllActiveAlerts, getAllAlerts } from '../../servi
 import { getNewsArticles } from '../../services/news.service';
 import { getAllRegionsList } from '../../services/region.service';
 
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const Icons = {
+    Dam: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <rect x="2" y="6" width="20" height="3" rx="1"/>
+            <rect x="4" y="9" width="2" height="9" rx="0.5"/>
+            <rect x="11" y="9" width="2" height="9" rx="0.5"/>
+            <rect x="18" y="9" width="2" height="9" rx="0.5"/>
+            <line x1="2" y1="18" x2="22" y2="18"/>
+            <path d="M2 21 Q6 19 12 21 Q18 23 22 21"/>
+        </svg>
+    ),
+    Alert: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+    ),
+    Sensor: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M5 12.55a11 11 0 0114.08 0"/>
+            <path d="M1.42 9a16 16 0 0121.16 0"/>
+            <path d="M8.53 16.11a6 6 0 016.95 0"/>
+            <circle cx="12" cy="20" r="1" fill="currentColor"/>
+        </svg>
+    ),
+    Warning: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+    ),
+    Users: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+            <path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+    ),
+    Wrench: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+        </svg>
+    ),
+    CheckCircle: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+    ),
+    Bell: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+    ),
+    Globe: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+        </svg>
+    ),
+    News: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2"/>
+            <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
+        </svg>
+    ),
+    Map: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+            <line x1="9" y1="3" x2="9" y2="18"/>
+            <line x1="15" y1="6" x2="15" y2="21"/>
+        </svg>
+    ),
+    Shield: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+    ),
+    Activity: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+    ),
+    Refresh: ({ size = 16, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+        </svg>
+    ),
+    Key: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+        </svg>
+    ),
+    Droplets: ({ size = 18, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/>
+            <path d="M12.56 6.6A10.97 10.97 0 0014 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 01-11.91 4.97"/>
+        </svg>
+    ),
+    ChevronRight: ({ size = 14, className = '' }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <polyline points="9 18 15 12 9 6"/>
+        </svg>
+    ),
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const hazardColor = (status) => {
@@ -291,25 +404,25 @@ export default function DashboardPage() {
         {
             label: 'Total Dams', value: loading ? '—' : (damStats?.totalDams ?? allDams.length ?? 0),
             sub: loading ? '' : `${damStats?.activeDams ?? 0} operational`,
-            icon: '🏗️', color: 'bg-blue-50 text-blue-600', ring: 'ring-blue-100',
+            Icon: Icons.Dam, color: 'bg-blue-50 text-blue-600', ring: 'ring-blue-100',
             onClick: () => navigate('/admin/dams'),
         },
         {
             label: 'Active Alerts', value: loading ? '—' : (alertAnalytics?.totalActive ?? recentAlerts.length),
             sub: loading ? '' : `${alertAnalytics?.totalResolved ?? 0} resolved`,
-            icon: '🚨', color: 'bg-red-50 text-red-600', ring: 'ring-red-100',
+            Icon: Icons.Alert, color: 'bg-red-50 text-red-600', ring: 'ring-red-100',
             onClick: () => navigate('/admin/alerts'),
         },
         {
             label: 'Total Sensors', value: loading ? '—' : totalSensors,
             sub: loading ? '' : `${sensors.active} online`,
-            icon: '📡', color: 'bg-violet-50 text-violet-600', ring: 'ring-violet-100',
+            Icon: Icons.Sensor, color: 'bg-violet-50 text-violet-600', ring: 'ring-violet-100',
             onClick: () => navigate('/admin/sensors'),
         },
         {
             label: 'High-Risk Dams', value: loading ? '—' : highRisk.length,
             sub: loading ? '' : (highRisk.length === 0 ? 'All clear' : `${highRisk.length} need attention`),
-            icon: '⚠️',
+            Icon: Icons.Warning,
             color: highRisk.length > 0 ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600',
             ring: highRisk.length > 0 ? 'ring-orange-100' : 'ring-emerald-100',
         },
@@ -318,13 +431,13 @@ export default function DashboardPage() {
                 userStats ? (userStats.totalActive + (userStats.totalInactive || 0) + (userStats.totalSuspended || 0) + (userStats.totalPending || 0)) : '—'
             ),
             sub: loading ? '' : `${userStats?.totalActive ?? 0} active`,
-            icon: '👥', color: 'bg-cyan-50 text-cyan-600', ring: 'ring-cyan-100',
+            Icon: Icons.Users, color: 'bg-cyan-50 text-cyan-600', ring: 'ring-cyan-100',
             onClick: () => navigate('/admin/users'),
         },
         {
             label: 'Faulty Sensors', value: loading ? '—' : (sensors.faulty + sensors.maintenance),
             sub: loading ? '' : `${sensors.faulty} faulty · ${sensors.maintenance} maint.`,
-            icon: '🔧',
+            Icon: Icons.Wrench,
             color: (sensors.faulty > 0) ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600',
             ring: (sensors.faulty > 0) ? 'ring-red-100' : 'ring-emerald-100',
             onClick: () => navigate('/admin/sensors'),
@@ -337,13 +450,15 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">
-                        {greeting}{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''} 👋
+                        {greeting}{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}
                     </h1>
                     <p className="text-sm text-gray-400 mt-0.5">{today} · Dam Disaster Alert System</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {error && (
-                        <span className="text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg">⚠ {error}</span>
+                        <span className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg">
+                            <Icons.Warning size={12} /> {error}
+                        </span>
                     )}
                     <span className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -353,18 +468,20 @@ export default function DashboardPage() {
                         onClick={() => window.location.reload()}
                         className="flex items-center gap-1.5 text-sm text-gray-600 bg-white border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium"
                     >
-                        ↻ Refresh
+                        <Icons.Refresh size={14} /> Refresh
                     </button>
                 </div>
             </div>
 
             {/* ── Stat Cards (6 cards, 3×2 on lg) ──────────────────────────────── */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {STATS.map(({ label, value, sub, icon, color, ring, onClick }) => (
+                {STATS.map(({ label, value, sub, Icon, color, ring, onClick }) => (
                     <button key={label} onClick={onClick}
                         className={`bg-white border border-gray-200/80 rounded-xl p-4 shadow-sm hover:shadow-md hover:ring-2 ${ring} transition-all text-left w-full group`}>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center text-base group-hover:scale-110 transition-transform`}>{icon}</span>
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className={`w-9 h-9 rounded-lg ${color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                                <Icon size={17} />
+                            </span>
                         </div>
                         {loading
                             ? <Skeleton className="w-14 h-7 mb-1" />
@@ -527,7 +644,9 @@ export default function DashboardPage() {
                         <div className="p-5 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14" />)}</div>
                     ) : highRisk.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                            <span className="text-3xl mb-2">✅</span>
+                            <span className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+                                <Icons.CheckCircle size={20} className="text-emerald-500" />
+                            </span>
                             <p className="text-sm font-medium text-gray-700">All dams within safe limits</p>
                             <p className="text-xs text-gray-400 mt-1">No high-risk status detected</p>
                         </div>
@@ -629,7 +748,9 @@ export default function DashboardPage() {
                         <div className="p-5 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12" />)}</div>
                     ) : recentAlerts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                            <span className="text-3xl mb-2">🔔</span>
+                            <span className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center mb-3">
+                                <Icons.Bell size={20} className="text-blue-500" />
+                            </span>
                             <p className="text-sm font-medium text-gray-700">No active alerts</p>
                             <p className="text-xs text-gray-400 mt-1">All systems operating normally</p>
                         </div>
@@ -794,7 +915,9 @@ export default function DashboardPage() {
                         <div className="p-5 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10" />)}</div>
                     ) : regionalImpact.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-48 text-sm text-gray-400 text-center px-4">
-                            <span className="text-2xl mb-2">🌍</span>
+                            <span className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center mb-3">
+                                <Icons.Globe size={20} className="text-gray-400" />
+                            </span>
                             <span>No active regional alerts</span>
                         </div>
                     ) : (
@@ -803,8 +926,8 @@ export default function DashboardPage() {
                                 <li key={ri.regionId} className="px-5 py-3">
                                     <p className="text-xs font-semibold text-gray-800 truncate">{ri.regionName}</p>
                                     <div className="flex flex-col gap-0.5 mt-1.5">
-                                        <span className="text-[10px] text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded w-fit font-medium">
-                                            🚨 {ri.activeAlerts} Alerts
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded w-fit font-medium">
+                                            <Icons.Alert size={10} /> {ri.activeAlerts} Alerts
                                         </span>
                                         <span className="text-[10px] text-gray-500 mt-0.5">
                                             Est. Impact: <span className="font-semibold text-gray-700">{ri.affectedPopulation.toLocaleString()}</span> people
@@ -845,21 +968,32 @@ export default function DashboardPage() {
 
             {/* ── Quick Actions ─────────────────────────────────────────────────── */}
             <div className="bg-white border border-gray-200/80 rounded-xl shadow-sm p-5">
-                <h2 className="text-sm font-semibold text-gray-800 mb-3">Quick Actions</h2>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 className="text-sm font-semibold text-gray-800">Quick Actions</h2>
+                        <p className="text-xs text-gray-400 mt-0.5">Navigate to key management areas</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                     {[
-                        { label: 'Manage Dams', icon: '🏗️', path: '/admin/dams' },
-                        { label: 'View Sensors', icon: '📡', path: '/admin/sensors' },
-                        { label: 'Alert Center', icon: '🚨', path: '/admin/alerts' },
-                        { label: 'Manage Users', icon: '👥', path: '/admin/users' },
-                        { label: 'News & Updates', icon: '📰', path: '/admin/news' },
-                        { label: 'Regions', icon: '🗺️', path: '/admin/regions' },
-                        { label: 'Roles & Permissions', icon: '🔐', path: '/admin/roles' },
-                        { label: 'Map View', icon: '🌍', path: '/admin/map' },
-                    ].map(({ label, icon, path }) => (
+                        { label: 'Dams', desc: 'Manage dam infrastructure', Icon: Icons.Dam, path: '/admin/dams', color: 'text-blue-600 bg-blue-50 group-hover:bg-blue-100' },
+                        { label: 'Sensors', desc: 'Monitor sensor fleet', Icon: Icons.Sensor, path: '/admin/sensors', color: 'text-violet-600 bg-violet-50 group-hover:bg-violet-100' },
+                        { label: 'Alerts', desc: 'Active alert center', Icon: Icons.Alert, path: '/admin/alerts', color: 'text-red-600 bg-red-50 group-hover:bg-red-100' },
+                        { label: 'Users', desc: 'User management', Icon: Icons.Users, path: '/admin/users', color: 'text-cyan-600 bg-cyan-50 group-hover:bg-cyan-100' },
+                        { label: 'News', desc: 'Publish & manage news', Icon: Icons.News, path: '/admin/news', color: 'text-amber-600 bg-amber-50 group-hover:bg-amber-100' },
+                        { label: 'Regions', desc: 'Regional boundaries', Icon: Icons.Globe, path: '/admin/regions', color: 'text-teal-600 bg-teal-50 group-hover:bg-teal-100' },
+                        { label: 'Roles', desc: 'Roles & permissions', Icon: Icons.Shield, path: '/admin/roles', color: 'text-indigo-600 bg-indigo-50 group-hover:bg-indigo-100' },
+                        { label: 'Map', desc: 'Interactive map view', Icon: Icons.Map, path: '/admin/map', color: 'text-emerald-600 bg-emerald-50 group-hover:bg-emerald-100' },
+                    ].map(({ label, desc, Icon, path, color }) => (
                         <button key={path} onClick={() => navigate(path)}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all">
-                            <span>{icon}</span> {label}
+                            className="group flex flex-col items-center text-center gap-2 px-3 py-4 bg-gray-50 border border-gray-200/80 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all">
+                            <span className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${color}`}>
+                                <Icon size={18} />
+                            </span>
+                            <div>
+                                <p className="text-xs font-semibold text-gray-800">{label}</p>
+                                <p className="text-[10px] text-gray-400 mt-0.5 hidden sm:block leading-tight">{desc}</p>
+                            </div>
                         </button>
                     ))}
                 </div>

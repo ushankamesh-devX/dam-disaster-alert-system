@@ -195,6 +195,10 @@ export function EvacuationMapView({ onLocationSelect, height = 240 }: Props) {
         javaScriptEnabled
         domStorageEnabled
         allowsInlineMediaPlayback
+        androidLayerType="hardware"
+        nestedScrollEnabled={true}
+        overScrollMode="never"
+        setBuiltInZoomControls={false}
       />
     </View>
   );
@@ -208,7 +212,8 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   webview: {
-    flex: 1,
+    height: '100%',
+    width: '100%',
     backgroundColor: 'transparent',
   },
 });

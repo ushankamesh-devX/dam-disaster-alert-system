@@ -126,7 +126,8 @@ function mapApiArticle(item: Record<string, unknown>): NewsItem {
     image: String(item.imageUrl ?? item.thumbnailUrl ?? item.image ?? ''),
     category: String(category),
     title: String(item.title ?? ''),
-    description: String(item.summary ?? item.description ?? item.content ?? ''),
+    description: String(item.summary ?? item.description ?? item.excerpt ?? ''),
+    fullContent: String(item.content ?? item.fullContent ?? item.body ?? item.description ?? ''),
     timeAgo,
     filter: String(item.filterTag ?? item.categorySlug ?? category).toLowerCase(),
   } as NewsItem;
@@ -173,6 +174,9 @@ export default function NewsScreen() {
   const handleNewsPress = (news: NewsItem) => {
     setSelectedNews(news);
     setModalVisible(true);
+    if (news.id) {
+      newsService.markViewed(news.id).catch(() => {});
+    }
   };
 
   const filteredNews = articles.filter(news =>
@@ -220,6 +224,8 @@ export default function NewsScreen() {
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           news={selectedNews}
+          onSave={(id: string) => newsService.saveArticle(id).catch(() => {})}
+          onShare={(id: string) => newsService.shareArticle(id).catch(() => {})}
         />
       </View>
     </ScreenLayout>

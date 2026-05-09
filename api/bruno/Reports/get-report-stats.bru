@@ -1,0 +1,15 @@
+meta {
+  name: Get Report Stats
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/reports/stats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

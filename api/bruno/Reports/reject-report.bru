@@ -1,0 +1,23 @@
+meta {
+  name: Reject Report
+  type: http
+  seq: 11
+}
+
+patch {
+  url: {{base_url}}/reports/{{report_id}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "status": "rejected",
+    "notes": "Report does not contain valid information",
+    "rejectionReason": "Unable to verify the reported issue after site inspection. No crack found at the described location."
+  }
+}

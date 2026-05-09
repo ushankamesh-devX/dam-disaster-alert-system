@@ -16,6 +16,7 @@ interface NewsDetailModalProps {
   visible: boolean;
   onClose: () => void;
   news: {
+    id: string;
     image: string;
     category: string;
     title: string;
@@ -23,6 +24,8 @@ interface NewsDetailModalProps {
     fullContent: string;
     timeAgo: string;
   } | null;
+  onSave?: (id: string) => void;
+  onShare?: (id: string) => void;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -31,6 +34,8 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   visible,
   onClose,
   news,
+  onSave,
+  onShare,
 }) => {
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const lastGestureDy = useRef(0);
@@ -169,12 +174,6 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   </Text>
                 </View>
 
-                <View className="bg-blue-50 rounded-xl p-4 mb-4">
-                  <Text className="text-gray-700 text-base leading-7">
-                    {news.fullContent}
-                  </Text>
-                </View>
-
                 {/* Time stamp */}
                 <View className="flex-row items-center mt-2 mb-6">
                   <View className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
@@ -190,10 +189,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             <View className="bg-white border-t border-gray-100 shadow-2xl">
               <View className="px-5 py-4 flex-row gap-3">
                 <TouchableOpacity 
+                  className="flex-1 flex-row items-center justify-center gap-2 py-3.5 bg-gray-900 rounded-xl shadow-md active:bg-black"
+                  onPress={() => onSave?.(news.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-white text-base font-semibold">Save</Text>
+                  <Text className="text-white text-lg">★</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
                   className="flex-1 flex-row items-center justify-center gap-2 py-3.5 bg-blue-600 rounded-xl shadow-md active:bg-blue-700"
-                  onPress={() => {
-                    console.log('Share pressed');
-                  }}
+                  onPress={() => onShare?.(news.id)}
                   activeOpacity={0.8}
                 >
                   <Text className="text-white text-base font-semibold">Share Article</Text>

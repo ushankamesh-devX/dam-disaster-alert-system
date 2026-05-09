@@ -1,0 +1,20 @@
+meta {
+  name: Get My Reports
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/reports/my?page=0&size=10
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+params:query {
+  page: 0
+  size: 10
+}

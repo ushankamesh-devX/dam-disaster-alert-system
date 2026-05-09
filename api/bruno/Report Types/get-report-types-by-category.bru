@@ -1,0 +1,15 @@
+meta {
+  name: Get Report Types By Category
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/report-types/category/structural
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

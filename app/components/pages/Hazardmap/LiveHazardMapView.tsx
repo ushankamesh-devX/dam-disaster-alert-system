@@ -51,47 +51,29 @@ interface HazardZone {
 
 // ── Fetch all data in React Native (bypasses CORS) ───────────────────────────
 
-type MapMode = 'full' | 'zones';
-
-interface MapRenderOptions {
-  showLocations: boolean;
-  showZones: boolean;
-  showDams: boolean;
-}
-
-async function fetchMapData(mode: MapMode, options: MapRenderOptions) {
+async function fetchMapData() {
   await ensureAuth();
 
   const [locRes, damRes] = await Promise.all([
-    mode === 'zones' || !options.showLocations
-      ? Promise.resolve({ data: [] as SafeLocation[] })
-      : safeLocationService.getList().catch(() => ({ data: [] as SafeLocation[] })),
-    options.showDams || options.showZones
-      ? damService.getActive().catch(() => ({ data: [] as Dam[] }))
-      : Promise.resolve({ data: [] as Dam[] }),
+    safeLocationService.getList().catch(() => ({ data: [] as SafeLocation[] })),
+    damService.getList().catch(() => ({ data: [] as Dam[] })),
   ]);
 
   const locations: SafeLocation[] = Array.isArray(locRes.data) ? locRes.data : [];
   const dams: Dam[] = Array.isArray(damRes.data) ? damRes.data : [];
 
-  const zoneArrays = options.showZones
-    ? await Promise.all(
-        dams
-          .filter((d) => d.id)
-          .map((d) =>
-            hazardZoneService
-              .getActiveByDam(String(d.id))
-              .then((r) => (Array.isArray(r.data) ? (r.data as HazardZone[]) : []))
-              .catch(() => [] as HazardZone[]),
-          ),
-      )
-    : [];
+  const zoneArrays = await Promise.all(
+    dams
+      .filter((d) => d.id)
+      .map((d) =>
+        hazardZoneService
+          .getActiveByDam(String(d.id))
+          .then((r) => (Array.isArray(r.data) ? (r.data as HazardZone[]) : []))
+          .catch(() => [] as HazardZone[]),
+      ),
+  );
 
-  return {
-    locations: mode === 'zones' ? [] : locations,
-    dams: mode === 'zones' ? [] : dams,
-    zones: zoneArrays.flat(),
-  };
+  return { locations, dams, zones: zoneArrays.flat() };
 }
 
 // ── Build Leaflet HTML with pre-injected JSON ────────────────────────────────
@@ -101,8 +83,6 @@ function buildHtml(
   locations: SafeLocation[],
   dams: Dam[],
   zones: HazardZone[],
-  mode: MapMode,
-  options: MapRenderOptions,
 ): string {
   const locJson = JSON.stringify(locations);
   const damsJson = JSON.stringify(dams);
@@ -147,9 +127,6 @@ var map = L.map('map', {zoomControl:true, attributionControl:false}).setView([7.
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
 
 var allBounds = [];
-var SHOW_LOCATIONS = ${options.showLocations ? 'true' : 'false'};
-var SHOW_ZONES = ${options.showZones ? 'true' : 'false'};
-var SHOW_DAMS = ${options.showDams ? 'true' : 'false'};
 
 /* ── Helpers ── */
 var DAM_COLORS = {
@@ -209,51 +186,46 @@ function makeDamIcon(hazardStatus) {
   });
 }
 
-if (${mode === 'full' ? 'true' : 'false'} && SHOW_LOCATIONS) {
-  /* ── Plot Safe Locations ── */
-  LOCATIONS.forEach(function(loc) {
-    var lat = parseFloat(loc.latitude), lng = parseFloat(loc.longitude);
-    if (!lat || !lng) return;
-    allBounds.push([lat, lng]);
+/* ── Plot Safe Locations ── */
+LOCATIONS.forEach(function(loc) {
+  var lat = parseFloat(loc.latitude), lng = parseFloat(loc.longitude);
+  if (!lat || !lng) return;
+  allBounds.push([lat, lng]);
 
-    var phone = loc.emergencyPhone || loc.contactPhone || '';
-    var cap   = loc.capacityPersons ? ' · '+loc.capacityPersons+' ppl' : '';
-    var popup = '<div class="lp">'+
-      '<div class="lp-name">'+(loc.name||'')+'</div>'+
-      (loc.code ? '<div class="lp-sub">'+loc.code+cap+'</div>' : '')+
-      (phone    ? '<div class="lp-row"><span>📞</span><span>'+phone+'</span></div>' : '')+
-      '<span class="'+badgeCls(loc.status)+'">'+fmtStatus(loc.status)+'</span>'+
-      '</div>';
+  var phone = loc.emergencyPhone || loc.contactPhone || '';
+  var cap   = loc.capacityPersons ? ' · '+loc.capacityPersons+' ppl' : '';
+  var popup = '<div class="lp">'+
+    '<div class="lp-name">'+(loc.name||'')+'</div>'+
+    (loc.code ? '<div class="lp-sub">'+loc.code+cap+'</div>' : '')+
+    (phone    ? '<div class="lp-row"><span>📞</span><span>'+phone+'</span></div>' : '')+
+    '<span class="'+badgeCls(loc.status)+'">'+fmtStatus(loc.status)+'</span>'+
+    '</div>';
 
-    var m = L.marker([lat, lng], {icon: makeEvacIcon(loc.markerColor, loc.markerIcon)});
-    m.bindPopup(popup, {maxWidth:220});
-    m.addTo(map);
-  });
+  var m = L.marker([lat, lng], {icon: makeEvacIcon(loc.markerColor, loc.markerIcon)});
+  m.bindPopup(popup, {maxWidth:220});
+  m.addTo(map);
+});
 
-  /* ── Plot Dam Markers ── */
-  if (SHOW_DAMS) {
-  DAMS.forEach(function(dam) {
-    var lat = parseFloat(dam.latitude), lng = parseFloat(dam.longitude);
-    if (!lat || !lng) return;
-    allBounds.push([lat, lng]);
+/* ── Plot Dam Markers ── */
+DAMS.forEach(function(dam) {
+  var lat = parseFloat(dam.latitude), lng = parseFloat(dam.longitude);
+  if (!lat || !lng) return;
+  allBounds.push([lat, lng]);
 
-    var popup = '<div class="lp">'+
-      '<div class="lp-name">'+(dam.name||dam.code||'Dam')+'</div>'+
-      (dam.code    ? '<div class="lp-sub">'+dam.code+'</div>' : '')+
-      (dam.damType ? '<div class="lp-row"><span>Type</span><span>'+dam.damType+'</span></div>' : '')+
-      (dam.heightMeters ? '<div class="lp-row"><span>Height</span><span>'+dam.heightMeters+' m</span></div>' : '')+
-      '<span class="'+badgeCls(dam.overallHazardStatus||'safe')+'">'+fmtStatus(dam.overallHazardStatus||'safe')+'</span>'+
-      '</div>';
+  var popup = '<div class="lp">'+
+    '<div class="lp-name">'+(dam.name||dam.code||'Dam')+'</div>'+
+    (dam.code    ? '<div class="lp-sub">'+dam.code+'</div>' : '')+
+    (dam.damType ? '<div class="lp-row"><span>Type</span><span>'+dam.damType+'</span></div>' : '')+
+    (dam.heightMeters ? '<div class="lp-row"><span>Height</span><span>'+dam.heightMeters+' m</span></div>' : '')+
+    '<span class="'+badgeCls(dam.overallHazardStatus||'safe')+'">'+fmtStatus(dam.overallHazardStatus||'safe')+'</span>'+
+    '</div>';
 
-    var m = L.marker([lat, lng], {icon: makeDamIcon(dam.overallHazardStatus), zIndexOffset:1000});
-    m.bindPopup(popup, {maxWidth:220});
-    m.addTo(map);
-  });
-  }
-}
+  var m = L.marker([lat, lng], {icon: makeDamIcon(dam.overallHazardStatus), zIndexOffset:1000});
+  m.bindPopup(popup, {maxWidth:220});
+  m.addTo(map);
+});
 
 /* ── Plot Hazard Zones ── */
-if (SHOW_ZONES) {
 ZONES.forEach(function(z) {
   if (!z.boundaryGeojson) return;
   var geo;
@@ -286,11 +258,6 @@ ZONES.forEach(function(z) {
     geo.coordinates[0].forEach(function(c){ allBounds.push([c[1], c[0]]); });
   } catch(e) {}
 });
-}
-
-if (allBounds.length > 0) {
-  map.fitBounds(allBounds, {padding:[20,20]});
-}
 
 /* ── Auto-fit to show all features ── */
 setTimeout(function() {
@@ -308,31 +275,18 @@ setTimeout(function() {
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-interface LiveHazardMapViewProps {
-  mode?: MapMode;
-  showLocations?: boolean;
-  showZones?: boolean;
-  showDams?: boolean;
-}
-
-export function LiveHazardMapView({
-  mode = 'full',
-  showLocations = true,
-  showZones = true,
-  showDams = true,
-}: LiveHazardMapViewProps) {
+export function LiveHazardMapView() {
   const [html, setHtml] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>('loading');
 
   useEffect(() => {
-    const options = { showLocations, showZones, showDams };
-    fetchMapData(mode, options)
+    fetchMapData()
       .then(({ locations, dams, zones }) => {
-        setHtml(buildHtml(locations, dams, zones, mode, options));
+        setHtml(buildHtml(locations, dams, zones));
         setState('ready');
       })
       .catch(() => setState('error'));
-  }, [mode, showLocations, showZones, showDams]);
+  }, []);
 
   if (state === 'loading') {
     return (

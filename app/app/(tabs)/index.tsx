@@ -5,9 +5,12 @@ import { ScreenLayout } from '@/components/ScreenLayout';
 import { HazardCard } from '@/components/pages/Dashboard/HazardCard';
 import { FloodRiskMap } from '@/components/pages/Dashboard/FloodRiskMap';
 import { QuickActions } from '@/components/pages/Dashboard/QuickActions';
+import { GuidelinesModal } from '@/components/pages/Guidelines/GuidelinesModal';
 import { useTranslation } from 'react-i18next';
 import { damService } from '@/services/dams/dam.service';
 import { sensorService } from '@/services/sensors/sensor.service';
+import { mockGuidelines } from '@/data/mock-guidelines';
+import { damStatusService } from '@/services/dams/dam-status.service';
 
 function computeLevel(waterLevel: number, capacity: number): number {
   if (!capacity || capacity === 0) return 0;
@@ -19,6 +22,8 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const [level, setLevel] = useState(75);
   const [hazardValue, setHazardValue] = useState(">1.2 m²s");
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [guidelinesVisible, setGuidelinesVisible] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -33,10 +38,16 @@ export default function HomeScreen() {
       const damId = String(firstDam.id ?? firstDam.damId ?? '');
       if (!damId) return;
 
-      const readingsRes = await sensorService.getLatestReadingsByDam(damId);
+      const [readingsRes, statusRes] = await Promise.all([
+        sensorService.getLatestReadingsByDam(damId).catch(() => ({ data: [] as Record<string, unknown>[] })),
+        damStatusService.getByDam(damId).catch(() => ({ data: null })),
+      ]);
+
       const readings: Record<string, unknown>[] = Array.isArray(readingsRes.data)
         ? readingsRes.data
         : (readingsRes.data?.data ?? readingsRes.data?.readings ?? []);
+
+      let levelSet = false;
 
       if (readings.length > 0) {
         const waterReading = readings.find(
@@ -44,11 +55,37 @@ export default function HomeScreen() {
         ) ?? readings[0];
 
         const currentValue = Number(waterReading.value ?? waterReading.reading ?? 0);
-        const maxValue = Number(waterReading.maxValue ?? waterReading.capacity ?? 100);
-        const newLevel = computeLevel(currentValue, maxValue);
+        const maxValue = Number(waterReading.maxValue ?? waterReading.capacity ?? 0);
+        const newLevel = maxValue > 0 ? computeLevel(currentValue, maxValue) : 0;
 
-        setLevel(newLevel);
-        setHazardValue(`>${currentValue.toFixed(1)} m`);
+        if (newLevel > 0) {
+          setLevel(newLevel);
+          setHazardValue(`>${currentValue.toFixed(1)} m`);
+          levelSet = true;
+        }
+      }
+
+      if (!levelSet) {
+        const status = statusRes.data?.data ?? statusRes.data;
+        if (status) {
+          const percentage = Number(
+            status.waterLevelPercentage ??
+            status.storagePercentage ??
+            status.floodRiskScore ??
+            0
+          );
+
+          const computedLevel = percentage > 0
+            ? Math.min(100, Math.round(percentage))
+            : 0;
+
+          if (computedLevel > 0) {
+            setLevel(computedLevel);
+            const valueLabel = status.hazardValue
+              ?? (status.waterLevelMeters != null ? `>${Number(status.waterLevelMeters).toFixed(1)} m` : undefined);
+            if (valueLabel) setHazardValue(String(valueLabel));
+          }
+        }
       }
     } catch {
       // keep current values on error
@@ -62,11 +99,11 @@ export default function HomeScreen() {
   }, [fetchDashboardData]);
 
   const handleViewFullMap = () => {
-    router.push('/(tabs)/hazard-map');
+    router.push('/hazard-map');
   };
 
   const handleGuidelines = () => {
-    console.log('Guidelines pressed');
+    setGuidelinesVisible(true);
   };
 
   const handleShelterLocations = () => {
@@ -86,10 +123,18 @@ export default function HomeScreen() {
       title="FloodWatch"
       subtitle={t('stay_informed')}
     >
-      <ScrollView className="flex-1 rounded-3xl" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 rounded-3xl"
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={scrollEnabled}
+      >
         <HazardCard level={level} hazardValue={hazardValue} />
 
-        <FloodRiskMap onViewFullMap={handleViewFullMap} />
+        <FloodRiskMap
+          onViewFullMap={handleViewFullMap}
+          onMapTouchStart={() => setScrollEnabled(false)}
+          onMapTouchEnd={() => setScrollEnabled(true)}
+        />
 
         <QuickActions
           onGuidelines={handleGuidelines}
@@ -102,6 +147,13 @@ export default function HomeScreen() {
           Welcome to the Dam Disaster Alert System. Monitor water levels and receive real-time alerts.
         </Text> */}
       </ScrollView>
+
+      <GuidelinesModal
+        visible={guidelinesVisible}
+        guidelines={mockGuidelines}
+        onClose={() => setGuidelinesVisible(false)}
+        title={t('guidelines')}
+      />
 
     </ScreenLayout>
   );

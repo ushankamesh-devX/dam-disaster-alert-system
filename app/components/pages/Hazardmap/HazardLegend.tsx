@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text } from 'react-native';
 import { Colors } from '@/constants/theme';
 
 interface HazardLevel {
@@ -11,7 +11,6 @@ interface HazardLevel {
 
 interface HazardLegendProps {
   hazardLevels?: HazardLevel[];
-  maxHeight?: number;
 }
 
 // Mock data for hazard levels
@@ -42,37 +41,32 @@ const mockHazardLevels: HazardLevel[] = [
   },
 ];
 
-export function HazardLegend({
-  hazardLevels = mockHazardLevels,
-  maxHeight = 200,
-}: HazardLegendProps) {
+export function HazardLegend({ hazardLevels = mockHazardLevels }: HazardLegendProps) {
   return (
-    <View className="bg-white rounded-2xl shadow-lg" style={{ paddingVertical: 12, paddingHorizontal: 16, minWidth: 220, maxHeight }}>
-      <ScrollView showsVerticalScrollIndicator style={{ maxHeight }}>
-        {hazardLevels.map((hazard, index) => (
-          <View key={index} className="flex-row items-start" style={{ marginBottom: index < hazardLevels.length - 1 ? 8 : 0 }}>
-            {/* Color Indicator - Square */}
-            <View
-              style={{
-                width: 20,
-                height: 20,
-                backgroundColor: hazard.color,
-                marginRight: 10,
-                marginTop: 1,
-              }}
-            />
-            {/* Text Content */}
-            <View style={{ flex: 1 }}>
-              <Text className="text-gray-800 font-bold" style={{ fontSize: 14, marginBottom: 1 }}>
-                {hazard.label}
-              </Text>
-              <Text className="text-gray-600" style={{ fontSize: 12 }}>
-                {hazard.description}
-              </Text>
-            </View>
+    <View className="bg-white rounded-2xl shadow-lg" style={{ paddingVertical: 12, paddingHorizontal: 16, minWidth: 220 }}>
+      {hazardLevels.map((hazard, index) => (
+        <View key={index} className="flex-row items-start" style={{ marginBottom: index < hazardLevels.length - 1 ? 8 : 0 }}>
+          {/* Color Indicator - Square */}
+          <View
+            style={{
+              width: 20,
+              height: 20,
+              backgroundColor: hazard.color,
+              marginRight: 10,
+              marginTop: 1,
+            }}
+          />
+          {/* Text Content */}
+          <View style={{ flex: 1 }}>
+            <Text className="text-gray-800 font-bold" style={{ fontSize: 14, marginBottom: 1 }}>
+              {hazard.label}
+            </Text>
+            <Text className="text-gray-600" style={{ fontSize: 12 }}>
+              {hazard.description}
+            </Text>
           </View>
-        ))}
-      </ScrollView>
+        </View>
+      ))}
     </View>
   );
 }

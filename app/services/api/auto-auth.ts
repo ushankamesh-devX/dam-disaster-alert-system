@@ -1,4 +1,4 @@
-import { TEST_TOKEN, VIEWER_EMAIL, VIEWER_PASSWORD } from "@env";
+import { VIEWER_EMAIL, VIEWER_PASSWORD } from "@env";
 import { tokenStorage } from "./token.storage";
 import { axiosInstance } from "./axios.instance";
 import { ENDPOINTS } from "./api.constants";
@@ -13,11 +13,6 @@ export async function ensureAuth(): Promise<void> {
     try {
       const existing = await tokenStorage.get();
       if (existing) return;
-
-      if (TEST_TOKEN) {
-        await tokenStorage.set(TEST_TOKEN);
-        return;
-      }
 
       const response = await axiosInstance.post(ENDPOINTS.AUTH.LOGIN, {
         email: VIEWER_EMAIL,

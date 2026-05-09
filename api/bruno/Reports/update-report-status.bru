@@ -1,0 +1,22 @@
+meta {
+  name: Update Report Status
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{base_url}}/reports/{{report_id}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+body:json {
+  {
+    "status": "reviewing",
+    "notes": "Report is being reviewed by the dam operations team"
+  }
+}

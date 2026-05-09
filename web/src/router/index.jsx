@@ -22,6 +22,7 @@ import MapDetailedPage from '../pages/admin/MapDetailedPage';
 import NewsPage from '../pages/admin/NewsPage';
 import SystemSafeLocationsMapFuncPage from '../pages/admin/SystemSafeLocationsMapFuncPage';
 import DeviceKeysPage from '../pages/admin/DeviceKeysPage';
+import ReportsPage from '../pages/admin/ReportsPage';
 
 
 function Soon({ title }) {
@@ -69,6 +70,7 @@ const router = createBrowserRouter([
                     { path: '/admin/sensors/:id', element: <SensorDetailPage /> },
                     { path: '/admin/device-keys', element: <DeviceKeysPage /> },
                     { path: '/admin/alerts', element: <AlertsPage /> },
+                    { path: '/admin/reports', element: <ReportsPage /> },
                     { path: '/admin/users', element: <UsersPage /> },
                     { path: '/admin/regions', element: <RegionsPage /> },
                     { path: '/admin/roles', element: <RolesPage /> },

@@ -9,6 +9,7 @@ const NAV = [
     {
         group: 'Monitoring',
         items: [
+            { to: '/admin/reports', label: 'Reports', icon: ClipboardIcon },
             { to: '/admin/dams', label: 'Dams', icon: DamIcon },
             { to: '/admin/sensors', label: 'Sensors', icon: SensorIcon },
             { to: '/admin/alerts', label: 'Alerts', icon: BellIcon, badge: 3 },
@@ -160,4 +161,7 @@ function NewsIcon({ className }) {
 }
 function KeyIcon({ className }) {
     return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>;
+}
+function ClipboardIcon({ className }) {
+    return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>;
 }

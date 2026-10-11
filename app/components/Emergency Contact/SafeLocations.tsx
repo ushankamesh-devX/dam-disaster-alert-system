@@ -236,18 +236,7 @@ export function SafeLocations({ mapImageSource }: SafeLocationsProps = {}) {
               <TouchableOpacity
                 key={loc.id}
                 activeOpacity={0.85}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(tabs)/safe-location/[id]',
-                    params: {
-                      id: loc.id,
-                      name: loc.name,
-                      area: loc.area,
-                      distanceKm: String(loc.distanceKm),
-                      tag: loc.tag,
-                    },
-                  })
-                }
+                onPress={() => openDirections(loc.query)}
                 className="bg-white border border-gray-200 rounded-2xl px-4 py-3"
               >
                 <View className="flex-row items-start justify-between">

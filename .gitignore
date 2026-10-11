@@ -1,4 +1,6 @@
 # Logs
+api/local-data/
+api/scripts/__pycache__/
 logs
 *.log
 npm-debug.log*

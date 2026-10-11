@@ -1,5 +1,9 @@
+import { Typography, Paper } from '@mui/material';
+import { AppButton, AppSelect, AppInput, AppTextarea } from '../../components/ui/controls';
 import React, { useEffect, useMemo, useState } from 'react';
-import { MapPin, Palette, Settings2 } from 'lucide-react';
+import MapPin from '@mui/icons-material/PlaceRounded';
+import Palette from '@mui/icons-material/PaletteRounded';
+import Settings2 from '@mui/icons-material/TuneRounded';
 import SystemSafeLocationsGeomanMap from '../../components/map/SystemSafeLocationsGeomanMap';
 import { patchSafeLocationFromForm } from '../../components/map/systemSafeLocationsFormPatch';
 import SystemSafeLocationsService from '../../services/systemSafeLocations.service';
@@ -658,9 +662,9 @@ export default function SystemSafeLocationsMapFuncPage() {
         <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-6">
             <div className="flex justify-between items-center shrink-0 sticky top-0 z-10 bg-white pt-2 pb-2 border-b border-gray-200">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
+                    <Typography component="h1" variant="h1" className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
                         Safe Locations
-                    </h1>
+                    </Typography>
                     <p className="text-sm text-gray-500 mt-1 pl-4 flex items-center gap-2">
                         <Settings2 className="w-4 h-4" />
                         Manage safe location pins • Choose type/color • Hover shows details • Create/edit/drag/delete
@@ -680,24 +684,24 @@ export default function SystemSafeLocationsMapFuncPage() {
 
                 <div className="flex flex-col items-end gap-1">
                     <div className="flex items-center gap-2">
-                        <button
+                        <AppButton variant="outlined"
                             type="button"
-                            className="text-xs font-semibold px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                            className="disabled:opacity-60"
                             onClick={loadFromDb}
                             disabled={dbLoading || dbSaving}
                             title="Load pins from DB"
                         >
                             {dbLoading ? 'Loading…' : 'Load from DB'}
-                        </button>
-                        <button
+                        </AppButton>
+                        <AppButton variant="contained"
                             type="button"
-                            className="text-xs font-semibold px-3 py-2 rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                            className="disabled:opacity-60"
                             onClick={saveAllToDb}
                             disabled={dbLoading || dbSaving}
                             title="Save all pins to DB"
                         >
                             {dbSaving ? 'Saving…' : 'Save all to DB'}
-                        </button>
+                        </AppButton>
                     </div>
                     {lastSavedAt ? (
                         <div className="text-[11px] text-gray-500">Last saved: {new Date(lastSavedAt).toLocaleString()}</div>
@@ -709,17 +713,17 @@ export default function SystemSafeLocationsMapFuncPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col min-h-[500px]">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <Paper variant="outlined" className="lg:col-span-2 bg-white   border border-gray-200 p-4 flex flex-col min-h-[500px]">
+                    <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-blue-600" />
                         All Safe Locations
-                    </h2>
+                    </Typography>
 
                     <div className="mb-3 flex flex-wrap items-center gap-3">
                         <label className="text-xs text-gray-700 flex items-center gap-2">
                             New pin type
-                            <select
-                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                            <AppSelect
+                                className=""
                                 value={newPinPreset}
                                 onChange={(e) => {
                                     const next = e.target.value;
@@ -734,13 +738,13 @@ export default function SystemSafeLocationsMapFuncPage() {
                                 {pinTypeOptions.map((o) => (
                                     <option key={o.key} value={o.key}>{o.label}</option>
                                 ))}
-                            </select>
+                            </AppSelect>
                         </label>
 
                         <label className="text-xs text-gray-700 flex items-center gap-2">
                             Location type
-                            <select
-                                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm disabled:opacity-60"
+                            <AppSelect
+                                className="disabled:opacity-60"
                                 value={defaultLocationTypeId}
                                 onChange={(e) => setDefaultLocationTypeId(e.target.value)}
                                 disabled={locationTypesLoading || !locationTypes?.length}
@@ -755,21 +759,21 @@ export default function SystemSafeLocationsMapFuncPage() {
                                 ) : (
                                     <option value="">{locationTypesLoading ? 'Loading…' : 'Not loaded'}</option>
                                 )}
-                            </select>
+                            </AppSelect>
                         </label>
 
                         {newPinPreset === 'other' ? (
                             <label className="text-xs text-gray-700 flex items-center gap-2">
                                 Default icon
-                                <select
-                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                <AppSelect
+                                    className=""
                                     value={newOtherIcon}
                                     onChange={(e) => setNewOtherIcon(e.target.value)}
                                 >
                                     {BASE_ICON_OPTIONS.map((o) => (
                                         <option key={o.value} value={o.value}>{o.label}</option>
                                     ))}
-                                </select>
+                                </AppSelect>
                             </label>
                         ) : null}
 
@@ -777,14 +781,14 @@ export default function SystemSafeLocationsMapFuncPage() {
                             <summary className="cursor-pointer text-xs font-semibold text-gray-700 select-none">Add custom pin type</summary>
                             <div className="mt-2 flex flex-wrap items-end gap-2">
                                 <div className="text-xs text-gray-600">Label</div>
-                                <input
-                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                <AppInput aria-label="e.g. Relief Camp / Bus Stop"
+                                    className=""
                                     value={customTypeLabel}
                                     onChange={(e) => setCustomTypeLabel(e.target.value)}
                                     placeholder="e.g. Relief Camp / Bus Stop"
                                 />
-                                <select
-                                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                <AppSelect
+                                    className=""
                                     value={customTypeIcon}
                                     onChange={(e) => setCustomTypeIcon(e.target.value)}
                                     title="Default icon"
@@ -792,29 +796,29 @@ export default function SystemSafeLocationsMapFuncPage() {
                                     {CUSTOM_ICON_OPTIONS.map((o) => (
                                         <option key={o.value} value={o.value}>{o.label}</option>
                                     ))}
-                                </select>
-                                <input
+                                </AppSelect>
+                                <AppInput
                                     type="color"
-                                    className="h-9 w-10 rounded border border-gray-300 bg-white"
+                                    className="h-9 w-10"
                                     value={customTypeColor}
                                     onChange={(e) => setCustomTypeColor(e.target.value)}
                                     title="Default color"
                                 />
-                                <button
+                                <AppButton variant="outlined"
                                     type="button"
-                                    className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                    className=""
                                     onClick={addCustomType}
                                     disabled={!customTypeLabel.trim()}
                                     title="Add this type to the dropdown"
                                 >
                                     Add
-                                </button>
+                                </AppButton>
                             </div>
                         </details>
                         <div className="flex items-center gap-1.5 text-xs text-gray-700">
                             <Palette className="w-4 h-4 text-gray-400" />
                             {COLOR_SWATCHES.map((c) => (
-                                <button
+                                <AppButton
                                     key={c}
                                     type="button"
                                     className={`w-5 h-5 rounded-full border ${newPinColor === c ? 'border-gray-900' : 'border-gray-300'}`}
@@ -844,10 +848,10 @@ export default function SystemSafeLocationsMapFuncPage() {
                             height="100%"
                         />
                     </div>
-                </div>
+                </Paper>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 overflow-hidden min-h-0">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 shrink-0">Location details</h2>
+                <Paper variant="outlined" className="bg-white   border border-gray-200 flex flex-col p-4 overflow-hidden min-h-0">
+                    <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800 mb-4 shrink-0">Location details</Typography>
 
                     <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -859,7 +863,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                         </div>
 
                                         <div className="mt-2 flex items-center gap-2">
-                                            <button
+                                            <AppButton
                                                 type="button"
                                                 onClick={applyFormToSelected}
                                                 disabled={!pendingChanges}
@@ -869,17 +873,17 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                     }`}
                                             >
                                                 Apply to pin
-                                            </button>
+                                            </AppButton>
 
-                                            <button
+                                            <AppButton variant="outlined"
                                                 type="button"
                                                 onClick={saveSelectedToDb}
                                                 disabled={dbLoading || dbSaving}
-                                                className="text-xs font-semibold px-2.5 py-1.5 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                                                className="disabled:opacity-60"
                                                 title="Save only this pin to the database"
                                             >
                                                 {dbSaving ? 'Saving…' : 'Save selected to DB'}
-                                            </button>
+                                            </AppButton>
                                             <div className="text-[11px] text-gray-500">
                                                 Edit fields, then Apply to update the pin. Use Save selected to DB to persist.
                                             </div>
@@ -896,7 +900,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                 { key: 'facilities', label: 'Facilities' },
                                                 { key: 'advanced', label: 'Advanced' },
                                             ].map((t) => (
-                                                <button
+                                                <AppButton
                                                     key={t.key}
                                                     type="button"
                                                     onClick={() => setDetailsTab(t.key)}
@@ -906,7 +910,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                         }`}
                                                 >
                                                     {t.label}
-                                                </button>
+                                                </AppButton>
                                             ))}
                                         </div>
                                     </div>
@@ -915,8 +919,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                         <div className="grid grid-cols-1 gap-2">
                                             <label className="text-xs text-gray-700">
                                                 Pin icon
-                                                <select
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppSelect
+                                                    className="mt-1 w-full"
                                                     value={form.marker_icon}
                                                     onChange={(e) => {
                                                         const nextIcon = e.target.value;
@@ -932,13 +936,13 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                     {BASE_ICON_OPTIONS.map((o) => (
                                                         <option key={o.value} value={o.value}>{o.label}</option>
                                                     ))}
-                                                </select>
+                                                </AppSelect>
                                             </label>
 
                                             <label className="text-xs text-gray-700">
                                                 Pin color (hex)
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm font-mono"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.marker_color}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, marker_color: e.target.value }));
@@ -950,9 +954,9 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             <div className="flex items-center gap-2">
                                                 <label className="text-xs text-gray-700 flex-1">
                                                     Pick color
-                                                    <input
+                                                    <AppInput
                                                         type="color"
-                                                        className="mt-1 w-full h-9 rounded border border-gray-300 bg-white"
+                                                        className="mt-1 w-full h-9"
                                                         value={form.marker_color}
                                                         onChange={(e) => {
                                                             setForm((p) => ({ ...p, marker_color: e.target.value }));
@@ -962,10 +966,10 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                 </label>
                                                 <div className="pt-5 flex items-center gap-1.5">
                                                     {COLOR_SWATCHES.slice(0, 8).map((c) => (
-                                                        <button
+                                                        <AppButton variant="outlined"
                                                             key={c}
                                                             type="button"
-                                                            className="w-5 h-5 rounded-full border border-gray-300"
+                                                            className="w-5 h-5"
                                                             style={{ backgroundColor: c }}
                                                             onClick={() => {
                                                                 setForm((p) => ({ ...p, marker_color: c }));
@@ -979,8 +983,8 @@ export default function SystemSafeLocationsMapFuncPage() {
 
                                             <label className="text-xs text-gray-700">
                                                 Code <span className="text-red-600">*</span>
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.code}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, code: e.target.value }));
@@ -990,8 +994,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Name <span className="text-red-600">*</span>
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.name}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, name: e.target.value }));
@@ -1001,8 +1005,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Description
-                                                <textarea
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppTextarea
+                                                    className="mt-1 w-full"
                                                     rows={2}
                                                     value={form.description}
                                                     onChange={(e) => {
@@ -1013,8 +1017,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Status
-                                                <select
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppSelect
+                                                    className="mt-1 w-full"
                                                     value={form.status}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, status: e.target.value }));
@@ -1026,13 +1030,13 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                     <option value="under_maintenance">under_maintenance</option>
                                                     <option value="full">full</option>
                                                     <option value="closed">closed</option>
-                                                </select>
+                                                </AppSelect>
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Location type <span className="text-red-600">*</span>
                                                 {locationTypes?.length ? (
-                                                    <select
-                                                        className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    <AppSelect
+                                                        className="mt-1 w-full"
                                                         value={toCleanString(form.location_type_id)}
                                                         onChange={(e) => {
                                                             setForm((p) => ({ ...p, location_type_id: e.target.value }));
@@ -1045,10 +1049,10 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                                 {t.name} ({t.code})
                                                             </option>
                                                         ))}
-                                                    </select>
+                                                    </AppSelect>
                                                 ) : (
-                                                    <input
-                                                        className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                    <AppInput aria-label="e.g. 10"
+                                                        className="mt-1 w-full"
                                                         value={form.location_type_id}
                                                         onChange={(e) => {
                                                             setForm((p) => ({ ...p, location_type_id: e.target.value }));
@@ -1060,8 +1064,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Region ID (optional)
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput aria-label="e.g. 3"
+                                                    className="mt-1 w-full"
                                                     value={form.region_id}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, region_id: e.target.value }));
@@ -1072,8 +1076,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Address
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.address_text}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, address_text: e.target.value }));
@@ -1083,8 +1087,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Elevation (meters)
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.elevation_meters}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, elevation_meters: e.target.value }));
@@ -1099,8 +1103,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                         <div className="grid grid-cols-1 gap-2">
                                             <label className="text-xs text-gray-700">
                                                 Capacity (persons)
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.capacity_persons}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, capacity_persons: e.target.value }));
@@ -1110,8 +1114,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Current occupancy
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.current_occupancy}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, current_occupancy: e.target.value }));
@@ -1126,8 +1130,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                         <div className="grid grid-cols-1 gap-2">
                                             <label className="text-xs text-gray-700">
                                                 Contact name
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.contact_name}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, contact_name: e.target.value }));
@@ -1137,8 +1141,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Contact phone
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.contact_phone}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, contact_phone: e.target.value }));
@@ -1148,8 +1152,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Contact email
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.contact_email}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, contact_email: e.target.value }));
@@ -1159,8 +1163,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             </label>
                                             <label className="text-xs text-gray-700">
                                                 Emergency phone
-                                                <input
-                                                    className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                                                <AppInput
+                                                    className="mt-1 w-full"
                                                     value={form.emergency_phone}
                                                     onChange={(e) => {
                                                         setForm((p) => ({ ...p, emergency_phone: e.target.value }));
@@ -1175,7 +1179,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                         <div className="space-y-3">
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <label className="flex items-center gap-2 text-xs text-gray-700">
-                                                    <input
+                                                    <AppInput
                                                         type="checkbox"
                                                         checked={form.show_on_map}
                                                         onChange={(e) => {
@@ -1186,7 +1190,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                     Show on map
                                                 </label>
                                                 <label className="flex items-center gap-2 text-xs text-gray-700">
-                                                    <input
+                                                    <AppInput
                                                         type="checkbox"
                                                         checked={form.is_24_hours}
                                                         onChange={(e) => {
@@ -1197,7 +1201,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                     24 hours
                                                 </label>
                                                 <label className="flex items-center gap-2 text-xs text-gray-700">
-                                                    <input
+                                                    <AppInput
                                                         type="checkbox"
                                                         checked={form.is_verified}
                                                         onChange={(e) => {
@@ -1221,7 +1225,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                                                     { key: 'has_accessibility', label: 'Accessibility' },
                                                 ].map((f) => (
                                                     <label key={f.key} className="flex items-center gap-2 text-xs text-gray-700">
-                                                        <input
+                                                        <AppInput
                                                             type="checkbox"
                                                             checked={!!form[f.key]}
                                                             onChange={(e) => {
@@ -1241,16 +1245,16 @@ export default function SystemSafeLocationsMapFuncPage() {
                                             <div>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <div className="text-xs text-gray-600">All fields (JSON)</div>
-                                                    <button
+                                                    <AppButton variant="outlined"
                                                         type="button"
                                                         onClick={applyJsonToSelected}
-                                                        className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                                        className=""
                                                     >
                                                         Apply JSON
-                                                    </button>
+                                                    </AppButton>
                                                 </div>
-                                                <textarea
-                                                    className="w-full h-44 rounded border border-gray-300 bg-white p-2 font-mono text-xs text-gray-800"
+                                                <AppTextarea
+                                                    className="w-full h-44"
                                                     value={jsonText}
                                                     onChange={(e) => {
                                                         setJsonText(e.target.value);
@@ -1283,7 +1287,7 @@ export default function SystemSafeLocationsMapFuncPage() {
                             )}
                         </div>
                     </div>
-                </div>
+                </Paper>
             </div>
         </div>
     );

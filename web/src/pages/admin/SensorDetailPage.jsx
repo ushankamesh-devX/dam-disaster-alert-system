@@ -1,3 +1,6 @@
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { StatusChip as Badge, LoadingSkeleton as Skeleton, Field as Inp, Field as Sel, AppDialog, AppButton, AppInput } from '../../components/ui/controls';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -32,26 +35,10 @@ function InfoRow({ label, value }) {
         </div>
     );
 }
-function Badge({ children, className }) {
-    return <span className={`inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-md border ${className}`}>{children}</span>;
-}
-function Skeleton({ className }) { return <div className={`animate-pulse bg-gray-100 rounded ${className}`} />; }
-function Inp({ label, error, ...p }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <input className={`w-full text-sm px-3 py-2 rounded-lg border ${error ? 'border-red-400' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition`} {...p} />
-        </div>
-    );
-}
-function Sel({ label, children, ...p }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition" {...p}>{children}</select>
-        </div>
-    );
-}
+
+
+
+
 
 // ─── Edit Sensor Modal ────────────────────────────────────────────────────────
 function EditModal({ sensor, dams, onClose, onUpdated }) {
@@ -86,11 +73,11 @@ function EditModal({ sensor, dams, onClose, onUpdated }) {
         finally { setSaving(false); }
     };
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-semibold text-gray-900">Edit Sensor — {sensor.sensorUid}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">Edit Sensor — {sensor.sensorUid}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
                     <Inp label="Name" value={form.name} onChange={e => set('name', e.target.value)} />
@@ -114,12 +101,12 @@ function EditModal({ sensor, dams, onClose, onUpdated }) {
                         <Inp label="Next Calibration Date" type="date" value={form.nextCalibrationDate} onChange={e => set('nextCalibrationDate', e.target.value)} />
                     </div>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">{saving ? 'Saving…' : 'Save Changes'}</button>
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">{saving ? 'Saving…' : 'Save Changes'}</AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -149,11 +136,11 @@ function LogReadingModal({ sensor, onClose, onLogged }) {
         finally { setSaving(false); }
     };
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">Log Manual Reading</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Log Manual Reading</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-5 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
@@ -164,17 +151,17 @@ function LogReadingModal({ sensor, onClose, onLogged }) {
                         {QUALITIES.map(q => <option key={q} value={q}>{q.charAt(0).toUpperCase() + q.slice(1)}</option>)}
                     </Sel>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Recorded At (optional)</label>
-                        <input type="datetime-local" className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
+                        <label htmlFor="field-SensorDetailPage-10233" className="block text-xs font-medium text-gray-700 mb-1">Recorded At (optional)</label>
+                        <AppInput id="field-SensorDetailPage-10233" type="datetime-local" className="w-full"
                             value={form.recordedAt} onChange={e => set('recordedAt', e.target.value)} />
                     </div>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-4 py-1.5 text-xs text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">{saving ? 'Logging…' : 'Log Reading'}</button>
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">{saving ? 'Logging…' : 'Log Reading'}</AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -270,13 +257,13 @@ export default function SensorDetailPage() {
         <div className="space-y-5">
             {/* Breadcrumb + Header */}
             <div>
-                <button onClick={() => navigate('/admin/sensors')} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 mb-2 transition">
+                <AppButton onClick={() => navigate('/admin/sensors')} className="flex items-center gap-1 mb-2">
                     ← Back to Sensors
-                </button>
+                </AppButton>
                 <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <h1 className="text-xl font-bold text-gray-900">{sensor.name}</h1>
+                            <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">{sensor.name}</Typography>
                             <span className="font-mono text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{sensor.sensorUid}</span>
                             <Badge className={sStyle(sensor.status)}>{sensor.status}</Badge>
                         </div>
@@ -286,14 +273,14 @@ export default function SensorDetailPage() {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setLogOpen(true)}
-                            className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                        <AppButton variant="outlined" onClick={() => setLogOpen(true)}
+                            className="">
                             + Log Reading
-                        </button>
-                        <button onClick={() => setEditOpen(true)}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                        </AppButton>
+                        <AppButton variant="outlined" onClick={() => setEditOpen(true)}
+                            className="">
                             Edit
-                        </button>
+                        </AppButton>
                     </div>
                 </div>
             </div>
@@ -316,7 +303,7 @@ export default function SensorDetailPage() {
 
             {/* Threshold indicators */}
             {(sensor.warningThreshold != null || sensor.criticalThreshold != null) && (
-                <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex gap-6 flex-wrap">
+                <Paper variant="outlined" className="bg-white border border-gray-200  p-4  flex gap-6 flex-wrap">
                     <div>
                         <p className="text-xs text-gray-500">Warning threshold</p>
                         <p className="text-sm font-semibold text-amber-600">{sensor.warningThreshold != null ? `${Number(sensor.warningThreshold).toFixed(2)} ${sensor.sensorType?.unit || ''}` : '—'}</p>
@@ -331,24 +318,24 @@ export default function SensorDetailPage() {
                             <p className={`text-sm font-semibold capitalize ${qualityStyle[latest.quality?.toLowerCase()] || 'text-gray-600'}`}>{latest.quality || '—'}</p>
                         </div>
                     )}
-                </div>
+                </Paper>
             )}
 
             {/* Tabs */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
                 <div className="flex border-b border-gray-100">
                     {TABS.map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)}
+                        <AppButton key={tab} onClick={() => setActiveTab(tab)}
                             className={`px-5 py-3 text-sm font-medium capitalize transition ${activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}>
-                            {tab === 'readings' ? 'Readings History' : tab === 'chart' ? '📈 Chart' : 'Sensor Info'}
-                        </button>
+                            {tab === 'readings' ? 'Readings History' : tab === 'chart' ? 'Chart' : 'Sensor Info'}
+                        </AppButton>
                     ))}
                 </div>
 
                 {activeTab === 'info' && (
                     <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Device Information</h3>
+                            <Typography component="h3" variant="h3" className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Device Information</Typography>
                             <InfoRow label="Sensor UID" value={sensor.sensorUid} />
                             <InfoRow label="Type" value={sensor.sensorType?.name} />
                             <InfoRow label="Manufacturer" value={sensor.manufacturer} />
@@ -359,7 +346,7 @@ export default function SensorDetailPage() {
                             <InfoRow label="Coordinates" value={sensor.latitude && sensor.longitude ? `${sensor.latitude}, ${sensor.longitude}` : null} />
                         </div>
                         <div>
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Calibration & Thresholds</h3>
+                            <Typography component="h3" variant="h3" className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Calibration & Thresholds</Typography>
                             <InfoRow label="Installation Date" value={sensor.installationDate} />
                             <InfoRow label="Last Calibration" value={sensor.calibrationDate} />
                             <InfoRow label="Next Calibration" value={sensor.nextCalibrationDate} />
@@ -381,10 +368,10 @@ export default function SensorDetailPage() {
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500 mr-1">Range:</span>
                             {[{ label: 'Last 24h', v: '24h' }, { label: 'Last 7 days', v: '7d' }, { label: 'All data', v: 'all' }].map(({ label, v }) => (
-                                <button key={v} onClick={() => setChartRange(v)}
+                                <AppButton key={v} onClick={() => setChartRange(v)}
                                     className={`px-3 py-1 text-xs font-medium rounded-full border transition ${chartRange === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                                     {label}
-                                </button>
+                                </AppButton>
                             ))}
                         </div>
 
@@ -394,12 +381,12 @@ export default function SensorDetailPage() {
                             </div>
                         ) : chartData.length === 0 ? (
                             <div className="h-72 flex flex-col items-center justify-center gap-2 text-sm text-gray-400">
-                                <span className="text-3xl">📉</span>
+                                <span className="text-3xl"><SymbolIcon name="chart" /></span>
                                 <p>No readings in selected range</p>
-                                <button onClick={() => setLogOpen(true)} className="text-xs text-blue-600 underline">Log a manual reading</button>
+                                <AppButton onClick={() => setLogOpen(true)} className="underline">Log a manual reading</AppButton>
                             </div>
                         ) : (
-                            <ResponsiveContainer width="100%" height={320}>
+                            <ResponsiveContainer initialDimension={{ width: 300, height: 220 }} minWidth={0} width="100%" height={320}>
                                 <LineChart data={chartData} margin={{ top: 8, right: 20, bottom: 20, left: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                     <XAxis
@@ -471,50 +458,50 @@ export default function SensorDetailPage() {
                         ) : readings.length === 0 ? (
                             <div className="text-center py-12">
                                 <p className="text-sm text-gray-400">No readings recorded yet</p>
-                                <button onClick={() => setLogOpen(true)} className="mt-3 text-xs text-blue-600 underline">Log a manual reading</button>
+                                <AppButton onClick={() => setLogOpen(true)} className="mt-3 underline">Log a manual reading</AppButton>
                             </div>
                         ) : (
                             <>
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                                    <Table className="w-full text-sm">
+                                        <TableHead>
+                                            <TableRow className="bg-gray-50 border-b border-gray-100 text-left">
                                                 {['Value', 'Unit', 'Quality', 'Recorded At', 'Received At'].map(h => (
-                                                    <th key={h} className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                                                    <TableCell component="th" key={h} className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{h}</TableCell>
                                                 ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody className="divide-y divide-gray-50">
                                             {readings.map(r => (
-                                                <tr key={r.id} className="hover:bg-gray-50/50">
-                                                    <td className="px-4 py-3 font-mono text-sm font-semibold text-gray-800">
+                                                <TableRow key={r.id} className="hover:bg-gray-50/50">
+                                                    <TableCell className="px-4 py-3 font-mono text-sm font-semibold text-gray-800">
                                                         {Number(r.readingValue).toFixed(3)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs text-gray-500">{r.unit || sensor.sensorType?.unit || '—'}</td>
-                                                    <td className="px-4 py-3">
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-xs text-gray-500">{r.unit || sensor.sensorType?.unit || '—'}</TableCell>
+                                                    <TableCell className="px-4 py-3">
                                                         <span className={`text-xs font-medium capitalize ${qualityStyle[r.quality?.toLowerCase()] || 'text-gray-600'}`}>
                                                             {r.quality || '—'}
                                                         </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs text-gray-600">
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-xs text-gray-600">
                                                         {r.recordedAt ? new Date(r.recordedAt).toLocaleString() : '—'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs text-gray-400">
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-xs text-gray-400">
                                                         {r.receivedAt ? new Date(r.receivedAt).toLocaleString() : '—'}
-                                                    </td>
-                                                </tr>
+                                                    </TableCell>
+                                                </TableRow>
                                             ))}
-                                        </tbody>
-                                    </table>
+                                        </TableBody>
+                                    </Table>
                                 </div>
                                 {readTotalPages > 1 && (
                                     <div className="flex items-center justify-between mt-4">
                                         <p className="text-xs text-gray-500">Page {readPage + 1} of {readTotalPages} · {readTotal} readings</p>
                                         <div className="flex gap-1">
-                                            <button disabled={readPage === 0} onClick={() => loadReadings(readPage - 1)}
-                                                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">← Prev</button>
-                                            <button disabled={readPage + 1 >= readTotalPages} onClick={() => loadReadings(readPage + 1)}
-                                                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next →</button>
+                                            <AppButton variant="outlined" disabled={readPage === 0} onClick={() => loadReadings(readPage - 1)}
+                                                className="disabled:opacity-40">← Prev</AppButton>
+                                            <AppButton variant="outlined" disabled={readPage + 1 >= readTotalPages} onClick={() => loadReadings(readPage + 1)}
+                                                className="disabled:opacity-40">Next →</AppButton>
                                         </div>
                                     </div>
                                 )}
@@ -522,7 +509,7 @@ export default function SensorDetailPage() {
                         )}
                     </div>
                 )}
-            </div>
+            </Paper>
 
             {/* Modals */}
             {editOpen && <EditModal sensor={sensor} dams={dams} onClose={() => setEditOpen(false)} onUpdated={setSensor} />}

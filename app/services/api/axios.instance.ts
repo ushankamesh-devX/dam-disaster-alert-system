@@ -1,9 +1,15 @@
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
-import { API_BASE_URL, API_TIMEOUT, VIEWER_EMAIL, VIEWER_PASSWORD } from "@env";
+import { API_BASE_URL, API_TIMEOUT, API_USE_EXPO_PROXY, VIEWER_EMAIL, VIEWER_PASSWORD } from "@env";
+import Constants from "expo-constants";
 import { tokenStorage } from "./token.storage";
 
+const expoHost = Constants.expoConfig?.hostUri;
+const apiUrl = API_USE_EXPO_PROXY === "true" && expoHost
+  ? `http://${expoHost.replace(/^https?:\/\//, "")}/api/v1`
+  : API_BASE_URL;
+
 export const axiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: apiUrl,
   timeout: parseInt(API_TIMEOUT, 10),
   headers: {
     "Content-Type": "application/json",
@@ -30,7 +36,7 @@ axiosInstance.interceptors.response.use(
       await tokenStorage.clear();
       try {
         // Re-login with viewer credentials and retry the original request
-        const loginRes = await axios.post(`${API_BASE_URL}${"/auth/login"}`, {
+        const loginRes = await axios.post(`${apiUrl}/auth/login`, {
           email: VIEWER_EMAIL,
           password: VIEWER_PASSWORD,
         });

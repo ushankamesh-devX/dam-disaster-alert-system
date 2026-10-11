@@ -1,23 +1,19 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { Box, useMediaQuery, useTheme } from '@mui/material';
 import Sidebar from '../components/dashboard/Sidebar';
 import TopBar from '../components/dashboard/TopBar';
 
 export default function AdminLayout() {
-    const [collapsed, setCollapsed] = useState(false);
-
-    return (
-        <div className="min-h-screen bg-gray-50 flex">
-            <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((p) => !p)} />
-            <div
-                className="flex-1 flex flex-col transition-all duration-200 ease-out"
-                style={{ marginLeft: collapsed ? 64 : 240 }}
-            >
-                <TopBar onMenuClick={() => setCollapsed((p) => !p)} />
-                <main className="flex-1 p-6">
-                    <Outlet />
-                </main>
-            </div>
-        </div>
-    );
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const desktop = useMediaQuery(useTheme().breakpoints.up('lg'));
+  const width = collapsed ? 88 : 272;
+  return <Box className="md-admin-shell md-dotted-background" sx={{ display: 'flex', minHeight: '100dvh' }}>
+    <Sidebar collapsed={collapsed} desktop={desktop} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+    <Box sx={{ flex: 1, minWidth: 0, ml: desktop ? `${width}px` : 0, transition: 'margin-left 200ms ease' }}>
+      <TopBar onMenuClick={() => desktop ? setCollapsed(v => !v) : setMobileOpen(true)} />
+      <Box component="main" id="main-content" className="md-page" sx={{ p: { xs: 2, md: 3, xl: 4 }, minWidth: 0 }}><Outlet /></Box>
+    </Box>
+  </Box>;
 }

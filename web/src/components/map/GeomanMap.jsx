@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { defaultMapMarker } from './flatMarker';
+import { FlatIcon as SvgIcon } from '../ui/controls';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,22 +10,11 @@ import SensorHoverPopup from './SensorHoverPopup';
 import DamHoverPopup from './DamHoverPopup';
 import GateHoverPopup from './GateHoverPopup';
 import HazardZoneHoverPopup from './HazardZoneHoverPopup';
+import SystemSafeLocationsService from '../../services/systemSafeLocations.service';
 
 // Fix for default marker icons in React-Leaflet
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconRetinaUrl: iconRetina,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    tooltipAnchor: [16, -28],
-    shadowSize: [41, 41]
-});
+const DefaultIcon = defaultMapMarker;
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // SVG icons matching the toolbar icons
@@ -168,6 +159,17 @@ const injectCustomToolbarStyles = () => {
 
 function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor, onShapeDrawn, onShapeEdited, onShapeDeleted }) {
     const map = useMap();
+    const callbacks = useRef({ onMapChange, onShapeDrawn, onShapeEdited, onShapeDeleted });
+    const color = useRef(activeAreaColor);
+    useEffect(() => {
+        callbacks.current = { onMapChange, onShapeDrawn, onShapeEdited, onShapeDeleted };
+        color.current = activeAreaColor;
+    });
+    useEffect(() => {
+        const options = { color: activeAreaColor.border, fillColor: activeAreaColor.fill, fillOpacity: 0.4, weight: 2 };
+        map.pm?.Draw.Polygon?.setPathOptions(options);
+        map.pm?.Draw.Rectangle?.setPathOptions(options);
+    }, [map, activeAreaColor]);
 
     useEffect(() => {
         if (!map) return;
@@ -177,8 +179,8 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
             if (!map.pm) return;
             try {
                 map.pm.Draw.Polygon.setPathOptions({
-                    color: activeAreaColor.border,
-                    fillColor: activeAreaColor.fill,
+                    color: color.current.border,
+                    fillColor: color.current.fill,
                     fillOpacity: 0.4,
                     weight: 2
                 });
@@ -186,8 +188,8 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
 
             try {
                 map.pm.Draw.Rectangle.setPathOptions({
-                    color: activeAreaColor.border,
-                    fillColor: activeAreaColor.fill,
+                    color: color.current.border,
+                    fillColor: color.current.fill,
                     fillOpacity: 0.4,
                     weight: 2
                 });
@@ -318,11 +320,11 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
                 } else if (e.shape === 'Polygon') {
                     layer.feature = layer.feature || { type: 'Feature', properties: {} };
                     layer.feature.properties.type = 'polygon';
-                    layer.feature.properties.color = activeAreaColor; // Save selected color mode
+                    layer.feature.properties.color = color.current; // Save selected color mode
                 } else if (e.shape === 'Rectangle') {
                     layer.feature = layer.feature || { type: 'Feature', properties: {} };
                     layer.feature.properties.type = 'rectangle';
-                    layer.feature.properties.color = activeAreaColor; // Save selected color mode
+                    layer.feature.properties.color = color.current; // Save selected color mode
                 }
 
                 if (featureGroupRef.current) {
@@ -330,8 +332,8 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
                 }
 
                 // Bubble up specific shape creation events so parent can intercept (e.g., popping up a modal for sensors)
-                if (onShapeDrawn) {
-                    onShapeDrawn({
+                if (callbacks.current.onShapeDrawn) {
+                    callbacks.current.onShapeDrawn({
                         type: layer.feature.properties.type,
                         layer: layer,
                         latlng: layer.getLatLng ? layer.getLatLng() : null,
@@ -339,38 +341,55 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
                     });
                 }
 
-                onMapChange();
+                callbacks.current.onMapChange();
 
                 // Listen to edits/drags on this new layer
                 layer.on('pm:edit', (e) => {
-                    onMapChange();
-                    if (onShapeEdited) onShapeEdited(e.layer);
+                    callbacks.current.onMapChange();
+                    if (callbacks.current.onShapeEdited) callbacks.current.onShapeEdited(e.layer);
                 });
                 layer.on('pm:dragend', (e) => {
-                    onMapChange();
-                    if (onShapeEdited) onShapeEdited(e.layer);
+                    callbacks.current.onMapChange();
+                    if (callbacks.current.onShapeEdited) callbacks.current.onShapeEdited(e.layer);
                 });
             });
 
             // Listen to edits on existing features
-            map.on('pm:remove', (e) => {
-                if (featureGroupRef.current && featureGroupRef.current.hasLayer(e.layer)) {
-                    featureGroupRef.current.removeLayer(e.layer);
+            map.on('pm:remove', async (e) => {
+                const group = featureGroupRef.current;
+                // Geoman removes the layer first. Restore it until deletion is
+                // confirmed and persisted; cancellation/API failures retain it.
+                if (callbacks.current.onShapeDeleted && group && e.layer.feature?.properties?.type) {
+                    group.addLayer(e.layer);
+                    map.addLayer(e.layer);
+                    if (e.layer._ddasDeleting) return;
+                    e.layer._ddasDeleting = true;
+                    callbacks.current.onMapChange();
+                    try {
+                        const deleted = await callbacks.current.onShapeDeleted(e.layer);
+                        if (!deleted) return;
+                    } finally {
+                        e.layer._ddasDeleting = false;
+                    }
+                    group.removeLayer(e.layer);
+                    map.removeLayer(e.layer);
+                }
+                if (group && group.hasLayer(e.layer)) {
+                    group.removeLayer(e.layer);
                 }
                 setTimeout(() => {
-                    onMapChange();
+                    callbacks.current.onMapChange();
                 }, 0);
-                if (onShapeDeleted) onShapeDeleted(e.layer);
             });
             map.on('layeradd', (e) => {
                 if (e.layer && e.layer.pm) {
                     e.layer.on('pm:edit', (layerEvent) => {
-                        onMapChange();
-                        if (onShapeEdited) onShapeEdited(layerEvent.target);
+                        callbacks.current.onMapChange();
+                        if (callbacks.current.onShapeEdited) callbacks.current.onShapeEdited(layerEvent.target);
                     });
                     e.layer.on('pm:dragend', (layerEvent) => {
-                        onMapChange();
-                        if (onShapeEdited) onShapeEdited(layerEvent.target);
+                        callbacks.current.onMapChange();
+                        if (callbacks.current.onShapeEdited) callbacks.current.onShapeEdited(layerEvent.target);
                     });
                 }
             });
@@ -387,7 +406,7 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
             map.off('pm:remove');
             map.off('layeradd');
         };
-    }, [map, readOnly, featureGroupRef, onMapChange, activeAreaColor]);
+    }, [map, readOnly, featureGroupRef]);
 
     return null;
 }
@@ -399,10 +418,67 @@ export const AREA_COLORS = [
     { id: 'yellow', name: 'Low Risk (Yellow)', border: '#eab308', fill: '#fef08a' }
 ];
 
+function DamSafeLocations({ damId }) {
+    const map = useMap();
+    useEffect(() => {
+        if (!damId) return;
+        let cancelled = false;
+        const markers = L.layerGroup().addTo(map);
+        SystemSafeLocationsService.list().then(locations => {
+            if (cancelled) return;
+            (Array.isArray(locations) ? locations : []).filter(location =>
+                Number(location.primaryDamId) === Number(damId) && location.showOnMap !== false && location.status === 'active'
+            ).forEach(location => {
+                const icon = createSvgIcon('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M3 10 12 3 21 10v11H3Z"/><path d="M9 21v-7h6v7"/></svg>', '#16a34a');
+                const marker = L.marker([Number(location.latitude), Number(location.longitude)], { icon, pmIgnore: true });
+                const label = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = location.name;
+                const description = document.createElement('p');
+                description.textContent = location.description || 'Safe-location record';
+                label.append(title, description);
+                marker.bindPopup(label);
+                marker.bindTooltip(location.name);
+                marker.addTo(markers);
+            });
+        }).catch(() => {});
+        return () => { cancelled = true; map.removeLayer(markers); };
+    }, [map, damId]);
+    return null;
+}
+
+function ReferenceGeography({ geojson }) {
+    const map = useMap();
+    useEffect(() => {
+        if (!geojson) return;
+        const layer = L.geoJSON(geojson, {
+            pmIgnore: true,
+            style: feature => ({
+                pmIgnore: true,
+                color: feature.properties.kind === 'dam' ? '#1d4ed8' : '#0284c7',
+                weight: feature.properties.kind === 'dam' ? 5 : 2,
+                fillColor: '#38bdf8', fillOpacity: 0.18,
+            }),
+            onEachFeature: (feature, item) => {
+                item.options.pmIgnore = true;
+                const label = document.createElement('div');
+                label.textContent = `${feature.properties.name} · OpenStreetMap reference geography`;
+                item.bindPopup(label);
+            },
+        }).addTo(map);
+        const bounds = layer.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
+        return () => { map.removeLayer(layer); };
+    }, [map, geojson]);
+    return null;
+}
+
 export default function GeomanMap({
     center = [7.8731, 80.7718], // Sri Lanka default
     zoom = 7,
     initialGeoJson = null,
+    referenceGeoJson = null,
+    safeLocationDamId = null,
     onMapChange = () => { },
     onShapeDrawn = null,
     onShapeEdited = null,
@@ -442,13 +518,16 @@ export default function GeomanMap({
     const [zoneHoverPosition, setZoneHoverPosition] = useState({ x: 0, y: 0 });
     const zoneHoverTimeoutRef = useRef(null);
 
+    const onMapChangeRef = useRef(onMapChange);
+    useEffect(() => { onMapChangeRef.current = onMapChange; });
+
     // Gather all shapes and export as GeoJSON
-    const handleMapChange = () => {
+    const handleMapChange = useCallback(() => {
         if (!featureGroupRef.current) return;
 
         const layers = featureGroupRef.current.getLayers();
         if (layers.length === 0) {
-            onMapChange(null);
+            onMapChangeRef.current(null);
             return;
         }
 
@@ -461,6 +540,7 @@ export default function GeomanMap({
         layers.forEach(layer => {
             if (layer.toGeoJSON) {
                 const feature = layer.toGeoJSON();
+                feature.properties = { ...feature.properties, _editorId: layer._leaflet_id };
                 // Preserve existing properties (including dbId) from layer.feature
                 if (layer.feature && layer.feature.properties) {
                     feature.properties = {
@@ -472,8 +552,8 @@ export default function GeomanMap({
             }
         });
 
-        onMapChange(JSON.stringify(geoJSON));
-    };
+        onMapChangeRef.current(JSON.stringify(geoJSON));
+    }, []);
 
     // Load initial GeoJSON into the feature group
     useEffect(() => {
@@ -592,7 +672,7 @@ export default function GeomanMap({
                             return {
                                 color: feature.properties.strokeColor || savedColor.border,
                                 fillColor: feature.properties.fillColor || savedColor.fill,
-                                fillOpacity: feature.properties.fillOpacity || 0.4,
+                                fillOpacity: feature.properties.fillOpacity ?? 0.4,
                                 weight: feature.properties.strokeWidth || 2
                             };
                         }
@@ -624,7 +704,7 @@ export default function GeomanMap({
                             setZoneHoverPosition({ x: clientX, y: clientY });
                             setHoveredZone(l.feature.properties);
                             // Highlight polygon on hover
-                            l.setStyle({ weight: 3, fillOpacity: (l.feature.properties.fillOpacity || 0.4) + 0.15 });
+                            l.setStyle({ weight: 3, fillOpacity: (l.feature.properties.fillOpacity ?? 0.4) + 0.15 });
                         });
                         l.on('mouseout', () => {
                             zoneHoverTimeoutRef.current = setTimeout(() => {
@@ -633,7 +713,7 @@ export default function GeomanMap({
                             // Restore style
                             l.setStyle({
                                 weight: l.feature.properties.strokeWidth || 2,
-                                fillOpacity: l.feature.properties.fillOpacity || 0.4
+                                fillOpacity: l.feature.properties.fillOpacity ?? 0.4
                             });
                         });
                         l.on('mousemove', (e) => {
@@ -699,6 +779,8 @@ export default function GeomanMap({
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <ReferenceGeography geojson={referenceGeoJson} />
+            <DamSafeLocations damId={safeLocationDamId} />
             {/* We store all drawn features inside this FeatureGroup */}
             <FeatureGroup ref={(ref) => {
                 console.log('FeatureGroup ref callback:', ref ? 'ref received' : 'ref is null');

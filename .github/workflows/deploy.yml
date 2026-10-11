@@ -22,10 +22,12 @@ jobs:
           key: ${{ secrets.DO_SSH_KEY }}
           port: 22
           script: |
+            set -e
             cd /opt/dam-disaster-alert-system/api
             git pull origin main
             docker-compose down
             docker-compose build --no-cache
+            python3 scripts/setup_demo.py --schema-only --database-only
             docker-compose up -d
             docker system prune -af
             echo "Deployment completed successfully!"

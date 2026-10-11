@@ -54,7 +54,6 @@ const FALLBACK_LOCATIONS: SafeLocation[] = [
 ];
 
 function mapApiLocation(item: Record<string, unknown>, index: number): SafeLocation {
-  const pos = MARKER_POSITIONS[index % MARKER_POSITIONS.length];
   return {
     id: String(item.id ?? item.uuid ?? index),
     name: String(item.name ?? item.locationName ?? ''),

@@ -1,3 +1,6 @@
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { Paper, Typography, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { StatusChip as Badge, LoadingSkeleton as Skeleton, Field as Input, TextareaField as Textarea, Field as SelectField, AppDialog, AppButton, AppInput, AppSelect } from '../../components/ui/controls';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -26,65 +29,23 @@ const statusColors = {
 
 // ─── Reusable tiny components ──────────────────────────────────────────────────
 
-function Badge({ children, className }) {
-    return (
-        <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border ${className}`}>
-            {children}
-        </span>
-    );
-}
-function Skeleton({ className }) {
-    return <div className={`animate-pulse bg-gray-100 rounded ${className}`} />;
-}
-function Input({ label, error, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <input
-                className={`w-full text-sm px-3 py-2 rounded-lg border ${error ? 'border-red-400' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition`}
-                {...props}
-            />
-            {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
-        </div>
-    );
-}
-function Textarea({ label, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <textarea
-                rows={3}
-                className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition resize-none"
-                {...props}
-            />
-        </div>
-    );
-}
-function SelectField({ label, children, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <select
-                className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 bg-white transition"
-                {...props}
-            >
-                {children}
-            </select>
-        </div>
-    );
-}
+
+
+
+
+
 
 // ─── Stats Cards ───────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, icon, color }) {
     return (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
+        <Paper variant="outlined" className="bg-white border border-gray-200  p-4  flex items-center gap-4">
             <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${color}`}>{icon}</div>
             <div>
                 <p className="text-xs text-gray-400 font-medium">{label}</p>
                 <p className="text-2xl font-bold text-gray-900">{value}</p>
             </div>
-        </div>
+        </Paper>
     );
 }
 
@@ -131,11 +92,11 @@ function CategoryModal({ category, onClose, onSaved }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-semibold text-gray-900">{isEdit ? 'Edit Category' : 'New Category'}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">{isEdit ? 'Edit Category' : 'New Category'}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -149,7 +110,7 @@ function CategoryModal({ category, onClose, onSaved }) {
                         <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">Colour</label>
                             <div className="flex items-center gap-2">
-                                <input type="color" value={form.color} onChange={e => set('color', e.target.value)} className="w-10 h-9 rounded border border-gray-300 cursor-pointer" />
+                                <AppInput type="color" value={form.color} onChange={e => set('color', e.target.value)} className="w-10 h-9 cursor-pointer" />
                                 <span className="text-sm text-gray-600 font-mono">{form.color}</span>
                             </div>
                         </div>
@@ -161,18 +122,18 @@ function CategoryModal({ category, onClose, onSaved }) {
                         <Input label="Display Order" type="number" min="0" value={form.displayOrder} onChange={e => set('displayOrder', e.target.value)} />
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={form.isActive} onChange={e => set('isActive', e.target.checked)} className="w-4 h-4 rounded text-blue-600" />
+                        <AppInput type="checkbox" checked={form.isActive} onChange={e => set('isActive', e.target.checked)} className="w-4 h-4" />
                         <span className="text-sm text-gray-700">Active</span>
                     </label>
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">
                             {saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -234,20 +195,20 @@ function ArticleModal({ article, categories, onClose, onSaved }) {
     const tabs = ['basic', 'content', 'media'];
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-                    <h2 className="text-base font-semibold text-gray-900">{isEdit ? 'Edit Article' : 'New Article'}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">{isEdit ? 'Edit Article' : 'New Article'}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 {/* Tabs */}
                 <div className="flex gap-1 px-6 pt-3 border-b border-gray-100 shrink-0">
                     {tabs.map(t => (
-                        <button key={t} onClick={() => setTab(t)}
+                        <AppButton key={t} onClick={() => setTab(t)}
                             className={`px-4 py-2 text-xs font-medium capitalize rounded-t-lg transition ${tab === t ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700'}`}>
                             {t}
-                        </button>
+                        </AppButton>
                     ))}
                 </div>
                 {/* Body */}
@@ -274,11 +235,11 @@ function ArticleModal({ article, categories, onClose, onSaved }) {
                             <Input label="Source" placeholder="Meteorology Dept" value={form.source} onChange={e => set('source', e.target.value)} />
                             <div className="flex gap-6">
                                 <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={form.isNationwide} onChange={e => set('isNationwide', e.target.checked)} className="w-4 h-4 rounded text-blue-600" />
+                                    <AppInput type="checkbox" checked={form.isNationwide} onChange={e => set('isNationwide', e.target.checked)} className="w-4 h-4" />
                                     <span className="text-sm text-gray-700">Nationwide</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={form.isFeatured} onChange={e => set('isFeatured', e.target.checked)} className="w-4 h-4 rounded text-blue-600" />
+                                    <AppInput type="checkbox" checked={form.isFeatured} onChange={e => set('isFeatured', e.target.checked)} className="w-4 h-4" />
                                     <span className="text-sm text-gray-700">Featured</span>
                                 </label>
                             </div>
@@ -307,13 +268,13 @@ function ArticleModal({ article, categories, onClose, onSaved }) {
                 </form>
                 {/* Footer always visible */}
                 <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
-                    <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                    <button onClick={submit} disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                    <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                    <AppButton variant="contained" onClick={submit} disabled={saving} className="disabled:opacity-60">
                         {saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}
-                    </button>
+                    </AppButton>
                 </div>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -328,24 +289,24 @@ function DeleteModal({ title, onClose, onConfirm }) {
         finally { setLoading(false); }
     };
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
-                    <span className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg">⚠</span>
+                    <span className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg"><SymbolIcon name="warning" /></span>
                     <div>
-                        <h2 className="text-sm font-semibold text-gray-900">Confirm Delete</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Confirm Delete</Typography>
                         <p className="text-xs text-gray-500">This action cannot be undone</p>
                     </div>
                 </div>
                 <p className="text-sm text-gray-700 mb-5">Delete <strong>{title}</strong>?</p>
                 <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                    <button onClick={confirm} disabled={loading} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-60 transition">
+                    <AppButton onClick={onClose} className="">Cancel</AppButton>
+                    <AppButton variant="contained" color="error" onClick={confirm} disabled={loading} className="disabled:opacity-60">
                         {loading ? 'Deleting…' : 'Delete'}
-                    </button>
+                    </AppButton>
                 </div>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -353,12 +314,12 @@ function DeleteModal({ title, onClose, onConfirm }) {
 
 function CategoriesPanel({ categories, loading, onAdd, onEdit, onDelete }) {
     return (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+        <Paper variant="outlined" className="bg-white border border-gray-200  ">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-900">Categories <span className="text-gray-400 font-normal">({categories.length})</span></h2>
-                <button onClick={onAdd} className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">
+                <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Categories <span className="text-gray-400 font-normal">({categories.length})</span></Typography>
+                <AppButton onClick={onAdd} className="flex items-center gap-1.5">
                     + Add Category
-                </button>
+                </AppButton>
             </div>
             <div className="divide-y divide-gray-50">
                 {loading ? (
@@ -373,21 +334,21 @@ function CategoriesPanel({ categories, loading, onAdd, onEdit, onDelete }) {
                 ) : categories.map(cat => (
                     <div key={cat.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50 transition group">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm shrink-0" style={{ background: cat.color || '#6B7280' }}>
-                            {cat.icon ? '📰' : cat.name?.[0]}
+                            {cat.icon ? <SymbolIcon name="news" /> : cat.name?.[0]}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{cat.name}</p>
                             <p className="text-xs text-gray-400 truncate">{cat.code} · {cat.filterKey}</p>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                            <button onClick={() => onEdit(cat)} className="text-xs text-blue-600 hover:underline font-medium px-1">Edit</button>
-                            <button onClick={() => onDelete(cat)} className="text-xs text-red-500 hover:underline font-medium px-1">Del</button>
+                            <AppButton onClick={() => onEdit(cat)} className="hover:underline">Edit</AppButton>
+                            <AppButton onClick={() => onDelete(cat)} className="hover:underline">Del</AppButton>
                         </div>
                         {!cat.isActive && <span className="text-[10px] text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">Inactive</span>}
                     </div>
                 ))}
             </div>
-        </div>
+        </Paper>
     );
 }
 
@@ -522,40 +483,40 @@ export default function NewsPage() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">News Management</h1>
+                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">News Management</Typography>
                     <p className="text-sm text-gray-400">{loadingArticles ? '…' : `${total} articles · ${categories.length} categories`}</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
+                    <AppButton variant="outlined"
                         onClick={() => { setActiveTab('categories'); setShowCreateCat(true); }}
-                        className="flex items-center gap-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition shadow-sm"
+                        className="flex items-center gap-2"
                     >
-                        🏷️ New Category
-                    </button>
-                    <button
+                        <SymbolIcon name="tag" /> New Category
+                    </AppButton>
+                    <AppButton variant="contained"
                         onClick={() => { setActiveTab('articles'); setShowCreateArticle(true); }}
-                        className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm"
+                        className="flex items-center gap-2"
                     >
                         <span className="text-base leading-none">+</span> New Article
-                    </button>
+                    </AppButton>
                 </div>
             </div>
 
             {/* Stats Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Total Articles" value={total} icon="📰" color="bg-blue-50" />
-                <StatCard label="Published" value={totalPublished} icon="✅" color="bg-emerald-50" />
-                <StatCard label="Drafts" value={totalDraft} icon="✏️" color="bg-amber-50" />
-                <StatCard label="Featured" value={totalFeatured} icon="⭐" color="bg-purple-50" />
+                <StatCard label="Total Articles" value={total} icon={<SymbolIcon name="news" />} color="bg-blue-50" />
+                <StatCard label="Published" value={totalPublished} icon={<SymbolIcon name="check" />} color="bg-emerald-50" />
+                <StatCard label="Drafts" value={totalDraft} icon={<SymbolIcon name="edit" />} color="bg-amber-50" />
+                <StatCard label="Featured" value={totalFeatured} icon={<SymbolIcon name="star" />} color="bg-purple-50" />
             </div>
 
             {/* Tab bar */}
             <div className="flex gap-1 border-b border-gray-200">
                 {['articles', 'categories'].map(t => (
-                    <button key={t} onClick={() => setActiveTab(t)}
+                    <AppButton key={t} onClick={() => setActiveTab(t)}
                         className={`px-5 py-2.5 text-sm font-medium capitalize transition border-b-2 ${activeTab === t ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                        {t === 'articles' ? `📰 Articles` : `🏷️ Categories`}
-                    </button>
+                        {t === 'articles' ? `Articles` : `Categories`}
+                    </AppButton>
                 ))}
             </div>
 
@@ -570,13 +531,13 @@ export default function NewsPage() {
             ) : (
                 <>
                     {/* Search + Filters */}
-                    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-wrap gap-3 items-end">
+                    <Paper variant="outlined" className="bg-white border border-gray-200  p-4  flex flex-wrap gap-3 items-end">
                         <div className="flex-1 min-w-[200px]">
                             <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                                <input
-                                    className="w-full text-sm pl-8 pr-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"><SymbolIcon name="search" /></span>
+                                <AppInput aria-label="Search by title…"
+                                    className="w-full"
                                     placeholder="Search by title…"
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
@@ -584,92 +545,92 @@ export default function NewsPage() {
                             </div>
                         </div>
                         <div className="min-w-[140px]">
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                            <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setFilterCategory(''); }}>
+                            <label htmlFor="field-NewsPage-32572" className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                            <AppSelect id="field-NewsPage-32572" className="w-full" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setFilterCategory(''); }}>
                                 <option value="">All statuses</option>
                                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                            </AppSelect>
                         </div>
                         <div className="min-w-[160px]">
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
-                            <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition" value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterStatus(''); }}>
+                            <label htmlFor="field-NewsPage-33256" className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+                            <AppSelect id="field-NewsPage-33256" className="w-full" value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterStatus(''); }}>
                                 <option value="">All categories</option>
                                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
+                            </AppSelect>
                         </div>
                         {(filterStatus || filterCategory || search) && (
-                            <button onClick={() => { setFilterStatus(''); setFilterCategory(''); setSearch(''); }} className="text-xs text-gray-500 hover:text-gray-800 underline self-end pb-2">Clear all</button>
+                            <AppButton onClick={() => { setFilterStatus(''); setFilterCategory(''); setSearch(''); }} className="underline self-end">Clear all</AppButton>
                         )}
-                    </div>
+                    </Paper>
 
                     {/* Articles Table */}
-                    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                            <Table className="w-full text-sm">
+                                <TableHead>
+                                    <TableRow className="bg-gray-50 border-b border-gray-100 text-left">
                                         {['Title', 'Category', 'Priority', 'Status', 'Views', 'Saves', 'Featured', 'Actions'].map(h => (
-                                            <th key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                                            <TableCell component="th" key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</TableCell>
                                         ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody className="divide-y divide-gray-50">
                                     {loadingArticles ? (
                                         Array.from({ length: 8 }).map((_, i) => (
-                                            <tr key={i}>
+                                            <TableRow key={i}>
                                                 {Array.from({ length: 8 }).map((_, j) => (
-                                                    <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+                                                    <TableCell key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></TableCell>
                                                 ))}
-                                            </tr>
+                                            </TableRow>
                                         ))
                                     ) : articles.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} className="py-20 text-center">
-                                                <p className="text-4xl mb-3">📰</p>
+                                        <TableRow>
+                                            <TableCell colSpan={8} className="py-20 text-center">
+                                                <p className="text-4xl mb-3"><SymbolIcon name="news" /></p>
                                                 <p className="text-sm text-gray-400">No articles found</p>
                                                 <p className="text-xs text-gray-300 mt-1">Try adjusting filters or create a new article</p>
-                                            </td>
-                                        </tr>
+                                            </TableCell>
+                                        </TableRow>
                                     ) : articles.map(a => (
-                                        <tr key={a.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-4 py-3 max-w-[220px]">
+                                        <TableRow key={a.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <TableCell className="px-4 py-3 max-w-[220px]">
                                                 <p className="font-medium text-gray-900 truncate" title={a.title}>{a.title}</p>
                                                 {a.source && <p className="text-[11px] text-gray-400 truncate">{a.source}</p>}
-                                            </td>
-                                            <td className="px-4 py-3">
+                                            </TableCell>
+                                            <TableCell className="px-4 py-3">
                                                 <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md whitespace-nowrap">
                                                     {a.categoryName || '—'}
                                                 </span>
-                                            </td>
-                                            <td className="px-4 py-3">
+                                            </TableCell>
+                                            <TableCell className="px-4 py-3">
                                                 <Badge className={priorityColors[a.priorityLevel] || priorityColors.medium}>
                                                     {a.priorityLevel || 'medium'}
                                                 </Badge>
-                                            </td>
-                                            <td className="px-4 py-3">
+                                            </TableCell>
+                                            <TableCell className="px-4 py-3">
                                                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusColors[a.status] || statusColors.draft}`}>
                                                     {a.status || 'draft'}
                                                 </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-xs text-gray-500">{a.viewCount ?? 0}</td>
-                                            <td className="px-4 py-3 text-xs text-gray-500">{a.saveCount ?? 0}</td>
-                                            <td className="px-4 py-3 text-center">{a.isFeatured ? '⭐' : '—'}</td>
-                                            <td className="px-4 py-3">
+                                            </TableCell>
+                                            <TableCell className="px-4 py-3 text-xs text-gray-500">{a.viewCount ?? 0}</TableCell>
+                                            <TableCell className="px-4 py-3 text-xs text-gray-500">{a.saveCount ?? 0}</TableCell>
+                                            <TableCell className="px-4 py-3 text-center">{a.isFeatured ? <SymbolIcon name="star" /> : '—'}</TableCell>
+                                            <TableCell className="px-4 py-3">
                                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <button onClick={() => setEditingArticle(a)} className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
+                                                    <AppButton onClick={() => setEditingArticle(a)} className="hover:underline">Edit</AppButton>
                                                     {a.status === 'draft' && (
-                                                        <button onClick={() => handlePublish(a)} className="text-xs text-emerald-600 hover:underline font-medium">Publish</button>
+                                                        <AppButton onClick={() => handlePublish(a)} className="hover:underline">Publish</AppButton>
                                                     )}
                                                     {a.status === 'published' && (
-                                                        <button onClick={() => handleArchive(a)} className="text-xs text-orange-500 hover:underline font-medium">Archive</button>
+                                                        <AppButton onClick={() => handleArchive(a)} className="hover:underline">Archive</AppButton>
                                                     )}
-                                                    <button onClick={() => setDeletingArticle(a)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
+                                                    <AppButton onClick={() => setDeletingArticle(a)} className="hover:underline">Delete</AppButton>
                                                 </div>
-                                            </td>
-                                        </tr>
+                                            </TableCell>
+                                        </TableRow>
                                     ))}
-                                </tbody>
-                            </table>
+                                </TableBody>
+                            </Table>
                         </div>
 
                         {/* Pagination */}
@@ -677,22 +638,22 @@ export default function NewsPage() {
                             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
                                 <p className="text-xs text-gray-500">Page {page + 1} of {totalPages} · {total} total articles</p>
                                 <div className="flex items-center gap-1">
-                                    <button disabled={page === 0} onClick={() => loadArticles(page - 1)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition">← Prev</button>
+                                    <AppButton variant="outlined" disabled={page === 0} onClick={() => loadArticles(page - 1)} className="disabled:opacity-40">← Prev</AppButton>
                                     {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
                                         const pg = Math.max(0, page - 2) + i;
                                         if (pg >= totalPages) return null;
                                         return (
-                                            <button key={pg} onClick={() => loadArticles(pg)}
+                                            <AppButton key={pg} onClick={() => loadArticles(pg)}
                                                 className={`w-8 h-8 text-xs font-medium rounded-lg border transition ${pg === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 hover:bg-gray-50'}`}>
                                                 {pg + 1}
-                                            </button>
+                                            </AppButton>
                                         );
                                     })}
-                                    <button disabled={page + 1 >= totalPages} onClick={() => loadArticles(page + 1)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition">Next →</button>
+                                    <AppButton variant="outlined" disabled={page + 1 >= totalPages} onClick={() => loadArticles(page + 1)} className="disabled:opacity-40">Next →</AppButton>
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </Paper>
                 </>
             )}
 

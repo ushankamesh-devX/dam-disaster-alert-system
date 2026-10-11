@@ -20,7 +20,7 @@ export function QuickActions({
   const { t } = useTranslation();
 
   return (
-    <View className="mx- -mt-6 mb-8">
+    <View style={{ marginBottom: 24 }}>
       {/* Header with small action buttons */}
       <View className="bg-white rounded-2xl p-4 shadow-sm mb-3">
         {/* Small Action Buttons Row */}
@@ -31,7 +31,7 @@ export function QuickActions({
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="file-document-outline" size={16} color="#6B7280" />
-            <Text className="text-gray-600 text-sm ml-2">{t('guidelines_btn')}</Text>
+            <Text className="text-gray-600 text-sm ml-2" style={{ flexShrink: 1, textAlign: 'center', lineHeight: 22 }}>{t('guidelines_btn')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -40,7 +40,7 @@ export function QuickActions({
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="map-marker-outline" size={16} color="#6B7280" />
-            <Text className="text-gray-600 text-sm ml-2">{t('shelter_locations_btn')}</Text>
+            <Text className="text-gray-600 text-sm ml-2" style={{ flexShrink: 1, textAlign: 'center', lineHeight: 22 }}>{t('shelter_locations_btn')}</Text>
           </TouchableOpacity>
         </View>
       </View>

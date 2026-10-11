@@ -1,3 +1,7 @@
+import SymbolIcon from '../ui/SymbolIcon';
+import { tokens } from '../../theme/tokens';
+import { Paper } from '@mui/material';
+import { AppButton } from '../ui/controls';
 import { useEffect, useRef, useState } from 'react';
 import {
     ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -7,8 +11,8 @@ import { getSensorsByDam, getSensorReadings } from '../../services/sensor.servic
 
 // Distinct colors for up to 10 sensor lines
 const LINE_COLORS = [
-    '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
-    '#8b5cf6', '#06b6d4', '#f97316', '#84cc16',
+    tokens.primary, tokens.success, tokens.warning, tokens.error,
+    '#8b5cf6', '#06b6d4', tokens.danger, '#84cc16',
     '#ec4899', '#6366f1',
 ];
 
@@ -126,7 +130,7 @@ export default function DamSensorChart({ damId }) {
         if (!active || !payload?.length) return null;
         const time = label ? new Date(label).toLocaleString() : '';
         return (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs max-w-xs">
+            <Paper variant="outlined" className="bg-white border border-gray-200   p-3 text-xs max-w-xs">
                 <p className="text-gray-500 mb-2 font-medium">{time}</p>
                 {payload.map(p => {
                     if (p.value == null) return null;
@@ -146,7 +150,7 @@ export default function DamSensorChart({ damId }) {
                         </div>
                     );
                 })}
-            </div>
+            </Paper>
         );
     };
 
@@ -177,11 +181,11 @@ export default function DamSensorChart({ damId }) {
                 {/* Range picker */}
                 <div className="flex items-center gap-1.5">
                     {RANGES.map(({ label }) => (
-                        <button key={label} onClick={() => setRange(label)}
+                        <AppButton key={label} onClick={() => setRange(label)}
                             className={`px-3 py-1 text-xs font-medium rounded-full border transition
                                 ${range === label ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                             {label}
-                        </button>
+                        </AppButton>
                     ))}
                 </div>
             </div>
@@ -192,13 +196,13 @@ export default function DamSensorChart({ damId }) {
                     const key = `s${s.id}_pct`;
                     const hidden = hiddenKeys.has(key);
                     return (
-                        <button key={s.id} onClick={() => toggleSensor(key)}
+                        <AppButton key={s.id} onClick={() => toggleSensor(key)}
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition
                                 ${hidden ? 'bg-gray-50 text-gray-400 border-gray-200 opacity-60' : 'bg-white text-gray-700 border-gray-300'}`}>
                             <span style={{ width: 8, height: 8, borderRadius: 4, background: hidden ? '#d1d5db' : LINE_COLORS[idx % LINE_COLORS.length], display: 'inline-block' }} />
                             {s.name}
                             <span className="text-gray-400">({s.sensorType?.unit || '?'})</span>
-                        </button>
+                        </AppButton>
                     );
                 })}
             </div>
@@ -206,11 +210,11 @@ export default function DamSensorChart({ damId }) {
             {/* Chart */}
             {chartData.length === 0 ? (
                 <div className="h-72 flex flex-col items-center justify-center gap-2 text-gray-400">
-                    <span className="text-3xl">📉</span>
+                    <span className="text-3xl"><SymbolIcon name="chart" /></span>
                     <p className="text-sm">No readings in selected range</p>
                 </div>
             ) : (
-                <ResponsiveContainer width="100%" height={340}>
+                <ResponsiveContainer initialDimension={{ width: 300, height: 220 }} minWidth={0} width="100%" height={340}>
                     <LineChart data={chartData} margin={{ top: 8, right: 20, bottom: 20, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis
@@ -241,10 +245,10 @@ export default function DamSensorChart({ damId }) {
                             wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
                         />
                         {/* Warning threshold at 80% — rough visual guide */}
-                        <ReferenceLine y={80} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1}
-                            label={{ value: 'Warning zone', position: 'insideTopRight', fontSize: 9, fill: '#f59e0b' }} />
-                        <ReferenceLine y={95} stroke="#ef4444" strokeDasharray="4 3" strokeWidth={1}
-                            label={{ value: 'Critical zone', position: 'insideTopRight', fontSize: 9, fill: '#ef4444' }} />
+                        <ReferenceLine y={80} stroke={tokens.warning} strokeDasharray="4 3" strokeWidth={1}
+                            label={{ value: 'Warning zone', position: 'insideTopRight', fontSize: 9, fill: tokens.warning }} />
+                        <ReferenceLine y={95} stroke={tokens.error} strokeDasharray="4 3" strokeWidth={1}
+                            label={{ value: 'Critical zone', position: 'insideTopRight', fontSize: 9, fill: tokens.error }} />
 
                         {sensors.map((s, idx) => {
                             const key = `s${s.id}_pct`;

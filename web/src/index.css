@@ -1,9 +1,54 @@
+@layer theme, base, mui, components, utilities;
 @import "tailwindcss";
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+/* Existing layouts use utilities; their colours now resolve to the shared M3 roles. */
+@theme inline {
+  --color-gray-50: var(--md-surface);
+  --color-gray-100: var(--md-surface-container);
+  --color-gray-200: var(--md-surface-container-highest);
+  --color-gray-300: var(--md-outline-variant);
+  --color-gray-400: var(--md-outline);
+  --color-gray-500: var(--md-on-surface-variant);
+  --color-gray-600: var(--md-on-surface-variant);
+  --color-gray-700: var(--md-on-surface-variant);
+  --color-gray-800: var(--md-on-surface);
+  --color-gray-900: var(--md-on-surface);
+  --color-blue-50: var(--md-primary-container);
+  --color-blue-100: var(--md-primary-container);
+  --color-blue-200: var(--md-primary-container);
+  --color-blue-500: var(--md-primary);
+  --color-blue-600: var(--md-primary);
+  --color-blue-700: var(--md-primary);
+  --color-blue-800: var(--md-on-primary-container);
+  --color-blue-900: var(--md-on-primary-container);
+  --color-indigo-50: var(--md-secondary-container);
+  --color-indigo-100: var(--md-secondary-container);
+  --color-indigo-600: var(--md-secondary);
+  --color-red-50: var(--md-error-container);
+  --color-red-100: var(--md-error-container);
+  --color-red-500: var(--md-error);
+  --color-red-600: var(--md-error);
+  --color-red-700: var(--md-error);
+  --color-red-800: var(--md-on-error-container);
+  --color-emerald-50: var(--md-success-container);
+  --color-green-50: var(--md-success-container);
+  --color-emerald-600: var(--md-success);
+  --color-emerald-700: var(--md-success);
+  --color-green-600: var(--md-success);
+  --color-amber-50: var(--md-warning-container);
+  --color-amber-100: var(--md-warning-container);
+  --color-amber-600: var(--md-warning);
+  --color-amber-700: var(--md-warning);
+  --color-orange-50: var(--md-danger-container);
+  --color-orange-600: var(--md-danger);
+  --color-orange-700: var(--md-danger);
+}
+
+body, .md-dotted-background {
+  background-color: var(--md-surface);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--md-on-surface-variant) 22%, transparent) 0.75px, transparent 0.75px);
+  background-size: 22px 22px;
+  background-position: 11px 11px;
 }
 
 body {
@@ -11,6 +56,42 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.md-page { max-width: 1920px; margin-inline: auto; }
+.md-page > div { min-width: 0; }
+.md-page .MuiPaper-root { border-radius: 20px; }
+.md-input { min-width: 0; background: transparent; padding: 0; border: 0; box-shadow: none; }
+.md-input .MuiOutlinedInput-root { background: var(--md-surface-container-lowest); }
+.md-input .MuiInputBase-input { font-size: 14px; min-height: 24px; }
+.md-input:focus-within { box-shadow: none; }
+.md-dialog-content > div { width: 100%; max-width: 100%; background: transparent; box-shadow: none; border-radius: 0; }
+.md-dialog-content { min-width: 0; }
+.MuiButton-root.md-button { border-radius: 24px; min-height: 40px; box-shadow: none; }
+.MuiIconButton-root.md-button { border-radius: 50%; min-width: 40px; min-height: 40px; }
+.MuiChip-root { max-width: 100%; }
+.md-page .MuiTable-root { width: 100%; }
+.md-page .MuiTableCell-root { padding: 14px 16px; }
+.md-page .MuiTableRow-root:hover { background: var(--md-surface-container-low); }
+.md-page .MuiTypography-h1 { letter-spacing: -0.02em; }
+.md-native-input { accent-color: var(--md-primary); }
+.md-skip-link { position: absolute; left: 16px; top: -80px; padding: 12px 20px; border-radius: 20px; background: var(--md-primary); color: var(--md-on-primary); z-index: 1400; }
+.md-skip-link:focus { top: 8px; }
+/* Hover previews must stay below MUI's dialog/drawer layers (1200/1300). */
+.md-map-preview { z-index: 1100; }
+.leaflet-container { font-family: inherit; border-radius: 20px; }
+.leaflet-bar { border: 1px solid var(--md-outline-variant) !important; border-radius: 12px !important; box-shadow: none !important; overflow: hidden; }
+.leaflet-bar a { background: var(--md-surface-container-lowest) !important; color: var(--md-on-surface-variant) !important; }
+.leaflet-bar a:hover { background: var(--md-secondary-container) !important; }
+.custom-leaflet-marker > div:first-child { box-shadow: none !important; }
+
+@media (max-width: 599px) {
+  .md-page .grid.grid-cols-2, .md-page .grid.grid-cols-3, .md-dialog .grid.grid-cols-2, .md-dialog .grid.grid-cols-3 { grid-template-columns: minmax(0, 1fr); }
+  .md-page .MuiTableCell-root { padding: 12px; }
+  .md-page .flex.items-center.justify-between { flex-wrap: wrap; gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
 /* Map card focus animation — triggered when user clicks a feature on the map */
@@ -36,22 +117,39 @@ body {
   }
 }
 
-/* Utility to hide scrollbar but keep scroll functionality */
+/* Shared theme for vertical and horizontal page/panel scrollbars. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: var(--md-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--md-primary) 55%, var(--md-surface));
+  border: 2px solid var(--md-surface);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background: var(--md-primary);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
+  height: 8px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 4px;
-}
-
-.custom-scrollbar:hover::-webkit-scrollbar-thumb {
-  background: #9ca3af;
+/* Firefox uses the standard scrollbar properties. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--md-primary) var(--md-surface);
+  }
 }
 
 .no-scrollbar::-webkit-scrollbar {

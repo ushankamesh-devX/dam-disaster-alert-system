@@ -1,5 +1,12 @@
+import { Paper, Typography } from '@mui/material';
 import React from 'react';
-import { AlertTriangle, MapPin, Ruler, Clock, Droplets, Tag, Activity } from 'lucide-react';
+import AlertTriangle from '@mui/icons-material/WarningRounded';
+import MapPin from '@mui/icons-material/PlaceRounded';
+import Ruler from '@mui/icons-material/StraightenRounded';
+import Clock from '@mui/icons-material/ScheduleRounded';
+import Droplets from '@mui/icons-material/WaterDropRounded';
+import Tag from '@mui/icons-material/SellRounded';
+import Activity from '@mui/icons-material/MonitorHeartRounded';
 
 // Hazard level → color/label mapping (fallback by ID or name)
 const HAZARD_LEVEL_COLORS = {
@@ -38,10 +45,10 @@ export default function HazardZoneHoverPopup({ zoneData, position }) {
 
     return (
         <div
-            className="fixed z-[9999] pointer-events-none"
+            className="fixed md-map-preview pointer-events-none"
             style={{ left: position.x + 15, top: position.y - 10 }}
         >
-            <div className="bg-white rounded-xl shadow-xl border border-gray-200 pointer-events-auto overflow-hidden"
+            <Paper variant="outlined" className="bg-white   border border-gray-200 pointer-events-auto overflow-hidden"
                 style={{ width: '290px' }}>
 
                 {/* Colored top bar matching zone color */}
@@ -60,9 +67,9 @@ export default function HazardZoneHoverPopup({ zoneData, position }) {
                                 style={{ backgroundColor: accentColor, borderColor: strokeColor }}
                             />
                             <div className="min-w-0">
-                                <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate">
+                                <Typography component="h3" variant="h3" className="font-semibold text-gray-900 text-sm leading-tight truncate">
                                     {zoneData.zoneName || 'Hazard Zone'}
-                                </h3>
+                                </Typography>
                                 {zoneData.zoneNameSi && (
                                     <p className="text-xs text-gray-400 truncate">{zoneData.zoneNameSi}</p>
                                 )}
@@ -133,7 +140,7 @@ export default function HazardZoneHoverPopup({ zoneData, position }) {
                         colorClass="text-gray-600"
                     />
                 </div>
-            </div>
+            </Paper>
         </div>
     );
 }

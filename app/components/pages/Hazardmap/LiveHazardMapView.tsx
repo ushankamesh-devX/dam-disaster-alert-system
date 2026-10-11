@@ -5,10 +5,15 @@ import { safeLocationService } from '@/services/safe-locations/safe-location.ser
 import { damService } from '@/services/dams/dam.service';
 import { hazardZoneService } from '@/services/hazard/hazard-zone.service';
 import { ensureAuth } from '@/services/api/auto-auth';
+import { pickDisplayedDam } from '@/services/dams/display-dam';
+import { sensorService } from '@/services/sensors/sensor.service';
+import { damGatesService } from '@/services/dams/dam-gates.service';
 
 // ── Types matching exact API response fields ─────────────────────────────────
 
 interface SafeLocation {
+  primaryDamId?: number;
+  description?: string;
   id: number;
   name: string;
   code?: string;
@@ -31,10 +36,16 @@ interface Dam {
   overallHazardStatus?: string;
   damType?: string;
   heightMeters?: number;
+  lengthMeters?: number;
+  reservoirCapacityMcm?: number;
+  riverName?: string;
 }
 
 interface HazardZone {
   id: number;
+  damId?: number;
+  hazardLevel?: { levelNumber?: number; name?: string };
+  labelPosition?: string;
   zoneName?: string;
   zoneCode?: string;
   damName?: string;
@@ -49,31 +60,90 @@ interface HazardZone {
   areaSqKm?: number;
 }
 
+interface EquipmentPoint {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  kind: 'sensor' | 'gate';
+  status?: string;
+  description?: string;
+}
+
 // ── Fetch all data in React Native (bypasses CORS) ───────────────────────────
 
-async function fetchMapData() {
+type MapMode = 'full' | 'zones';
+
+interface MapRenderOptions {
+  showLocations: boolean;
+  showZones: boolean;
+  showDams: boolean;
+}
+
+async function fetchMapData(mode: MapMode, options: MapRenderOptions, focusDamId?: string) {
   await ensureAuth();
 
   const [locRes, damRes] = await Promise.all([
-    safeLocationService.getList().catch(() => ({ data: [] as SafeLocation[] })),
-    damService.getList().catch(() => ({ data: [] as Dam[] })),
+    !options.showLocations
+      ? Promise.resolve({ data: [] as SafeLocation[] })
+      : safeLocationService.getList().catch(() => ({ data: [] as SafeLocation[] })),
+    options.showDams || options.showZones
+      ? damService.getActive().catch(() => ({ data: [] as Dam[] }))
+      : Promise.resolve({ data: [] as Dam[] }),
   ]);
 
-  const locations: SafeLocation[] = Array.isArray(locRes.data) ? locRes.data : [];
-  const dams: Dam[] = Array.isArray(damRes.data) ? damRes.data : [];
+  const allLocations: SafeLocation[] = Array.isArray(locRes.data) ? locRes.data : [];
+  const allDams: Dam[] = Array.isArray(damRes.data) ? damRes.data : [];
+  const selectedDams = mode === 'zones' || focusDamId
+    ? allDams.filter((dam) => String(dam.id) === (focusDamId ?? String(pickDisplayedDam(allDams)?.id)))
+    : allDams;
+  const dams: Dam[] = await Promise.all(selectedDams.map(async dam => {
+    try {
+      const detail = await damService.getById(String(dam.id));
+      return { ...dam, ...(detail.data?.data ?? detail.data) };
+    } catch { return dam; }
+  }));
 
-  const zoneArrays = await Promise.all(
-    dams
-      .filter((d) => d.id)
-      .map((d) =>
-        hazardZoneService
-          .getActiveByDam(String(d.id))
-          .then((r) => (Array.isArray(r.data) ? (r.data as HazardZone[]) : []))
-          .catch(() => [] as HazardZone[]),
-      ),
-  );
+  const locations = mode === 'zones' || focusDamId
+    ? allLocations.filter(location => dams.some(dam => dam.id === location.primaryDamId))
+    : allLocations;
+  const equipmentArrays = options.showDams ? await Promise.all(dams.map(async dam => {
+    const [sensorRes, gateRes] = await Promise.all([
+      sensorService.getByDam(String(dam.id)).catch(() => ({ data: [] })),
+      damGatesService.getByDam(String(dam.id)).catch(() => ({ data: [] })),
+    ]);
+    const sensors: EquipmentPoint[] = (Array.isArray(sensorRes.data) ? sensorRes.data : []).map((row: Record<string, unknown>) => ({
+      id: Number(row.id), name: String(row.name ?? 'Sensor'),
+      latitude: Number(row.latitude), longitude: Number(row.longitude), kind: 'sensor',
+      status: String(row.status ?? ''), description: String(row.description ?? ''),
+    }));
+    const gates: EquipmentPoint[] = (Array.isArray(gateRes.data) ? gateRes.data : []).map((row: Record<string, unknown>) => ({
+      id: Number(row.id), name: `${dam.name} — ${dam.code === 'DEMO-002' ? 'Demo ' : ''}Gate ${row.gateNumber}`,
+      latitude: Number(row.latitude), longitude: Number(row.longitude), kind: 'gate',
+      status: String(row.status ?? ''), description: dam.code === 'DEMO-002' ? 'Illustrative demo gate position.' : '',
+    }));
+    return [...sensors, ...gates].filter(point => Number.isFinite(point.latitude) && Number.isFinite(point.longitude) && point.latitude !== 0 && point.longitude !== 0);
+  })) : [];
 
-  return { locations, dams, zones: zoneArrays.flat() };
+  const zoneArrays = options.showZones
+    ? await Promise.all(
+        dams
+          .filter((d) => d.id)
+          .map((d) =>
+            hazardZoneService
+              .getActiveByDam(String(d.id))
+              .then((r) => (Array.isArray(r.data) ? (r.data as HazardZone[]) : []))
+              .catch(() => [] as HazardZone[]),
+          ),
+      )
+    : [];
+
+  return {
+    locations,
+    dams,
+    zones: zoneArrays.flat(),
+    equipment: equipmentArrays.flat(),
+  };
 }
 
 // ── Build Leaflet HTML with pre-injected JSON ────────────────────────────────
@@ -83,10 +153,15 @@ function buildHtml(
   locations: SafeLocation[],
   dams: Dam[],
   zones: HazardZone[],
+  options: MapRenderOptions,
+  equipment: EquipmentPoint[] = [],
 ): string {
-  const locJson = JSON.stringify(locations);
-  const damsJson = JSON.stringify(dams);
-  const zonesJson = JSON.stringify(zones);
+  const embed = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
+  const locJson = embed(locations);
+  const damsJson = embed(dams);
+  const zonesJson = embed([...zones].sort((a, b) =>
+    Number(a.hazardLevel?.levelNumber ?? 0) - Number(b.hazardLevel?.levelNumber ?? 0)
+    || Number(b.areaSqKm ?? 0) - Number(a.areaSqKm ?? 0)));
 
   return `<!DOCTYPE html>
 <html>
@@ -112,6 +187,9 @@ html,body{width:100%;height:100%}
 .custom-leaflet-marker{background:none!important;border:none!important}
 .leaflet-popup-content-wrapper{border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.18)}
 .leaflet-popup-content{margin:12px 14px}
+.overview .leaflet-tile-pane{filter:saturate(.25);opacity:.65}
+.leaflet-tooltip{font-size:11px;max-width:160px;white-space:normal}
+.leaflet-control-zoom a{width:34px;height:34px;line-height:34px}
 </style>
 </head>
 <body>
@@ -121,12 +199,20 @@ html,body{width:100%;height:100%}
 var LOCATIONS = ${locJson};
 var DAMS      = ${damsJson};
 var ZONES     = ${zonesJson};
+var EQUIPMENT = ${embed(equipment)};
 
 /* ── Map setup ── */
-var map = L.map('map', {zoomControl:true, attributionControl:false}).setView([7.8731, 80.7718], 8);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
+var map = L.map('map', {zoomControl:false, attributionControl:true}).setView([7.8731, 80.7718], 8);
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19, attribution:'&copy; OpenStreetMap'
+}).addTo(map);
+var markerDetails = [], zoneDetails = [];
 
 var allBounds = [];
+var SHOW_LOCATIONS = ${options.showLocations ? 'true' : 'false'};
+var SHOW_ZONES = ${options.showZones ? 'true' : 'false'};
+var SHOW_DAMS = ${options.showDams ? 'true' : 'false'};
 
 /* ── Helpers ── */
 var DAM_COLORS = {
@@ -162,6 +248,8 @@ var ICON_KEY_MAP = {
 function safeHex(c,fb){return c&&/^#[0-9a-fA-F]{3,6}$/.test((c||'').trim())?c.trim():fb;}
 function badgeCls(s){var m={safe:'b-safe',low:'b-low',active:'b-active',moderate:'b-moderate',high:'b-high',severe:'b-severe',critical:'b-critical',closed:'b-closed',inactive:'b-inactive',under_maintenance:'b-maintenance'};return 'badge '+(m[s]||'b-active');}
 function fmtStatus(s){return (s||'active').replace(/_/g,' ').toUpperCase();}
+function escapeText(s){return String(s || '').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function overviewIcon(color){return L.divIcon({className:'custom-leaflet-marker',iconSize:[12,12],iconAnchor:[6,6],html:'<div style="width:12px;height:12px;background:'+safeHex(color,'#2563eb')+';border:2px solid white;border-radius:50%;box-shadow:0 1px 4px #555"></div>'});}
 
 /* Matches web dashboard: white circle + colored border + SVG icon + triangle pointer */
 function makeEvacIcon(color, iconName) {
@@ -186,46 +274,69 @@ function makeDamIcon(hazardStatus) {
   });
 }
 
-/* ── Plot Safe Locations ── */
-LOCATIONS.forEach(function(loc) {
-  var lat = parseFloat(loc.latitude), lng = parseFloat(loc.longitude);
-  if (!lat || !lng) return;
-  allBounds.push([lat, lng]);
+if (SHOW_LOCATIONS) {
+  /* ── Plot Safe Locations ── */
+  LOCATIONS.forEach(function(loc) {
+    var lat = parseFloat(loc.latitude), lng = parseFloat(loc.longitude);
+    if (!lat || !lng) return;
+    allBounds.push([lat, lng]);
 
-  var phone = loc.emergencyPhone || loc.contactPhone || '';
-  var cap   = loc.capacityPersons ? ' · '+loc.capacityPersons+' ppl' : '';
-  var popup = '<div class="lp">'+
-    '<div class="lp-name">'+(loc.name||'')+'</div>'+
-    (loc.code ? '<div class="lp-sub">'+loc.code+cap+'</div>' : '')+
-    (phone    ? '<div class="lp-row"><span>📞</span><span>'+phone+'</span></div>' : '')+
-    '<span class="'+badgeCls(loc.status)+'">'+fmtStatus(loc.status)+'</span>'+
-    '</div>';
+    var phone = loc.emergencyPhone || loc.contactPhone || '';
+    var cap   = loc.capacityPersons ? ' · '+loc.capacityPersons+' ppl' : '';
+    var popup = '<div class="lp">'+
+      '<div class="lp-name">'+(loc.name||'')+'</div>'+
+      (loc.code ? '<div class="lp-sub">'+loc.code+cap+'</div>' : '')+
+      (phone    ? '<div class="lp-row"><span>📞</span><span>'+phone+'</span></div>' : '')+
+      (loc.description ? '<div class="lp-sub">'+escapeText(loc.description)+'</div>' : '')+
+      '<span class="'+badgeCls(loc.status)+'">'+fmtStatus(loc.status)+'</span>'+
+      '</div>';
 
-  var m = L.marker([lat, lng], {icon: makeEvacIcon(loc.markerColor, loc.markerIcon)});
-  m.bindPopup(popup, {maxWidth:220});
-  m.addTo(map);
-});
+    var m = L.marker([lat, lng], {icon: makeEvacIcon(loc.markerColor, loc.markerIcon)});
+    m.bindPopup(popup, {maxWidth:220});
+    m.bindTooltip(escapeText(loc.name), {permanent:true, direction:'top', offset:[0,-40]});
+    markerDetails.push({marker:m, icon:makeEvacIcon(loc.markerColor, loc.markerIcon), color:loc.markerColor});
+    m.addTo(map);
+  });
+}
 
-/* ── Plot Dam Markers ── */
-DAMS.forEach(function(dam) {
-  var lat = parseFloat(dam.latitude), lng = parseFloat(dam.longitude);
-  if (!lat || !lng) return;
-  allBounds.push([lat, lng]);
+  /* ── Plot Dam Markers ── */
+  if (SHOW_DAMS) {
+  DAMS.forEach(function(dam) {
+    var lat = parseFloat(dam.latitude), lng = parseFloat(dam.longitude);
+    if (!lat || !lng) return;
+    allBounds.push([lat, lng]);
 
-  var popup = '<div class="lp">'+
-    '<div class="lp-name">'+(dam.name||dam.code||'Dam')+'</div>'+
-    (dam.code    ? '<div class="lp-sub">'+dam.code+'</div>' : '')+
-    (dam.damType ? '<div class="lp-row"><span>Type</span><span>'+dam.damType+'</span></div>' : '')+
-    (dam.heightMeters ? '<div class="lp-row"><span>Height</span><span>'+dam.heightMeters+' m</span></div>' : '')+
-    '<span class="'+badgeCls(dam.overallHazardStatus||'safe')+'">'+fmtStatus(dam.overallHazardStatus||'safe')+'</span>'+
-    '</div>';
+    var popup = '<div class="lp">'+
+      '<div class="lp-name">'+(dam.name||dam.code||'Dam')+'</div>'+
+      (dam.code    ? '<div class="lp-sub">'+dam.code+'</div>' : '')+
+      (dam.damType ? '<div class="lp-row"><span>Type</span><span>'+dam.damType+'</span></div>' : '')+
+      (dam.heightMeters ? '<div class="lp-row"><span>Height</span><span>'+dam.heightMeters+' m</span></div>' : '')+
+      (dam.lengthMeters ? '<div class="lp-row"><span>Length</span><span>'+dam.lengthMeters+' m</span></div>' : '')+
+      (dam.reservoirCapacityMcm ? '<div class="lp-row"><span>Capacity</span><span>'+dam.reservoirCapacityMcm+' MCM</span></div>' : '')+
+      (dam.code === 'DEMO-002' ? '<div class="lp-sub">Demo danger zones and water readings</div>' : '')+
+      '<span class="'+badgeCls(dam.overallHazardStatus||'safe')+'">'+fmtStatus(dam.overallHazardStatus||'safe')+'</span>'+
+      '</div>';
 
-  var m = L.marker([lat, lng], {icon: makeDamIcon(dam.overallHazardStatus), zIndexOffset:1000});
-  m.bindPopup(popup, {maxWidth:220});
-  m.addTo(map);
+    var m = L.marker([lat, lng], {icon: makeDamIcon(dam.overallHazardStatus), zIndexOffset:1000});
+    m.bindPopup(popup, {maxWidth:220});
+    m.bindTooltip(escapeText(dam.name), {permanent:true, direction:'top', offset:[0,-42]});
+    markerDetails.push({marker:m, icon:makeDamIcon(dam.overallHazardStatus), color:DAM_COLORS[dam.overallHazardStatus]});
+    m.addTo(map);
+  });
+  }
+
+/* ── Plot equipment ── */
+EQUIPMENT.forEach(function(point) {
+  var color = point.kind === 'gate' ? '#d97706' : '#0891b2';
+  var marker = L.circleMarker([point.latitude, point.longitude], {radius:6, color:color, weight:2, fillColor:'white', fillOpacity:1});
+  marker.bindPopup('<div class="lp"><div class="lp-name">'+escapeText(point.name)+'</div><div class="lp-sub">'+escapeText(point.description)+'</div><div class="lp-row">'+escapeText(point.status)+'</div></div>');
+  marker.bindTooltip(escapeText(point.name));
+  marker.addTo(map);
+  allBounds.push([point.latitude, point.longitude]);
 });
 
 /* ── Plot Hazard Zones ── */
+if (SHOW_ZONES) {
 ZONES.forEach(function(z) {
   if (!z.boundaryGeojson) return;
   var geo;
@@ -248,9 +359,15 @@ ZONES.forEach(function(z) {
     '</div>';
 
   var layer = L.geoJSON(geo, {
+    smoothFactor:1.5,
     style: {color: stroke, weight: weight, fillColor: fill, fillOpacity: opacity, opacity: 0.9}
   });
   layer.bindPopup(popup, {maxWidth:240});
+  var labelPoint = geo.coordinates[0][0];
+  try { var pos = JSON.parse(z.labelPosition); if (pos && Number.isFinite(pos.lat) && Number.isFinite(pos.lng)) labelPoint = [pos.lng,pos.lat]; } catch(e) {}
+  var label = L.tooltip({permanent:true, direction:'right'}).setLatLng([labelPoint[1],labelPoint[0]])
+    .setContent(escapeText(z.zoneName || z.hazardLevel && z.hazardLevel.name));
+  zoneDetails.push({layer:layer, label:label, opacity:opacity, weight:weight});
   layer.addTo(map);
 
   /* collect polygon bounds */
@@ -258,13 +375,30 @@ ZONES.forEach(function(z) {
     geo.coordinates[0].forEach(function(c){ allBounds.push([c[1], c[0]]); });
   } catch(e) {}
 });
+}
+
+function updateDetail() {
+  var zoom = map.getZoom();
+  document.getElementById('map').classList.toggle('overview', zoom < 12);
+  markerDetails.forEach(function(item) {
+    item.marker.setIcon(zoom < 13 ? overviewIcon(item.color) : item.icon);
+    if (zoom >= 15) item.marker.openTooltip(); else item.marker.closeTooltip();
+  });
+  zoneDetails.forEach(function(item) {
+    item.layer.setStyle({weight:zoom < 12 ? 1 : item.weight, fillOpacity:Math.min(item.opacity, zoom < 12 ? .16 : .28)});
+    if (zoom >= 15) item.label.addTo(map); else map.removeLayer(item.label);
+    item.layer.bringToFront();
+  });
+}
+map.on('zoomend', updateDetail);
 
 /* ── Auto-fit to show all features ── */
 setTimeout(function() {
   if (allBounds.length === 1) { map.setView(allBounds[0], 13); }
   else if (allBounds.length > 1) {
-    try { map.fitBounds(allBounds, {padding:[40,40], maxZoom:13}); } catch(e) {}
+    try { map.invalidateSize(); map.fitBounds(allBounds, {padding:[24,24], maxZoom:14}); } catch(e) {}
   }
+  updateDetail();
 }, 300);
 </script>
 </body>
@@ -275,18 +409,36 @@ setTimeout(function() {
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-export function LiveHazardMapView() {
+interface LiveHazardMapViewProps {
+  focusDamId?: string;
+  mode?: MapMode;
+  showLocations?: boolean;
+  showZones?: boolean;
+  showDams?: boolean;
+}
+
+export function LiveHazardMapView({
+  mode = 'full',
+  showLocations = true,
+  showZones = true,
+  showDams = true,
+  focusDamId,
+}: LiveHazardMapViewProps) {
   const [html, setHtml] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>('loading');
 
   useEffect(() => {
-    fetchMapData()
-      .then(({ locations, dams, zones }) => {
-        setHtml(buildHtml(locations, dams, zones));
+    const options = { showLocations, showZones, showDams };
+    let cancelled = false;
+    fetchMapData(mode, options, focusDamId)
+      .then(({ locations, dams, zones, equipment }) => {
+        if (cancelled) return;
+        setHtml(buildHtml(locations, dams, zones, options, equipment));
         setState('ready');
       })
-      .catch(() => setState('error'));
-  }, []);
+      .catch(() => { if (!cancelled) setState('error'); });
+    return () => { cancelled = true; };
+  }, [mode, showLocations, showZones, showDams, focusDamId]);
 
   if (state === 'loading') {
     return (

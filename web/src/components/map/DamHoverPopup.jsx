@@ -1,5 +1,16 @@
+import { Paper, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Droplets, MapPin, Building2, Ruler, Gauge, AlertTriangle, CheckCircle, XCircle, Phone, Mail, Calendar } from 'lucide-react';
+import Droplets from '@mui/icons-material/WaterDropRounded';
+import MapPin from '@mui/icons-material/PlaceRounded';
+import Building2 from '@mui/icons-material/ApartmentRounded';
+import Ruler from '@mui/icons-material/StraightenRounded';
+import Gauge from '@mui/icons-material/SpeedRounded';
+import AlertTriangle from '@mui/icons-material/WarningRounded';
+import CheckCircle from '@mui/icons-material/CheckCircleRounded';
+import XCircle from '@mui/icons-material/CancelRounded';
+import Phone from '@mui/icons-material/PhoneRounded';
+import Mail from '@mui/icons-material/MailRounded';
+import Calendar from '@mui/icons-material/CalendarMonthRounded';
 import { getDamById, getDamStatus } from '../../services/dam.service';
 
 const STATUS_CONFIG = {
@@ -65,13 +76,13 @@ export default function DamHoverPopup({ damId, position, onClose }) {
 
     return (
         <div 
-            className="fixed z-[9999] pointer-events-none"
+            className="fixed md-map-preview pointer-events-none"
             style={{ 
                 left: position.x + 15, 
                 top: position.y - 10,
             }}
         >
-            <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-80 pointer-events-auto">
+            <Paper variant="outlined" className="bg-white   border border-gray-200 p-3 w-80 pointer-events-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -79,9 +90,9 @@ export default function DamHoverPopup({ damId, position, onClose }) {
                             <Droplets className="w-4 h-4 text-blue-600" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-gray-900 text-sm truncate max-w-[180px]">
+                            <Typography component="h3" variant="h3" className="font-semibold text-gray-900 text-sm truncate max-w-[180px]">
                                 {loading ? 'Loading...' : dam?.name || 'Unknown Dam'}
-                            </h3>
+                            </Typography>
                             <p className="text-xs text-gray-500">
                                 {dam?.code} • {dam?.damType?.replace('_', ' ')}
                             </p>
@@ -213,7 +224,7 @@ export default function DamHoverPopup({ damId, position, onClose }) {
                         )}
                     </>
                 )}
-            </div>
+            </Paper>
         </div>
     );
 }

@@ -1,9 +1,28 @@
+import { findFeatureLayer, syncFeatureProperties, recordSavedFeature, persistMapDeletion } from '../../components/map/editorState';
+import { Typography, Paper } from '@mui/material';
+import { AppSelect, AppButton, AppInput } from '../../components/ui/controls';
 import React, { useState, useRef, useEffect } from 'react';
-import { Cpu, Map, MapPin, Hexagon, Square, Circle, Database, Code, Edit3, Save, Trash2, RefreshCw, Loader2, Download, Droplets } from 'lucide-react';
+import Cpu from '@mui/icons-material/MemoryRounded';
+import Map from '@mui/icons-material/MapRounded';
+import MapPin from '@mui/icons-material/PlaceRounded';
+import Hexagon from '@mui/icons-material/HexagonRounded';
+import Square from '@mui/icons-material/SquareRounded';
+import Circle from '@mui/icons-material/CircleRounded';
+import Database from '@mui/icons-material/StorageRounded';
+import Code from '@mui/icons-material/CodeRounded';
+import Edit3 from '@mui/icons-material/EditRounded';
+import Save from '@mui/icons-material/SaveRounded';
+import Trash2 from '@mui/icons-material/DeleteRounded';
+import RefreshCw from '@mui/icons-material/RefreshRounded';
+import Loader2 from '@mui/icons-material/AutorenewRounded';
+import Download from '@mui/icons-material/DownloadRounded';
+import Droplets from '@mui/icons-material/WaterDropRounded';
 import GeomanMap, { AREA_COLORS, createGateIcon } from '../../components/map/GeomanMap';
 import { createHazardZone, updateHazardZone, deleteHazardZone, createGate, updateGate, deleteGate, getDamHazardZones, getDamGates, getAllDamsList, createDam, updateDam, deleteDam, getDamById } from '../../services/dam.service';
 import { createSensor, updateSensor, deleteSensor, getSensorsByDam } from '../../services/sensor.service';
 import toast from 'react-hot-toast';
+import VictoriaReferenceNotice from '../../components/map/VictoriaReference';
+import { referenceMapFeatures, victoriaReference, isVictoriaDemo } from '../../components/map/victoriaGeography';
 
 export default function MapFuncPage() {
     const [currentGeoJSON, setCurrentGeoJSON] = useState(null);
@@ -19,6 +38,7 @@ export default function MapFuncPage() {
     // Selected dam for loading data
     const [selectedDamId, setSelectedDamId] = useState(1);
     const [dams, setDams] = useState([]);
+    const [currentDam, setCurrentDam] = useState(null);
     // Index of the feature card currently focused from a map click
     const [focusedIdx, setFocusedIdx] = useState(null);
     const focusTimerRef = useRef(null);
@@ -86,14 +106,20 @@ export default function MapFuncPage() {
     }, [selectedDamId]);
 
     // Function to load all saved data for a dam
+    const loadRequestRef = useRef(0);
+
     const loadSavedData = async (damId) => {
+        const requestId = ++loadRequestRef.current;
         setIsLoadingData(true);
         try {
-            const [hazardZones, gates, sensors] = await Promise.all([
-                getDamHazardZones(damId).catch(() => []),
-                getDamGates(damId).catch(() => []),
-                getSensorsByDam(damId).catch(() => [])
+            const [hazardZones, gates, sensors, selectedDam] = await Promise.all([
+                getDamHazardZones(damId),
+                getDamGates(damId),
+                getSensorsByDam(damId),
+                getDamById(damId),
             ]);
+            if (requestId !== loadRequestRef.current) return;
+            setCurrentDam(selectedDam);
 
             const features = [];
 
@@ -127,7 +153,7 @@ export default function MapFuncPage() {
                                 estimatedFloodArrivalMinutes: zone.estimatedFloodArrivalMinutes,
                                 estimatedWaterDepthMeters: zone.estimatedWaterDepthMeters,
                                 fillColor: zone.fillColor || '#fca5a5',
-                                fillOpacity: zone.fillOpacity || 0.4,
+                                fillOpacity: zone.fillOpacity ?? 0.4,
                                 strokeColor: zone.strokeColor || '#ef4444',
                                 strokeWidth: zone.strokeWidth || 2,
                                 displayOrder: zone.displayOrder,
@@ -207,7 +233,7 @@ export default function MapFuncPage() {
             if (features.length > 0) {
                 const geoJSON = {
                     type: 'FeatureCollection',
-                    features: features
+                    features: referenceMapFeatures(selectedDam, features)
                 };
                 setInitialGeoJSON(JSON.stringify(geoJSON));
                 setCurrentGeoJSON(JSON.stringify(geoJSON));
@@ -219,10 +245,11 @@ export default function MapFuncPage() {
                 setMapKey(prev => prev + 1); // Force map to remount
             }
         } catch (error) {
+            if (requestId !== loadRequestRef.current) return;
             console.error('Failed to load saved data:', error);
             toast.error('Failed to load saved data from database');
         } finally {
-            setIsLoadingData(false);
+            if (requestId === loadRequestRef.current) setIsLoadingData(false);
         }
     };
 
@@ -377,7 +404,7 @@ export default function MapFuncPage() {
                 });
 
                 if (modified) {
-                    setCurrentGeoJSON(JSON.stringify(parsed));
+                    setCurrentGeoJSON(JSON.stringify(syncFeatureProperties(mapFeatureGroupRef.current, parsed)));
                     return; // update will flow back up on next cycle
                 }
             } catch (e) {
@@ -414,14 +441,12 @@ export default function MapFuncPage() {
                 if (field === 'fillColor' || field === 'strokeColor' || field === 'fillOpacity') {
                     // We must find the actual leaflet layer to update its style
                     if (mapFeatureGroupRef.current) {
-                        const layers = Object.values(mapFeatureGroupRef.current._layers || {});
-                        // This is a bit of a hack to find the matching layer, ideally we'd track IDs
-                        // For this demo, finding by index in array usually matches layer iteration order
-                        if (layers[idx]) {
-                            layers[idx].setStyle({
+                        const layer = findFeatureLayer(mapFeatureGroupRef.current, feature, idx);
+                        if (layer) {
+                            layer.setStyle({
                                 fillColor: feature.properties.fillColor,
                                 color: feature.properties.strokeColor,
-                                fillOpacity: feature.properties.fillOpacity || 0.4
+                                fillOpacity: feature.properties.fillOpacity ?? 0.4
                             });
                         }
                     }
@@ -430,14 +455,14 @@ export default function MapFuncPage() {
                 // If gate status changes, update the map icon color in real-time
                 if (field === 'status' && feature.properties?.type === 'gateCircle') {
                     if (mapFeatureGroupRef.current) {
-                        const layers = Object.values(mapFeatureGroupRef.current._layers || {});
-                        if (layers[idx] && layers[idx].setIcon) {
-                            layers[idx].setIcon(createGateIcon(value));
+                        const layer = findFeatureLayer(mapFeatureGroupRef.current, feature, idx);
+                        if (layer && layer.setIcon) {
+                            layer.setIcon(createGateIcon(value));
                         }
                     }
                 }
 
-                setCurrentGeoJSON(JSON.stringify(parsed));
+                setCurrentGeoJSON(JSON.stringify(syncFeatureProperties(mapFeatureGroupRef.current, parsed)));
             }
         } catch (e) {
             console.error(e);
@@ -459,6 +484,7 @@ export default function MapFuncPage() {
 
     // Handle Save (Create new entity in database)
     const handleSave = async (idx, feature) => {
+        const savedLayer = findFeatureLayer(mapFeatureGroupRef.current, feature, idx);
         const type = feature.properties?.type || feature.geometry.type;
         setLoading(idx, 'save', true);
 
@@ -480,7 +506,7 @@ export default function MapFuncPage() {
                     estimatedFloodArrivalMinutes: feature.properties.estimatedFloodArrivalMinutes || null,
                     estimatedWaterDepthMeters: feature.properties.estimatedWaterDepthMeters || null,
                     fillColor: feature.properties.fillColor || null,
-                    fillOpacity: feature.properties.fillOpacity || null,
+                    fillOpacity: feature.properties.fillOpacity ?? null,
                     strokeColor: feature.properties.strokeColor || null,
                     strokeWidth: feature.properties.strokeWidth || null,
                     displayOrder: feature.properties.displayOrder || null,
@@ -492,7 +518,7 @@ export default function MapFuncPage() {
 
                 const result = await createHazardZone(payload);
                 // Update the feature with the database ID
-                updateFeatureDbId(idx, result.id);
+                updateFeatureDbId(savedLayer, result.id);
                 toast.success(`Hazard Zone "${payload.zoneName}" saved successfully!`);
 
             } else if (type === 'damCircle') {
@@ -527,7 +553,7 @@ export default function MapFuncPage() {
                 };
 
                 const result = await createDam(payload);
-                updateFeatureDbId(idx, result.id);
+                updateFeatureDbId(savedLayer, result.id);
                 toast.success(`Dam "${payload.name}" saved successfully!`);
 
             } else if (type === 'gateCircle') {
@@ -544,7 +570,7 @@ export default function MapFuncPage() {
                 };
 
                 const result = await createGate(payload);
-                updateFeatureDbId(idx, result.id);
+                updateFeatureDbId(savedLayer, result.id);
                 toast.success(`Gate "${payload.gateNumber}" saved successfully!`);
 
             } else if (type === 'sensorCircle' || type === 'circleMarker') {
@@ -574,7 +600,7 @@ export default function MapFuncPage() {
                 };
 
                 const result = await createSensor(payload);
-                updateFeatureDbId(idx, result.id);
+                updateFeatureDbId(savedLayer, result.id);
                 toast.success(`Sensor "${payload.name}" saved successfully!`);
             }
         } catch (error) {
@@ -768,17 +794,10 @@ export default function MapFuncPage() {
     };
 
     // Update feature with database ID after save
-    const updateFeatureDbId = (idx, dbId) => {
-        if (!currentGeoJSON) return;
-        try {
-            const parsed = JSON.parse(currentGeoJSON);
-            if (parsed.features[idx]) {
-                parsed.features[idx].properties.dbId = dbId;
-                setCurrentGeoJSON(JSON.stringify(parsed));
-            }
-        } catch (e) {
-            console.error(e);
-        }
+    const updateFeatureDbId = (layer, dbId) => {
+        if (!layer || !mapFeatureGroupRef.current?.hasLayer(layer)) return;
+        layer.feature.properties.dbId = dbId;
+        setCurrentGeoJSON(previous => recordSavedFeature(previous, layer, dbId));
     };
 
     // Remove feature from GeoJSON state and map
@@ -786,14 +805,15 @@ export default function MapFuncPage() {
         if (!currentGeoJSON) return;
         try {
             const parsed = JSON.parse(currentGeoJSON);
+            const feature = parsed.features[idx];
             parsed.features.splice(idx, 1);
             setCurrentGeoJSON(parsed.features.length > 0 ? JSON.stringify(parsed) : null);
 
             // Also remove from Leaflet layer group
             if (mapFeatureGroupRef.current) {
-                const layers = Object.values(mapFeatureGroupRef.current._layers || {});
-                if (layers[idx]) {
-                    mapFeatureGroupRef.current.removeLayer(layers[idx]);
+                const layer = findFeatureLayer(mapFeatureGroupRef.current, feature, idx);
+                if (layer) {
+                    mapFeatureGroupRef.current.removeLayer(layer);
                 }
             }
         } catch (e) {
@@ -801,13 +821,29 @@ export default function MapFuncPage() {
         }
     };
 
+    const handleToolbarDelete = async (layer) => {
+        const feature = layer.feature;
+        try {
+            const deleted = await persistMapDeletion(feature, {
+                polygon: deleteHazardZone, rectangle: deleteHazardZone,
+                gateCircle: deleteGate, sensorCircle: deleteSensor, damCircle: deleteDam,
+            }, () => confirm('Delete this map item? Saved items will also be deleted from the database.'));
+            if (!deleted) return false;
+            toast.success('Map item deleted.');
+            return true;
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to delete map item.');
+            return false;
+        }
+    };
+
     return (
         <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-6">
             <div className="flex justify-between items-center shrink-0">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
+                    <Typography component="h1" variant="h1" className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
                         Map Functionality Test
-                    </h1>
+                    </Typography>
                     <p className="text-sm text-gray-500 mt-1 pl-4 flex items-center gap-2">
                         <Cpu className="w-4 h-4" />
                         Testing dynamic map editing (Draw, Edit, Drag, Delete GeoJSON)
@@ -816,22 +852,22 @@ export default function MapFuncPage() {
                 <div className="flex items-center gap-3">
                     {/* Dam Selector */}
                     <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-gray-600">Dam:</label>
-                        <select
+                        <label htmlFor="field-MapFuncPage-43173" className="text-sm font-medium text-gray-600">Dam:</label>
+                        <AppSelect id="field-MapFuncPage-43173"
                             value={selectedDamId}
                             onChange={(e) => setSelectedDamId(Number(e.target.value))}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            className=""
                         >
                             {dams.map(dam => (
                                 <option key={dam.id} value={dam.id}>{dam.name}</option>
                             ))}
-                        </select>
+                        </AppSelect>
                     </div>
                     {/* Reload Button */}
-                    <button
+                    <AppButton
                         onClick={() => loadSavedData(selectedDamId)}
                         disabled={isLoadingData}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 disabled:opacity-50"
                     >
                         {isLoadingData ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -839,15 +875,15 @@ export default function MapFuncPage() {
                             <Download className="w-4 h-4" />
                         )}
                         Load from DB
-                    </button>
+                    </AppButton>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                 {/* Map Section */}
-                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col min-h-[500px]">
+                <Paper variant="outlined" className="lg:col-span-2 bg-white   border border-gray-200 p-4 flex flex-col min-h-[500px]">
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-semibold text-gray-800">Interactive Map</h2>
+                        <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800">Interactive Map</Typography>
                         {isLoadingData && (
                             <span className="text-sm text-blue-600 flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -855,26 +891,31 @@ export default function MapFuncPage() {
                             </span>
                         )}
                     </div>
+                    <VictoriaReferenceNotice dam={currentDam} />
                     <div className="flex-1 w-full rounded border border-gray-300 overflow-hidden isolate relative z-0">
                         <GeomanMap
                             key={mapKey}
                             onMapChange={handleMapChange}
+                            onShapeDeleted={handleToolbarDelete}
                             activeAreaColor={activeColor}
                             height="100%"
                             initialGeoJson={initialGeoJSON}
+                            referenceGeoJson={victoriaReference(currentDam)}
+                            safeLocationDamId={currentDam?.id}
+                            fitBoundsOnLoad={!isVictoriaDemo(currentDam)}
                             // Expose the internal feature group so we can update styles dynamically from inputs
                             onFeatureGroupReady={handleFeatureGroupRef}
                             // When a layer is clicked, focus its card in the side panel
                             onLayerClick={(idx) => setFocusedIdx(idx)}
                         />
                     </div>
-                </div>
+                </Paper>
 
                 {/* Data Output Section */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                <Paper variant="outlined" className="bg-white   border border-gray-200 flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-800">Map Entities</h2>
+                            <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800">Map Entities</Typography>
                             <p className="text-xs text-gray-500 mt-1">Manage drawn elements</p>
                         </div>
 
@@ -883,7 +924,7 @@ export default function MapFuncPage() {
                             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Draw Color</span>
                             <div className="flex gap-1.5">
                                 {AREA_COLORS.map(color => (
-                                    <button
+                                    <AppButton
                                         key={color.id}
                                         onClick={() => setActiveColor(color)}
                                         title={color.name}
@@ -965,33 +1006,33 @@ export default function MapFuncPage() {
 
                                         {/* Tabs Navigator */}
                                         <div className="flex gap-1 border-b border-gray-200 mt-1 overflow-x-auto no-scrollbar">
-                                            <button
+                                            <AppButton
                                                 onClick={() => toggleTab(idx, 'data')}
                                                 className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'data' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'} rounded-t-md`}
                                             >
                                                 <Database className="w-3.5 h-3.5" />
                                                 Data
-                                            </button>
+                                            </AppButton>
                                             {(isPolygon || isSensor || isGate) && (
-                                                <button
+                                                <AppButton
                                                     onClick={() => toggleTab(idx, 'edit')}
                                                     className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'edit' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'} rounded-t-md`}
                                                 >
                                                     <Edit3 className="w-3.5 h-3.5" />
                                                     Edit Props
-                                                </button>
+                                                </AppButton>
                                             )}
-                                            <button
+                                            <AppButton
                                                 onClick={() => toggleTab(idx, 'json')}
                                                 className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'json' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'} rounded-t-md`}
                                             >
                                                 <Code className="w-3.5 h-3.5" />
                                                 JSON
-                                            </button>
+                                            </AppButton>
                                         </div>
 
                                         {/* Tab Content Area */}
-                                        <div className="bg-white border flex flex-col justify-center border-gray-100 rounded-lg p-2 min-h-[64px]">
+                                        <Paper variant="outlined" className="bg-white border flex flex-col justify-center border-gray-100  p-2 min-h-[64px]">
                                             {currentTab === 'data' ? (
                                                 <div className="flex flex-col gap-1.5 text-xs text-gray-600">
                                                     <div className="flex justify-between items-center px-1">
@@ -1017,58 +1058,58 @@ export default function MapFuncPage() {
                                                     {/* Identification */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Dam ID</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-58653" className="text-[10px] font-semibold text-gray-500 uppercase">Dam ID</label>
+                                                            <AppInput id="field-MapFuncPage-58653"
                                                                 type="number"
                                                                 value={feature.properties.damId || 1}
                                                                 onChange={(e) => handlePropertyChange(idx, 'damId', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Level ID</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-59636" className="text-[10px] font-semibold text-gray-500 uppercase">Level ID</label>
+                                                            <AppInput id="field-MapFuncPage-59636"
                                                                 type="number"
                                                                 value={feature.properties.hazardLevelId || 1}
                                                                 onChange={(e) => handlePropertyChange(idx, 'hazardLevelId', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Zone Code</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-60636" className="text-[10px] font-semibold text-gray-500 uppercase">Zone Code</label>
+                                                            <AppInput id="field-MapFuncPage-60636"
                                                                 type="text"
                                                                 value={feature.properties.zoneCode || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'zoneCode', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Zone Name</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-61615" className="text-[10px] font-semibold text-gray-500 uppercase">Zone Name</label>
+                                                            <AppInput id="field-MapFuncPage-61615"
                                                                 type="text"
                                                                 value={feature.properties.zoneName || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'zoneName', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Name (Sinhala)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-62599" className="text-[10px] font-semibold text-gray-500 uppercase">Name (Sinhala)</label>
+                                                            <AppInput id="field-MapFuncPage-62599"
                                                                 type="text"
                                                                 value={feature.properties.zoneNameSi || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'zoneNameSi', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                                 placeholder="සිංහල..."
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-63658" className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
+                                                            <AppInput id="field-MapFuncPage-63658"
                                                                 type="text"
                                                                 value={feature.properties.description || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'description', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                     </div>
@@ -1076,39 +1117,39 @@ export default function MapFuncPage() {
                                                     {/* Measurements */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Area (SqKm)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-64896" className="text-[10px] font-semibold text-gray-500 uppercase">Area (SqKm)</label>
+                                                            <AppInput id="field-MapFuncPage-64896"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.areaSqKm || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'areaSqKm', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Dist from Dam (Km)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-65883" className="text-[10px] font-semibold text-gray-500 uppercase">Dist from Dam (Km)</label>
+                                                            <AppInput id="field-MapFuncPage-65883"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.distanceFromDamKm || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'distanceFromDamKm', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Flood Arrival (Min)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-66889" className="text-[10px] font-semibold text-gray-500 uppercase">Flood Arrival (Min)</label>
+                                                            <AppInput id="field-MapFuncPage-66889"
                                                                 type="number"
                                                                 value={feature.properties.estimatedFloodArrivalMinutes || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'estimatedFloodArrivalMinutes', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Depth (Meters)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-67899" className="text-[10px] font-semibold text-gray-500 uppercase">Depth (Meters)</label>
+                                                            <AppInput id="field-MapFuncPage-67899"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.estimatedWaterDepthMeters || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'estimatedWaterDepthMeters', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                     </div>
@@ -1116,68 +1157,68 @@ export default function MapFuncPage() {
                                                     {/* Styling & Display */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Fill Color</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-69193" className="text-[10px] font-semibold text-gray-500 uppercase">Fill Color</label>
+                                                            <AppInput id="field-MapFuncPage-69193"
                                                                 type="color"
                                                                 value={feature.properties.fillColor || '#fca5a5'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'fillColor', e.target.value)}
-                                                                className="w-full h-8 px-1 rounded border border-gray-200 cursor-pointer bg-white"
+                                                                className="w-full h-8 cursor-pointer"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Color</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-70114" className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Color</label>
+                                                            <AppInput id="field-MapFuncPage-70114"
                                                                 type="color"
                                                                 value={feature.properties.strokeColor || '#ef4444'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'strokeColor', e.target.value)}
-                                                                className="w-full h-8 px-1 rounded border border-gray-200 cursor-pointer bg-white"
+                                                                className="w-full h-8 cursor-pointer"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Fill Opacity (0-1)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-71045" className="text-[10px] font-semibold text-gray-500 uppercase">Fill Opacity (0-1)</label>
+                                                            <AppInput id="field-MapFuncPage-71045"
                                                                 type="number" step="0.1" min="0" max="1"
-                                                                value={feature.properties.fillOpacity || 0.4}
+                                                                value={feature.properties.fillOpacity ?? 0.4}
                                                                 onChange={(e) => handlePropertyChange(idx, 'fillOpacity', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Width</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-72050" className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Width</label>
+                                                            <AppInput id="field-MapFuncPage-72050"
                                                                 type="number" min="0"
                                                                 value={feature.properties.strokeWidth || 2}
                                                                 onChange={(e) => handlePropertyChange(idx, 'strokeWidth', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Display Order</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-73033" className="text-[10px] font-semibold text-gray-500 uppercase">Display Order</label>
+                                                            <AppInput id="field-MapFuncPage-73033"
                                                                 type="number"
                                                                 value={feature.properties.displayOrder || 1}
                                                                 onChange={(e) => handlePropertyChange(idx, 'displayOrder', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
 
                                                         {/* Booleans */}
                                                         <div className="flex flex-col gap-2 justify-end pb-1.5">
                                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                                <input
+                                                                <AppInput
                                                                     type="checkbox"
                                                                     checked={feature.properties.showLabel !== false}
                                                                     onChange={(e) => handlePropertyChange(idx, 'showLabel', e.target.checked)}
-                                                                    className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                                    className="w-3.5 h-3.5"
                                                                 />
                                                                 <span className="text-[11px] font-medium text-gray-700">Show Label</span>
                                                             </label>
                                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                                <input
+                                                                <AppInput
                                                                     type="checkbox"
                                                                     checked={feature.properties.isActive !== false}
                                                                     onChange={(e) => handlePropertyChange(idx, 'isActive', e.target.checked)}
-                                                                    className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                                    className="w-3.5 h-3.5"
                                                                 />
                                                                 <span className="text-[11px] font-medium text-gray-700">Is Active</span>
                                                             </label>
@@ -1190,48 +1231,48 @@ export default function MapFuncPage() {
                                                     {/* Sensor Identity */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Sensor UID</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-76786" className="text-[10px] font-semibold text-gray-500 uppercase">Sensor UID</label>
+                                                            <AppInput id="field-MapFuncPage-76786"
                                                                 type="text"
                                                                 value={feature.properties.sensorUid || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'sensorUid', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Dam ID</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-77764" className="text-[10px] font-semibold text-gray-500 uppercase">Dam ID</label>
+                                                            <AppInput id="field-MapFuncPage-77764"
                                                                 type="number"
                                                                 value={feature.properties.damId || 1}
                                                                 onChange={(e) => handlePropertyChange(idx, 'damId', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Type ID</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-78746" className="text-[10px] font-semibold text-gray-500 uppercase">Type ID</label>
+                                                            <AppInput id="field-MapFuncPage-78746"
                                                                 type="number"
                                                                 value={feature.properties.sensorTypeId || 1}
                                                                 onChange={(e) => handlePropertyChange(idx, 'sensorTypeId', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Name</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-79739" className="text-[10px] font-semibold text-gray-500 uppercase">Name</label>
+                                                            <AppInput id="field-MapFuncPage-79739"
                                                                 type="text"
                                                                 value={feature.properties.name || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'name', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-80698" className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
+                                                            <AppInput id="field-MapFuncPage-80698"
                                                                 type="text"
                                                                 value={feature.properties.description || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'description', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                     </div>
@@ -1239,41 +1280,41 @@ export default function MapFuncPage() {
                                                     {/* Location Details */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Location on Dam</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-81955" className="text-[10px] font-semibold text-gray-500 uppercase">Location on Dam</label>
+                                                            <AppInput id="field-MapFuncPage-81955"
                                                                 type="text"
                                                                 value={feature.properties.locationOnDam || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'locationOnDam', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-82918" className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
+                                                            <AppInput id="field-MapFuncPage-82918"
                                                                 type="number" step="0.0001"
                                                                 value={feature.properties.latitude || 0}
                                                                 readOnly
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                                                                className="cursor-not-allowed"
                                                                 title="Move the marker on the map to change"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-83905" className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
+                                                            <AppInput id="field-MapFuncPage-83905"
                                                                 type="number" step="0.0001"
                                                                 value={feature.properties.longitude || 0}
                                                                 readOnly
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                                                                className="cursor-not-allowed"
                                                                 title="Move the marker on the map to change"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Elevation (Meters)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-84927" className="text-[10px] font-semibold text-gray-500 uppercase">Elevation (Meters)</label>
+                                                            <AppInput id="field-MapFuncPage-84927"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.elevationMeters || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'elevationMeters', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                     </div>
@@ -1281,119 +1322,119 @@ export default function MapFuncPage() {
                                                     {/* Hardware Information */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Manufacturer</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-86231" className="text-[10px] font-semibold text-gray-500 uppercase">Manufacturer</label>
+                                                            <AppInput id="field-MapFuncPage-86231"
                                                                 type="text"
                                                                 value={feature.properties.manufacturer || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'manufacturer', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Model</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-87214" className="text-[10px] font-semibold text-gray-500 uppercase">Model</label>
+                                                            <AppInput id="field-MapFuncPage-87214"
                                                                 type="text"
                                                                 value={feature.properties.model || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'model', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Serial Number</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-88191" className="text-[10px] font-semibold text-gray-500 uppercase">Serial Number</label>
+                                                            <AppInput id="field-MapFuncPage-88191"
                                                                 type="text"
                                                                 value={feature.properties.serialNumber || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'serialNumber', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
-                                                            <select
+                                                            <label htmlFor="field-MapFuncPage-89175" className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
+                                                            <AppSelect id="field-MapFuncPage-89175"
                                                                 value={feature.properties.status || 'active'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'status', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             >
                                                                 <option value="active">Active</option>
                                                                 <option value="inactive">Inactive</option>
                                                                 <option value="maintenance">Maintenance</option>
                                                                 <option value="offline">Offline</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                     </div>
 
                                                     {/* Thresholds and Timings */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Min Reading</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-90854" className="text-[10px] font-semibold text-gray-500 uppercase">Min Reading</label>
+                                                            <AppInput id="field-MapFuncPage-90854"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.minReading || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'minReading', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Max Reading</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-91838" className="text-[10px] font-semibold text-gray-500 uppercase">Max Reading</label>
+                                                            <AppInput id="field-MapFuncPage-91838"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.maxReading || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'maxReading', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Warning Threshold</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-92828" className="text-[10px] font-semibold text-gray-500 uppercase">Warning Threshold</label>
+                                                            <AppInput id="field-MapFuncPage-92828"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.warningThreshold || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'warningThreshold', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Critical Threshold</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-93831" className="text-[10px] font-semibold text-gray-500 uppercase">Critical Threshold</label>
+                                                            <AppInput id="field-MapFuncPage-93831"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.criticalThreshold || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'criticalThreshold', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Reading Intr. (sec)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-94862" className="text-[10px] font-semibold text-gray-500 uppercase">Reading Intr. (sec)</label>
+                                                            <AppInput id="field-MapFuncPage-94862"
                                                                 type="number"
                                                                 value={feature.properties.readingIntervalSeconds || 60}
                                                                 onChange={(e) => handlePropertyChange(idx, 'readingIntervalSeconds', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Installation Date</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-95889" className="text-[10px] font-semibold text-gray-500 uppercase">Installation Date</label>
+                                                            <AppInput id="field-MapFuncPage-95889"
                                                                 type="date"
                                                                 value={feature.properties.installationDate || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'installationDate', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 text-xs"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Calibration Date</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-96899" className="text-[10px] font-semibold text-gray-500 uppercase">Calibration Date</label>
+                                                            <AppInput id="field-MapFuncPage-96899"
                                                                 type="date"
                                                                 value={feature.properties.calibrationDate || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'calibrationDate', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 text-xs"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Next Calibration</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-97907" className="text-[10px] font-semibold text-gray-500 uppercase">Next Calibration</label>
+                                                            <AppInput id="field-MapFuncPage-97907"
                                                                 type="date"
                                                                 value={feature.properties.nextCalibrationDate || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'nextCalibrationDate', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 text-xs"
+                                                                className=""
                                                             />
                                                         </div>
                                                     </div>
@@ -1404,95 +1445,95 @@ export default function MapFuncPage() {
                                                     {/* Gate Identity */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-amber-50 rounded border border-amber-100">
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Dam ID</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-99480" className="text-[10px] font-semibold text-gray-500 uppercase">Dam ID</label>
+                                                            <AppInput id="field-MapFuncPage-99480"
                                                                 type="number"
                                                                 value={feature.properties.damId || 1}
                                                                 onChange={(e) => handlePropertyChange(idx, 'damId', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Gate Number</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-100468" className="text-[10px] font-semibold text-gray-500 uppercase">Gate Number</label>
+                                                            <AppInput id="field-MapFuncPage-100468"
                                                                 type="text"
                                                                 value={feature.properties.gateNumber || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'gateNumber', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                                                                className=""
                                                                 placeholder="G01"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Gate Type</label>
-                                                            <select
+                                                            <label htmlFor="field-MapFuncPage-101522" className="text-[10px] font-semibold text-gray-500 uppercase">Gate Type</label>
+                                                            <AppSelect id="field-MapFuncPage-101522"
                                                                 value={feature.properties.gateType || 'radial'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'gateType', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                                                                className=""
                                                             >
                                                                 <option value="radial">Radial</option>
                                                                 <option value="vertical">Vertical</option>
                                                                 <option value="drum">Drum</option>
                                                                 <option value="flap">Flap</option>
                                                                 <option value="sluice">Sluice</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                     </div>
 
                                                     {/* Gate Measurements */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-amber-50 rounded border border-amber-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Max Opening (m)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-103292" className="text-[10px] font-semibold text-gray-500 uppercase">Max Opening (m)</label>
+                                                            <AppInput id="field-MapFuncPage-103292"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.maxOpeningMeters || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'maxOpeningMeters', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Current Opening (m)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-104298" className="text-[10px] font-semibold text-gray-500 uppercase">Current Opening (m)</label>
+                                                            <AppInput id="field-MapFuncPage-104298"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.currentOpeningMeters || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'currentOpeningMeters', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
-                                                            <select
+                                                            <label htmlFor="field-MapFuncPage-105310" className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
+                                                            <AppSelect id="field-MapFuncPage-105310"
                                                                 value={feature.properties.status || 'closed'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'status', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                                                                className=""
                                                             >
                                                                 <option value="closed">Closed</option>
                                                                 <option value="partial">Partial</option>
                                                                 <option value="fully_open">Fully Open</option>
                                                                 <option value="maintenance">Maintenance</option>
                                                                 <option value="jammed">Jammed</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                     </div>
 
                                                     {/* Gate Location */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-amber-50 rounded border border-amber-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-107089" className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
+                                                            <AppInput id="field-MapFuncPage-107089"
                                                                 type="number" step="0.0001"
                                                                 value={feature.properties.latitude || 0}
                                                                 readOnly
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                                                                className="cursor-not-allowed"
                                                                 title="Move the marker on the map to change"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-108076" className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
+                                                            <AppInput id="field-MapFuncPage-108076"
                                                                 type="number" step="0.0001"
                                                                 value={feature.properties.longitude || 0}
                                                                 readOnly
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                                                                className="cursor-not-allowed"
                                                                 title="Move the marker on the map to change"
                                                             />
                                                         </div>
@@ -1504,40 +1545,40 @@ export default function MapFuncPage() {
                                                     {/* Dam Identity */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-blue-50 rounded border border-blue-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Dam Code</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-109626" className="text-[10px] font-semibold text-gray-500 uppercase">Dam Code</label>
+                                                            <AppInput id="field-MapFuncPage-109626"
                                                                 type="text"
                                                                 value={feature.properties.code || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'code', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                                 placeholder="VIC001"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Region ID</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-110658" className="text-[10px] font-semibold text-gray-500 uppercase">Region ID</label>
+                                                            <AppInput id="field-MapFuncPage-110658"
                                                                 type="number"
                                                                 value={feature.properties.regionId || 1}
                                                                 onChange={(e) => handlePropertyChange(idx, 'regionId', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Dam Name</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-111633" className="text-[10px] font-semibold text-gray-500 uppercase">Dam Name</label>
+                                                            <AppInput id="field-MapFuncPage-111633"
                                                                 type="text"
                                                                 value={feature.properties.name || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'name', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                                 placeholder="Victoria Dam"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Dam Type</label>
-                                                            <select
+                                                            <label htmlFor="field-MapFuncPage-112681" className="text-[10px] font-semibold text-gray-500 uppercase">Dam Type</label>
+                                                            <AppSelect id="field-MapFuncPage-112681"
                                                                 value={feature.properties.damType || 'gravity'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'damType', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             >
                                                                 <option value="gravity">Gravity</option>
                                                                 <option value="arch">Arch</option>
@@ -1545,46 +1586,46 @@ export default function MapFuncPage() {
                                                                 <option value="embankment">Embankment</option>
                                                                 <option value="rock_fill">Rock Fill</option>
                                                                 <option value="earth_fill">Earth Fill</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                     </div>
 
                                                     {/* Dam Specifications */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-blue-50 rounded border border-blue-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Height (m)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-114574" className="text-[10px] font-semibold text-gray-500 uppercase">Height (m)</label>
+                                                            <AppInput id="field-MapFuncPage-114574"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.heightMeters || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'heightMeters', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Length (m)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-115561" className="text-[10px] font-semibold text-gray-500 uppercase">Length (m)</label>
+                                                            <AppInput id="field-MapFuncPage-115561"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.lengthMeters || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'lengthMeters', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Capacity (MCM)</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-116552" className="text-[10px] font-semibold text-gray-500 uppercase">Capacity (MCM)</label>
+                                                            <AppInput id="field-MapFuncPage-116552"
                                                                 type="number" step="0.1"
                                                                 value={feature.properties.reservoirCapacityMcm || 0}
                                                                 onChange={(e) => handlePropertyChange(idx, 'reservoirCapacityMcm', parseFloat(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Year Completed</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-117559" className="text-[10px] font-semibold text-gray-500 uppercase">Year Completed</label>
+                                                            <AppInput id="field-MapFuncPage-117559"
                                                                 type="number"
                                                                 value={feature.properties.yearCompleted || new Date().getFullYear()}
                                                                 onChange={(e) => handlePropertyChange(idx, 'yearCompleted', parseInt(e.target.value))}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                     </div>
@@ -1592,22 +1633,22 @@ export default function MapFuncPage() {
                                                     {/* Dam River & Location */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-blue-50 rounded border border-blue-100">
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">River Name</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-118853" className="text-[10px] font-semibold text-gray-500 uppercase">River Name</label>
+                                                            <AppInput id="field-MapFuncPage-118853"
                                                                 type="text"
                                                                 value={feature.properties.riverName || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'riverName', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                                 placeholder="Mahaweli River"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Location Description</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-119925" className="text-[10px] font-semibold text-gray-500 uppercase">Location Description</label>
+                                                            <AppInput id="field-MapFuncPage-119925"
                                                                 type="text"
                                                                 value={feature.properties.locationDescription || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'locationDescription', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                                 placeholder="Located on..."
                                                             />
                                                         </div>
@@ -1616,61 +1657,61 @@ export default function MapFuncPage() {
                                                     {/* Dam Status & Risk */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-blue-50 rounded border border-blue-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
-                                                            <select
+                                                            <label htmlFor="field-MapFuncPage-121272" className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
+                                                            <AppSelect id="field-MapFuncPage-121272"
                                                                 value={feature.properties.status || 'operational'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'status', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             >
                                                                 <option value="operational">Operational</option>
                                                                 <option value="under_maintenance">Under Maintenance</option>
                                                                 <option value="under_construction">Under Construction</option>
                                                                 <option value="decommissioned">Decommissioned</option>
                                                                 <option value="emergency">Emergency</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Risk Classification</label>
-                                                            <select
+                                                            <label htmlFor="field-MapFuncPage-122844" className="text-[10px] font-semibold text-gray-500 uppercase">Risk Classification</label>
+                                                            <AppSelect id="field-MapFuncPage-122844"
                                                                 value={feature.properties.riskClassification || 'medium'}
                                                                 onChange={(e) => handlePropertyChange(idx, 'riskClassification', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             >
                                                                 <option value="low">Low</option>
                                                                 <option value="medium">Medium</option>
                                                                 <option value="high">High</option>
                                                                 <option value="extreme">Extreme</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                     </div>
 
                                                     {/* Dam Contact */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-blue-50 rounded border border-blue-100">
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Operator Organization</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-124533" className="text-[10px] font-semibold text-gray-500 uppercase">Operator Organization</label>
+                                                            <AppInput id="field-MapFuncPage-124533"
                                                                 type="text"
                                                                 value={feature.properties.operatorOrganization || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'operatorOrganization', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Contact Phone</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-125515" className="text-[10px] font-semibold text-gray-500 uppercase">Contact Phone</label>
+                                                            <AppInput id="field-MapFuncPage-125515"
                                                                 type="text"
                                                                 value={feature.properties.contactPhone || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'contactPhone', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Emergency Phone</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-126483" className="text-[10px] font-semibold text-gray-500 uppercase">Emergency Phone</label>
+                                                            <AppInput id="field-MapFuncPage-126483"
                                                                 type="text"
                                                                 value={feature.properties.emergencyPhone || ''}
                                                                 onChange={(e) => handlePropertyChange(idx, 'emergencyPhone', e.target.value)}
-                                                                className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                                                                className=""
                                                             />
                                                         </div>
                                                     </div>
@@ -1678,22 +1719,22 @@ export default function MapFuncPage() {
                                                     {/* Dam Coordinates (read-only) */}
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-blue-50 rounded border border-blue-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-127739" className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
+                                                            <AppInput id="field-MapFuncPage-127739"
                                                                 type="number" step="0.0001"
                                                                 value={feature.properties.latitude || 0}
                                                                 readOnly
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                                                                className="cursor-not-allowed"
                                                                 title="Move the marker on the map to change"
                                                             />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
-                                                            <input
+                                                            <label htmlFor="field-MapFuncPage-128726" className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
+                                                            <AppInput id="field-MapFuncPage-128726"
                                                                 type="number" step="0.0001"
                                                                 value={feature.properties.longitude || 0}
                                                                 readOnly
-                                                                className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                                                                className="cursor-not-allowed"
                                                                 title="Move the marker on the map to change"
                                                             />
                                                         </div>
@@ -1707,17 +1748,17 @@ export default function MapFuncPage() {
                                                     </pre>
                                                 </div>
                                             )}
-                                        </div>
+                                        </Paper>
 
                                         {/* Action Buttons */}
                                         {(isPolygon || isSensor || isGate || isDam) && (
                                             <div className="flex gap-2 pt-2 border-t border-gray-200 mt-1">
                                                 {!isSaved(feature) ? (
                                                     // Show Save button for new entities
-                                                    <button
+                                                    <AppButton variant="contained"
                                                         onClick={() => handleSave(idx, feature)}
                                                         disabled={loadingStates[idx]?.save}
-                                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="flex-1 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         {loadingStates[idx]?.save ? (
                                                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1725,13 +1766,13 @@ export default function MapFuncPage() {
                                                             <Save className="w-3.5 h-3.5" />
                                                         )}
                                                         Save to DB
-                                                    </button>
+                                                    </AppButton>
                                                 ) : (
                                                     // Show Update button for saved entities
-                                                    <button
+                                                    <AppButton variant="contained"
                                                         onClick={() => handleUpdate(idx, feature)}
                                                         disabled={loadingStates[idx]?.update}
-                                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="flex-1 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         {loadingStates[idx]?.update ? (
                                                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1739,12 +1780,12 @@ export default function MapFuncPage() {
                                                             <RefreshCw className="w-3.5 h-3.5" />
                                                         )}
                                                         Update
-                                                    </button>
+                                                    </AppButton>
                                                 )}
-                                                <button
+                                                <AppButton variant="contained" color="error"
                                                     onClick={() => handleDelete(idx, feature)}
                                                     disabled={loadingStates[idx]?.delete}
-                                                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     {loadingStates[idx]?.delete ? (
                                                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1752,7 +1793,7 @@ export default function MapFuncPage() {
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     )}
                                                     Delete
-                                                </button>
+                                                </AppButton>
                                             </div>
                                         )}
 
@@ -1768,7 +1809,7 @@ export default function MapFuncPage() {
                             });
                         })()}
                     </div>
-                </div>
+                </Paper>
             </div>
         </div>
     );

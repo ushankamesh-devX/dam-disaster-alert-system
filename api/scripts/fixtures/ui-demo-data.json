@@ -1,0 +1,336 @@
+{
+  "snapshotDate": "2026-10-11",
+  "datasets": [
+    {
+      "key": "ISSUE_TYPES",
+      "source": "app/components/pages/ReportIssues/mockData.ts",
+      "records": [
+        {
+          "value": "structural",
+          "label": "Structural",
+          "color": "#DC2626",
+          "icon": "alert-octagon"
+        },
+        {
+          "value": "water-level",
+          "label": "Water Level",
+          "color": "#2563EB",
+          "icon": "waves"
+        },
+        {
+          "value": "erosion",
+          "label": "Erosion",
+          "color": "#D97706",
+          "icon": "terrain"
+        },
+        {
+          "value": "equipment",
+          "label": "Equipment",
+          "color": "#7C3AED",
+          "icon": "cog"
+        },
+        {
+          "value": "other",
+          "label": "Other",
+          "color": "#6B7280",
+          "icon": "information"
+        }
+      ]
+    },
+    {
+      "key": "DAMS",
+      "source": "app/components/pages/ReportIssues/mockData.ts",
+      "records": [
+        {
+          "id": "1",
+          "name": "Mullaperiyar Dam",
+          "location": "Kerala-Tamil Nadu Border"
+        },
+        {
+          "id": "2",
+          "name": "Idukki Dam",
+          "location": "Idukki, Kerala"
+        },
+        {
+          "id": "3",
+          "name": "Bhakra Dam",
+          "location": "Himachal Pradesh"
+        },
+        {
+          "id": "4",
+          "name": "Tehri Dam",
+          "location": "Uttarakhand"
+        },
+        {
+          "id": "5",
+          "name": "Sardar Sarovar Dam",
+          "location": "Gujarat"
+        },
+        {
+          "id": "6",
+          "name": "Nagarjuna Sagar Dam",
+          "location": "Telangana"
+        },
+        {
+          "id": "7",
+          "name": "Hirakud Dam",
+          "location": "Odisha"
+        },
+        {
+          "id": "8",
+          "name": "Koyna Dam",
+          "location": "Maharashtra"
+        }
+      ]
+    },
+    {
+      "key": "MOCK_REPORTS",
+      "source": "app/components/pages/ReportIssues/mockData.ts",
+      "records": [
+        {
+          "id": "1",
+          "userName": "Rajesh Kumar",
+          "damName": "Mullaperiyar Dam",
+          "issueType": "structural",
+          "description": "Noticed visible cracks on the eastern wall of the dam. The cracks appear to be expanding and need immediate attention.",
+          "timestamp": "2026-10-10T22:00:00.000Z",
+          "status": "pending"
+        },
+        {
+          "id": "2",
+          "userName": "Priya Sharma",
+          "damName": "Idukki Dam",
+          "issueType": "water-level",
+          "description": "Water level has risen significantly after recent rainfall. Currently at 95% capacity and still rising.",
+          "timestamp": "2026-10-10T19:00:00.000Z",
+          "status": "reviewing"
+        },
+        {
+          "id": "3",
+          "userName": "Arun Menon",
+          "damName": "Mullaperiyar Dam",
+          "issueType": "erosion",
+          "description": "Soil erosion observed near the spillway area. Heavy rainfall has washed away protective vegetation.",
+          "timestamp": "2026-10-10T00:00:00.000Z",
+          "status": "reviewing"
+        },
+        {
+          "id": "4",
+          "userName": "Lakshmi Nair",
+          "damName": "Bhakra Dam",
+          "issueType": "equipment",
+          "description": "Sluice gate #3 is not operating properly. Manual override required for operation.",
+          "timestamp": "2026-10-09T00:00:00.000Z",
+          "status": "resolved"
+        },
+        {
+          "id": "5",
+          "userName": "Vikram Singh",
+          "damName": "Tehri Dam",
+          "issueType": "other",
+          "description": "Unusual vibrations felt near the turbine hall. Locals have reported hearing strange noises.",
+          "timestamp": "2026-10-08T00:00:00.000Z",
+          "status": "pending"
+        },
+        {
+          "id": "6",
+          "userName": "Meera Patel",
+          "damName": "Sardar Sarovar Dam",
+          "issueType": "water-level",
+          "description": "Downstream water flow appears irregular. Possible blockage in the discharge channel.",
+          "timestamp": "2026-10-07T00:00:00.000Z",
+          "status": "resolved"
+        },
+        {
+          "id": "7",
+          "userName": "Suresh Reddy",
+          "damName": "Nagarjuna Sagar Dam",
+          "issueType": "structural",
+          "description": "Concrete spalling observed on the dam face. Reinforcement bars are exposed in some areas.",
+          "timestamp": "2026-10-06T00:00:00.000Z",
+          "status": "reviewing"
+        },
+        {
+          "id": "8",
+          "userName": "Anjali Das",
+          "damName": "Hirakud Dam",
+          "issueType": "erosion",
+          "description": "Significant bank erosion downstream of the dam. Local villages are at risk.",
+          "timestamp": "2026-10-05T00:00:00.000Z",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "key": "mockGuidelines",
+      "source": "app/data/mock-guidelines.ts",
+      "records": [
+        {
+          "id": "g-evac-01",
+          "title": "Evacuate low-lying areas",
+          "description": "Move to higher ground immediately when alerts are issued.",
+          "steps": [
+            "Turn off electricity and gas if safe to do so.",
+            "Carry essential documents and emergency kit.",
+            "Follow marked evacuation routes."
+          ],
+          "severity": "high"
+        },
+        {
+          "id": "g-evac-02",
+          "title": "Avoid river crossings",
+          "description": "Do not attempt to cross flooded roads or bridges.",
+          "steps": [
+            "Use alternative routes suggested by authorities.",
+            "Keep children and pets away from water flow."
+          ],
+          "severity": "medium"
+        },
+        {
+          "id": "g-evac-03",
+          "title": "Stay informed",
+          "description": "Monitor official updates and hazard map alerts.",
+          "steps": [
+            "Check the app every 15â€“30 minutes during emergencies.",
+            "Keep phone charged and enable notifications."
+          ],
+          "severity": "low"
+        }
+      ]
+    },
+    {
+      "key": "safe-location-cards",
+      "source": "app/components/Emergency Contact/SafeLocations.tsx",
+      "records": [
+        {
+          "id": "1",
+          "name": "Central Evacuation Center",
+          "area": "City Hall area",
+          "distanceKm": 2.1,
+          "tag": "Nearby",
+          "query": "Central Evacuation Center",
+          "marker": {
+            "top": 55,
+            "left": 20,
+            "color": "#F59E0B"
+          }
+        },
+        {
+          "id": "2",
+          "name": "Riverside Community Hall",
+          "area": "Riverside",
+          "distanceKm": 3.4,
+          "tag": "Emergency",
+          "query": "Riverside Community Hall",
+          "marker": {
+            "top": 50,
+            "left": 62,
+            "color": "#22C55E"
+          }
+        },
+        {
+          "id": "3",
+          "name": "Northside School Shelter",
+          "area": "North District",
+          "distanceKm": 5.7,
+          "tag": "Safe",
+          "query": "Northside School Shelter",
+          "marker": {
+            "top": 64,
+            "left": 72,
+            "color": "#22C55E"
+          }
+        },
+        {
+          "id": "4",
+          "name": "Downtown Safe Zone",
+          "area": "Downtown",
+          "distanceKm": 1.8,
+          "tag": "Shelter",
+          "query": "Downtown Safe Zone",
+          "marker": {
+            "top": 40,
+            "left": 52,
+            "color": "#3B82F6"
+          }
+        }
+      ]
+    },
+    {
+      "key": "emergency-safe-locations",
+      "source": "app/components/Emergency Contact/EmergencySafeLocationFlow.tsx",
+      "records": [
+        {
+          "id": "1",
+          "name": "Central Evacuation Center",
+          "area": "City Hall area",
+          "distanceKm": 2.1,
+          "tag": "Nearby",
+          "phoneNumber": "117",
+          "latitude": 6.9271,
+          "longitude": 79.8612
+        },
+        {
+          "id": "2",
+          "name": "Riverside Community Hall",
+          "area": "Riverside",
+          "distanceKm": 3.4,
+          "tag": "Emergency",
+          "phoneNumber": "117",
+          "latitude": 6.9319,
+          "longitude": 79.8478
+        },
+        {
+          "id": "3",
+          "name": "Northside School Shelter",
+          "area": "North District",
+          "distanceKm": 5.7,
+          "tag": "Safe",
+          "phoneNumber": "117",
+          "latitude": 6.953,
+          "longitude": 79.85
+        },
+        {
+          "id": "4",
+          "name": "Downtown Safe Zone",
+          "area": "Downtown",
+          "distanceKm": 1.8,
+          "tag": "Shelter",
+          "phoneNumber": "117",
+          "latitude": 6.9147,
+          "longitude": 79.9714
+        }
+      ]
+    },
+    {
+      "key": "mockHazardLevels",
+      "source": "app/components/pages/Hazardmap/HazardLegend.tsx",
+      "records": [
+        {
+          "level": "01",
+          "label": "Hazard Level 01",
+          "description": "Dam to 1km downstream",
+          "color": "#9ACD32"
+        },
+        {
+          "level": "02",
+          "label": "Hazard Level 02",
+          "description": "Dam to 1km downstream",
+          "color": "#E67E22"
+        },
+        {
+          "level": "03",
+          "label": "Hazard Level 03",
+          "description": "1km to 5km downstream",
+          "color": "#FFA500"
+        },
+        {
+          "level": "04",
+          "label": "Hazard Level 04",
+          "description": "5km to 10km downstream",
+          "color": "#FF6347"
+        }
+      ]
+    }
+  ]
+}

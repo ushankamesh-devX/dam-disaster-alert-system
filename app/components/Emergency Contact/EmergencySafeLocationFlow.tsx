@@ -44,13 +44,6 @@ type Amenity = {
   label: string;
 };
 
-const MARKER_POSITIONS = [
-  { top: 55, left: 20 },
-  { top: 50, left: 62 },
-  { top: 64, left: 72 },
-  { top: 40, left: 52 },
-];
-
 const TAG_CYCLE: LocationTag[] = ['Nearby', 'Emergency', 'Safe', 'Shelter'];
 
 const FALLBACK_LOCATIONS: SafeLocation[] = [
@@ -61,7 +54,6 @@ const FALLBACK_LOCATIONS: SafeLocation[] = [
 ];
 
 function mapApiLocation(item: Record<string, unknown>, index: number): SafeLocation {
-  const pos = MARKER_POSITIONS[index % MARKER_POSITIONS.length];
   return {
     id: String(item.id ?? item.uuid ?? index),
     name: String(item.name ?? item.locationName ?? ''),

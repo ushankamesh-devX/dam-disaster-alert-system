@@ -71,6 +71,10 @@ legacy design's surrogate ID. Unbound FK integer columns can be aligned to the
 parent type after range checks. Other coordinated key-type changes stop for an
 explicit migration. Foreign keys remain enabled, and DDL uses strict SQL mode.
 
+V004 records main's removal of the four report entity mappings. Existing report
+tables, columns, keys and demo records retain their V002 contract; this merge
+does not drop or revert database structures. Historical migrations are unchanged.
+
 V003 repairs the old seeder's invalid location-type references only for orphaned,
 manifest-owned synthetic safe locations with matching demo lookup codes and a
 verified demo user identity. Valid references and real records are retained.

@@ -20,10 +20,6 @@ export const NewsCard: React.FC<NewsCardProps> = ({
   timeAgo,
   onPress,
 }) => {
-  const imageUri = image && image.length > 0
-    ? image
-    : 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80';
-
   return (
     <TouchableOpacity 
       onPress={onPress}
@@ -33,7 +29,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       {/* Image Section */}
       <View className="relative">
         <Image 
-          source={{ uri: imageUri }}
+          source={{ uri: image }}
           className="w-full h-48"
           resizeMode="cover"
         />

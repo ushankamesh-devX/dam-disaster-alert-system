@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
-import { API_BASE_URL, API_TIMEOUT, API_USE_EXPO_PROXY, TEST_TOKEN, VIEWER_EMAIL, VIEWER_PASSWORD } from "@env";
+import { API_BASE_URL, API_TIMEOUT, API_USE_EXPO_PROXY, VIEWER_EMAIL, VIEWER_PASSWORD } from "@env";
 import Constants from "expo-constants";
 import { tokenStorage } from "./token.storage";
 
@@ -35,13 +35,6 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
       await tokenStorage.clear();
       try {
-        if (TEST_TOKEN) {
-          await tokenStorage.set(TEST_TOKEN);
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${TEST_TOKEN}`;
-          }
-          return axiosInstance(originalRequest);
-        }
         // Re-login with viewer credentials and retry the original request
         const loginRes = await axios.post(`${apiUrl}/auth/login`, {
           email: VIEWER_EMAIL,

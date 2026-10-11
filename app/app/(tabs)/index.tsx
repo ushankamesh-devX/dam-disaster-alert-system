@@ -101,7 +101,7 @@ export default function HomeScreen() {
   }, [fetchDashboardData]);
 
   const handleViewFullMap = () => {
-    router.push('/hazard-map');
+    router.push('/(tabs)/hazard-map');
   };
 
   const handleGuidelines = () => {

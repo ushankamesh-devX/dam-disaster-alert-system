@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, ActivityIndicator } from 'react-native';
 import { AlertCard } from '@/components/AlertCard';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { useTranslation } from 'react-i18next';
@@ -51,40 +51,23 @@ export default function AlertsScreen() {
   const { t } = useTranslation();
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'critical' | 'warning' | 'updates'>('all');
 
-  const fetchAlerts = () =>
+  useEffect(() => {
     alertService
-      .getActive()
+      .getFeed()
       .then((res) => {
         const raw: Record<string, unknown>[] = Array.isArray(res.data)
           ? res.data
           : (res.data?.data ?? res.data?.content ?? res.data?.alerts ?? []);
         setAlerts(raw.map(mapApiAlert));
       })
-      .catch(() => setAlerts([]));
-
-  useEffect(() => {
-    fetchAlerts()
+      .catch(() => setAlerts([]))
       .finally(() => setLoading(false));
   }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchAlerts()
-      .finally(() => setRefreshing(false));
-  };
 
   const criticalCount = alerts.filter((a) => a.type === 'critical').length;
   const warningCount = alerts.filter((a) => a.type === 'warning').length;
   const updatesCount = alerts.filter((a) => a.type === 'info' || a.type === 'maintenance').length;
-
-  const filteredAlerts = alerts.filter((a) => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'updates') return a.type === 'info' || a.type === 'maintenance';
-    return a.type === activeFilter;
-  });
 
   return (
     <ScreenLayout
@@ -106,49 +89,14 @@ export default function AlertsScreen() {
         </View>
       </View>
 
-      {/* Filter Tabs */}
-      <View className="flex-row px-1 mb-4">
-        {([
-          { id: 'all', label: 'All' },
-          { id: 'critical', label: 'Critical' },
-          { id: 'warning', label: 'Warnings' },
-          { id: 'updates', label: 'Updates' },
-        ] as const).map((filter) => (
-          <TouchableOpacity
-            key={filter.id}
-            onPress={() => setActiveFilter(filter.id)}
-            className={`mr-2 px-3 py-1.5 rounded-full border ${activeFilter === filter.id
-              ? 'bg-blue-600 border-blue-600'
-              : 'bg-white border-gray-200'
-            }`}
-          >
-            <Text className={`${activeFilter === filter.id ? 'text-white' : 'text-gray-600'} text-xs font-semibold`}>
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       {loading ? (
         <ActivityIndicator size="large" color="#2563eb" className="mt-10" />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#2563eb"
-            />
-          }
         >
-          {filteredAlerts.length === 0 && (
-            <View className="items-center mt-8">
-              <Text className="text-gray-400 text-sm">No notifications</Text>
-            </View>
-          )}
-          {filteredAlerts.map((alert) => (
+          {alerts.map((alert) => (
             <AlertCard
               key={alert.id}
               title={alert.title}

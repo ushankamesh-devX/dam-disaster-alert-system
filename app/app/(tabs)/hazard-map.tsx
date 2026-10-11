@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { damService } from '@/services/dams/dam.service';
 import { sensorService } from '@/services/sensors/sensor.service';
 import { hazardZoneService } from '@/services/hazard/hazard-zone.service';
+import { hazardLevelService } from '@/services/hazard/hazard-level.service';
 import { damStatusService } from '@/services/dams/dam-status.service';
 import { Colors } from '@/constants/theme';
 import { mockGuidelines } from '@/data/mock-guidelines';
@@ -42,6 +43,20 @@ export default function HazardMapScreen() {
   const [focusDamId, setFocusDamId] = useState<string>();
 
   const fetchLiveData = useCallback(async () => {
+    // Use main's live level definitions when the selected dam has no zone legend.
+    try {
+      const response = await hazardLevelService.getActive();
+      const levels: Record<string, unknown>[] = Array.isArray(response.data)
+        ? response.data : (response.data?.data ?? []);
+      if (levels.length > 0) {
+        setHazardLevels(levels.map((level, index) => ({
+          level: String(level.levelNumber ?? level.level ?? index + 1).padStart(2, '0'),
+          label: String(level.name ?? level.label ?? `Level ${index + 1}`),
+          description: String(level.description ?? ''),
+          color: String(level.color ?? level.fillColor ?? Colors.light.warning),
+        })));
+      }
+    } catch { /* retain the current legend */ }
     try {
       // Fetch hazard zones for legend (first active dam)
       const damsRes = await damService.getActive();

@@ -48,6 +48,9 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_JPA_SHOW_SQL: "true"
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
+      DDAS_ADMIN_EMAIL: ${DDAS_ADMIN_EMAIL:-}
+      DDAS_ADMIN_PASSWORD: ${DDAS_ADMIN_PASSWORD:-}
+      DDAS_ADMIN_NAME: ${DDAS_ADMIN_NAME:-DDAS Administrator}
     ports:
       - "8080:8080"
     depends_on:

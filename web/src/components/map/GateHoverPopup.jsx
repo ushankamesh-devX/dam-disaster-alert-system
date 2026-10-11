@@ -1,5 +1,13 @@
+import { Paper, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Clock, Wrench, Lock, Unlock, ZapOff } from 'lucide-react';
+import AlertTriangle from '@mui/icons-material/WarningRounded';
+import CheckCircle from '@mui/icons-material/CheckCircleRounded';
+import XCircle from '@mui/icons-material/CancelRounded';
+import Clock from '@mui/icons-material/ScheduleRounded';
+import Wrench from '@mui/icons-material/BuildRounded';
+import Lock from '@mui/icons-material/LockRounded';
+import Unlock from '@mui/icons-material/LockOpenRounded';
+import ZapOff from '@mui/icons-material/PowerOffRounded';
 import { getGateById } from '../../services/dam.service';
 
 // Status configuration: color classes, icons, labels
@@ -103,10 +111,10 @@ export default function GateHoverPopup({ gateId, position, onClose }) {
 
     return (
         <div
-            className="fixed z-[9999] pointer-events-none"
+            className="fixed md-map-preview pointer-events-none"
             style={popupStyle}
         >
-            <div className="bg-white rounded-xl shadow-xl border border-gray-200 p-3 w-68 pointer-events-auto"
+            <Paper variant="outlined" className="bg-white   border border-gray-200 p-3 w-68 pointer-events-auto"
                 style={{ width: '280px' }}>
 
                 {/* Header */}
@@ -116,9 +124,9 @@ export default function GateHoverPopup({ gateId, position, onClose }) {
                             <StatusIcon className={`w-4 h-4 ${statusConfig.color}`} />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-gray-900 text-sm">
+                            <Typography component="h3" variant="h3" className="font-semibold text-gray-900 text-sm">
                                 {loading ? 'Loading...' : `Dam Gate ${gate?.gateNumber || '#'}`}
-                            </h3>
+                            </Typography>
                             <p className="text-xs text-gray-500">
                                 {GATE_TYPE_LABELS[gate?.gateType?.toLowerCase()] || gate?.gateType || 'Gate'}
                             </p>
@@ -201,7 +209,7 @@ export default function GateHoverPopup({ gateId, position, onClose }) {
                         )}
                     </>
                 )}
-            </div>
+            </Paper>
         </div>
     );
 }

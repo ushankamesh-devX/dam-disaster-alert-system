@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { hazardZoneService } from '@/services/hazard/hazard-zone.service';
 import { damService } from '@/services/dams/dam.service';
 import { LiveHazardMapView } from '@/components/pages/Hazardmap/LiveHazardMapView';
+import { pickDisplayedDam } from '@/services/dams/display-dam';
 
 interface HazardLevel {
   level: string;
@@ -45,13 +46,11 @@ export function FloodRiskMap({
   onMapTouchEnd,
 }: FloodRiskMapProps) {
   const { t } = useTranslation();
-  const [levels, setLevels] = useState<HazardLevel[]>(hazardLevels);
+  const [apiLevels, setLevels] = useState<HazardLevel[] | null>(null);
+  const levels = apiLevels ?? hazardLevels;
+  const [previewDamId, setPreviewDamId] = useState<string>();
   // If title prop is provided, use it, otherwise use translation
   const displayTitle = title || t('flood_risk_map');
-
-  useEffect(() => {
-    setLevels(hazardLevels);
-  }, [hazardLevels]);
 
   useEffect(() => {
     const fetchHazardZones = async () => {
@@ -62,8 +61,10 @@ export function FloodRiskMap({
           : (damsRes.data?.data ?? damsRes.data?.content ?? []);
 
         if (dams.length === 0) return;
-        const damId = String(dams[0].id ?? dams[0].damId ?? '');
+        const selectedDam = pickDisplayedDam(dams)!;
+        const damId = String(selectedDam.id ?? selectedDam.damId ?? '');
         if (!damId) return;
+        setPreviewDamId(damId);
 
         const zonesRes = await hazardZoneService.getActiveByDam(damId);
         const rawZones: Record<string, unknown>[] = Array.isArray(zonesRes.data)
@@ -79,7 +80,7 @@ export function FloodRiskMap({
               description: String(zone.description ?? hazardLevel.description ?? ''),
               color: String(zone.fillColor ?? hazardLevel.color ?? Colors.light.warning),
             };
-          }));
+          }).sort((a, b) => Number(a.level) - Number(b.level)));
         }
       } catch {
         // keep current levels on error
@@ -90,7 +91,7 @@ export function FloodRiskMap({
   }, []);
 
   return (
-    <View className="mx- mt-6 mb-" style={{ paddingBottom: 20 }}>
+    <View style={{ marginTop: 24, marginBottom: 16 }}>
       <View className="bg-white rounded-3xl overflow-hidden shadow-lg">
         {/* Title */}
         <Text className="text-gray-700 text-lg font-semibold px-4 pt-4 pb-2">
@@ -100,16 +101,16 @@ export function FloodRiskMap({
         {/* Live Map Container */}
         <View
           className="mx-4 rounded-2xl overflow-hidden"
-          style={{ height: 160 }}
+          style={{ height: 220 }}
           onTouchStart={onMapTouchStart}
           onTouchEnd={onMapTouchEnd}
           onTouchCancel={onMapTouchEnd}
         >
-          <LiveHazardMapView mode="zones" />
+          <LiveHazardMapView mode="zones" focusDamId={previewDamId} />
         </View>
 
         {/* Interactive Map View Details Section */}
-        <View className="px-4 pt-4 mb-10">
+        <View className="px-4 pt-4 pb-4">
           <Text className="text-gray-600 text-sm font-medium mb-3">
             {t('interactive_map_details')}
           </Text>
@@ -142,11 +143,9 @@ export function FloodRiskMap({
             ))}
           </View>
         </View>
-      </View>
-
-      {/* View Full Map Button */}
-      <View className="px-16" style={{ transform: [{ translateY: -20 }] }}>
-        <CTAButtonGreen title={t('view_full_map')} onPress={onViewFullMap} />
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+          <CTAButtonGreen title={t('view_full_map')} onPress={onViewFullMap} />
+        </View>
       </View>
     </View>
   );

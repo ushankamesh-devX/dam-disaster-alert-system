@@ -1,5 +1,13 @@
+import { Paper, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Activity, Thermometer, Droplets, Gauge, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import Activity from '@mui/icons-material/MonitorHeartRounded';
+import Thermometer from '@mui/icons-material/DeviceThermostatRounded';
+import Droplets from '@mui/icons-material/WaterDropRounded';
+import Gauge from '@mui/icons-material/SpeedRounded';
+import Clock from '@mui/icons-material/ScheduleRounded';
+import AlertTriangle from '@mui/icons-material/WarningRounded';
+import CheckCircle from '@mui/icons-material/CheckCircleRounded';
+import XCircle from '@mui/icons-material/CancelRounded';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { getSensorById, getSensorReadings, getLatestReading } from '../../services/sensor.service';
 
@@ -81,13 +89,13 @@ export default function SensorHoverPopup({ sensorId, position, onClose }) {
 
     return (
         <div 
-            className="fixed z-[9999] pointer-events-none"
+            className="fixed md-map-preview pointer-events-none"
             style={{ 
                 left: position.x + 15, 
                 top: position.y - 10,
             }}
         >
-            <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-72 pointer-events-auto">
+            <Paper variant="outlined" className="bg-white   border border-gray-200 p-3 w-72 pointer-events-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -95,9 +103,9 @@ export default function SensorHoverPopup({ sensorId, position, onClose }) {
                             <SensorIcon className="w-4 h-4 text-emerald-600" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-gray-900 text-sm truncate max-w-[160px]">
+                            <Typography component="h3" variant="h3" className="font-semibold text-gray-900 text-sm truncate max-w-[160px]">
                                 {loading ? 'Loading...' : sensor?.name || 'Unknown Sensor'}
-                            </h3>
+                            </Typography>
                             <p className="text-xs text-gray-500">
                                 {sensor?.sensorType?.typeName || 'Sensor'}
                             </p>
@@ -166,7 +174,7 @@ export default function SensorHoverPopup({ sensorId, position, onClose }) {
                             <div className="mt-2">
                                 <p className="text-xs text-gray-500 mb-1">Recent Readings</p>
                                 <div className="h-24 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer initialDimension={{ width: 110, height: 60 }} minWidth={0} width="100%" height="100%">
                                         <LineChart data={readings} margin={{ top: 5, right: 5, bottom: 20, left: 35 }}>
                                             <XAxis 
                                                 dataKey="time" 
@@ -235,7 +243,7 @@ export default function SensorHoverPopup({ sensorId, position, onClose }) {
                         </div>
                     </>
                 )}
-            </div>
+            </Paper>
         </div>
     );
 }

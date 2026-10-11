@@ -356,15 +356,3 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 });
-
-// Add gradient colors for buttons
-StyleSheet.create({
-    declineButton: {
-        ...styles.buttonIconContainer,
-        backgroundColor: '#ff3b30',
-    },
-    answerButton: {
-        ...styles.buttonIconContainer,
-        backgroundColor: '#34c759',
-    },
-});

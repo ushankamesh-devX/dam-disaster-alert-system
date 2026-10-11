@@ -24,6 +24,10 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     boolean existsByEmail(String email);
 
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u " +
+           "WHERE u.role.code IN ('ADMIN', 'SUPER_ADMIN') AND u.deletedAt IS NULL")
+    boolean existsInitialAdministrator();
+
     boolean existsByPhoneNumber(String phoneNumber);
 
     @Query("SELECT u FROM User u WHERE u.email = :email AND u.deletedAt IS NULL")

@@ -47,7 +47,7 @@ export function HazardLegend({
   maxHeight = 200,
 }: HazardLegendProps) {
   return (
-    <View className="bg-white rounded-2xl shadow-lg" style={{ paddingVertical: 12, paddingHorizontal: 16, minWidth: 220, maxHeight }}>
+    <View className="bg-white rounded-2xl shadow-lg" style={{ paddingVertical: 12, paddingHorizontal: 12, width: 210, maxHeight }}>
       <ScrollView showsVerticalScrollIndicator style={{ maxHeight }}>
         {hazardLevels.map((hazard, index) => (
           <View key={index} className="flex-row items-start" style={{ marginBottom: index < hazardLevels.length - 1 ? 8 : 0 }}>

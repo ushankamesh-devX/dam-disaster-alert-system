@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme'; // Assuming this exists, otherwise I'll fallback to hardcoded colors
 
@@ -53,7 +53,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                     accessibilityRole="button"
                     accessibilityState={isFocused ? { selected: true } : {}}
                     accessibilityLabel={options.tabBarAccessibilityLabel}
-                    testID={options.tabBarTestID}
+                    testID={options.tabBarButtonTestID}
                     onPress={onPress}
                     onLongPress={onLongPress}
                     style={styles.emergencyButton}
@@ -78,7 +78,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
             accessibilityLabel={options.tabBarAccessibilityLabel}
-            testID={options.tabBarTestID}
+            testID={options.tabBarButtonTestID}
             onPress={onPress}
             onLongPress={onLongPress}
             style={styles.tabItem}

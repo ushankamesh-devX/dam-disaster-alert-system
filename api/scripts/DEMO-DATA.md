@@ -18,8 +18,17 @@ UPDATE and SELECT privileges. Database: `dam_disaster_db` by default; override
 with `DDAS_SEED_DATABASE` (letters, digits and underscores only).
 
 The command explicitly seeds the database when run; API startup does not seed it.
-It does not create a login account. Existing accounts and permission assignments
-are retained; project-defined roles and missing permission assignments are added.
+The seed itself does not create a login account. Full setup starts the API after
+seeding; API startup creates the first `SUPER_ADMIN` from `DDAS_ADMIN_EMAIL`,
+`DDAS_ADMIN_PASSWORD` and optional `DDAS_ADMIN_NAME` in `api/.env`. The password
+is BCrypt-hashed and must be at least 8 characters and at most 72 UTF-8 bytes.
+If an administrator already exists, account creation is skipped without changing
+credentials. An existing non-admin email is never promoted or overwritten.
+Leave both email and password blank to disable bootstrap; partial configuration
+fails startup when no administrator exists. Database-only setup does not start
+the API, so it does not create the administrator yet.
+Existing accounts and permission assignments are retained; project-defined
+roles and missing permission assignments are added.
 Synthetic users have unusable passwords and the NORMAL_USER role.
 
 ## Database demo coverage

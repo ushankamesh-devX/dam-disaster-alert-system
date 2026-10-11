@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Linking, Text, ScrollView } from 'react-native';
+import { Linking, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { HazardCard } from '@/components/pages/Dashboard/HazardCard';
@@ -11,6 +11,8 @@ import { damService } from '@/services/dams/dam.service';
 import { sensorService } from '@/services/sensors/sensor.service';
 import { mockGuidelines } from '@/data/mock-guidelines';
 import { damStatusService } from '@/services/dams/dam-status.service';
+import { pickDisplayedDam } from '@/services/dams/display-dam';
+import { DamDetailsCard } from '@/components/dams/DamDetailsCard';
 
 function computeLevel(waterLevel: number, capacity: number): number {
   if (!capacity || capacity === 0) return 0;
@@ -34,7 +36,7 @@ export default function HomeScreen() {
 
       if (dams.length === 0) return;
 
-      const firstDam = dams[0];
+      const firstDam = pickDisplayedDam(dams)!;
       const damId = String(firstDam.id ?? firstDam.damId ?? '');
       if (!damId) return;
 
@@ -93,9 +95,9 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    fetchDashboardData();
+    const initialFetch = setTimeout(fetchDashboardData, 0);
     const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
+    return () => { clearTimeout(initialFetch); clearInterval(interval); };
   }, [fetchDashboardData]);
 
   const handleViewFullMap = () => {
@@ -128,6 +130,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         scrollEnabled={scrollEnabled}
       >
+        <DamDetailsCard />
         <HazardCard level={level} hazardValue={hazardValue} />
 
         <FloodRiskMap

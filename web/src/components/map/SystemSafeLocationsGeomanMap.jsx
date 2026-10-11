@@ -1,7 +1,16 @@
+import { defaultMapMarker } from './flatMarker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, useMap } from 'react-leaflet';
 import { renderToString } from 'react-dom/server';
-import { Building2, Flame, Hospital, Landmark, MapPin, School, Shield, ShieldCheck, Stethoscope } from 'lucide-react';
+import Building2 from '@mui/icons-material/ApartmentRounded';
+import Flame from '@mui/icons-material/LocalFireDepartmentRounded';
+import Hospital from '@mui/icons-material/LocalHospitalRounded';
+import Landmark from '@mui/icons-material/AccountBalanceRounded';
+import MapPin from '@mui/icons-material/PlaceRounded';
+import School from '@mui/icons-material/SchoolRounded';
+import Shield from '@mui/icons-material/ShieldRounded';
+import ShieldCheck from '@mui/icons-material/VerifiedUserRounded';
+import Stethoscope from '@mui/icons-material/MedicalServicesRounded';
 import L from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
@@ -9,24 +18,12 @@ import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 
 // Fix for default marker icons in React-Leaflet
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 
-const DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconRetinaUrl: iconRetina,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    tooltipAnchor: [16, -28],
-    shadowSize: [41, 41]
-});
+const DefaultIcon = defaultMapMarker;
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const createCustomIcon = (IconComponent, color, bgColor = 'white') => {
-    const iconHtml = renderToString(<IconComponent size={18} strokeWidth={2.5} color={color} />);
+    const iconHtml = renderToString(<IconComponent style={{ fontSize: 18, color }} />);
     return L.divIcon({
         html: `
             <div style="
@@ -38,7 +35,7 @@ const createCustomIcon = (IconComponent, color, bgColor = 'white') => {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+                box-shadow: none;
             ">
                 ${iconHtml}
             </div>

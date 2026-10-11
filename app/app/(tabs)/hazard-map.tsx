@@ -15,6 +15,8 @@ import { hazardZoneService } from '@/services/hazard/hazard-zone.service';
 import { damStatusService } from '@/services/dams/dam-status.service';
 import { Colors } from '@/constants/theme';
 import { mockGuidelines } from '@/data/mock-guidelines';
+import { pickDisplayedDam } from '@/services/dams/display-dam';
+import { DamDetailsCard } from '@/components/dams/DamDetailsCard';
 
 const EMERGENCY_NUMBER = '117';
 
@@ -37,6 +39,7 @@ export default function HazardMapScreen() {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [showZones, setShowZones] = useState(true);
   const [showLocations, setShowLocations] = useState(true);
+  const [focusDamId, setFocusDamId] = useState<string>();
 
   const fetchLiveData = useCallback(async () => {
     try {
@@ -46,8 +49,10 @@ export default function HazardMapScreen() {
         ? damsRes.data : (damsRes.data?.data ?? []);
       if (dams.length === 0) return;
 
-      const damId = String(dams[0].id ?? dams[0].damId ?? '');
+      const selectedDam = pickDisplayedDam(dams)!;
+      const damId = String(selectedDam.id ?? selectedDam.damId ?? '');
       if (!damId) return;
+      setFocusDamId(damId);
 
       const zonesRes = await hazardZoneService.getActiveByDam(damId);
       const rawZones: Record<string, unknown>[] = Array.isArray(zonesRes.data)
@@ -63,7 +68,7 @@ export default function HazardMapScreen() {
             description: String(zone.description ?? hazardLevel.description ?? ''),
             color: String(zone.fillColor ?? hazardLevel.color ?? Colors.light.warning),
           };
-        }));
+        }).sort((a, b) => Number(a.level) - Number(b.level)));
       }
 
       // Fetch gauge data from latest sensor readings with dam status fallback
@@ -118,9 +123,9 @@ export default function HazardMapScreen() {
   }, []);
 
   useEffect(() => {
-    fetchLiveData();
+    const initialFetch = setTimeout(fetchLiveData, 0);
     const interval = setInterval(fetchLiveData, 30000);
-    return () => clearInterval(interval);
+    return () => { clearTimeout(initialFetch); clearInterval(interval); };
   }, [fetchLiveData]);
 
   const handleGuidelines = () => {
@@ -176,10 +181,12 @@ export default function HazardMapScreen() {
 
         {/* Hazard Banner */}
         <HazardBanner />
+        <DamDetailsCard />
 
         {/* Full Map View with Gauge and Legend */}
         <View className="flex-1 mb-4 mt-4" style={{ minHeight: 500 }}>
           <FullMapView
+            focusDamId={focusDamId}
             level={gaugeLevel}
             hazardValue={hazardValue}
             hazardLevels={hazardLevels}

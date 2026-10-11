@@ -1,3 +1,6 @@
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { StatusChip as Badge, LoadingSkeleton as Skeleton, Field as Input, Field as Select, AppDialog, AppButton } from '../../components/ui/controls';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -9,6 +12,8 @@ import { getSensorsByDam } from '../../services/sensor.service';
 import { getAllRegionsList } from '../../services/region.service';
 import DamSensorChart from '../../components/dams/DamSensorChart';
 import GeomanMap from '../../components/map/GeomanMap';
+import VictoriaReferenceNotice from '../../components/map/VictoriaReference';
+import { referenceMapFeatures, victoriaReference, isVictoriaDemo } from '../../components/map/victoriaGeography';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,9 +27,7 @@ const hazardBg = {
 function hColor(s = '') { return hazardBg[(s || '').toUpperCase()] || hazardBg.SAFE; }
 function fmt(n) { return n != null ? Number(n).toFixed(1) : '—'; }
 
-function Badge({ children, className }) {
-    return <span className={`inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-md border ${className}`}>{children}</span>;
-}
+
 function InfoRow({ label, value }) {
     return (
         <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
@@ -33,26 +36,9 @@ function InfoRow({ label, value }) {
         </div>
     );
 }
-function Skeleton({ className }) { return <div className={`animate-pulse bg-gray-100 rounded ${className}`} />; }
-function Input({ label, error, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <input className={`w-full text-sm px-3 py-2 rounded-lg border ${error ? 'border-red-400' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition`} {...props} />
-            {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
-        </div>
-    );
-}
-function Select({ label, children, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition" {...props}>
-                {children}
-            </select>
-        </div>
-    );
-}
+
+
+
 
 // ─── Edit Dam Modal ───────────────────────────────────────────────────────────
 
@@ -98,11 +84,11 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-semibold text-gray-900">Edit Dam — {dam.code}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">Edit Dam — {dam.code}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
                     <Input label="Name" value={form.name} onChange={e => set('name', e.target.value)} />
@@ -132,14 +118,14 @@ function EditDamModal({ dam, regions, onClose, onUpdated }) {
                     <Input label="Contact Email" type="email" value={form.contactEmail} onChange={e => set('contactEmail', e.target.value)} />
                     <Input label="Location Description" value={form.locationDescription} onChange={e => set('locationDescription', e.target.value)} />
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">
                             {saving ? 'Saving…' : 'Save Changes'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -191,11 +177,11 @@ function GateModal({ damId, damName, gate, onClose, onSaved }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">{editing ? 'Edit' : 'Add'} Gate</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">{editing ? 'Edit' : 'Add'} Gate</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-5 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
@@ -212,14 +198,14 @@ function GateModal({ damId, damName, gate, onClose, onSaved }) {
                         {GATE_STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
                     </Select>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-4 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">
                             {saving ? 'Saving…' : editing ? 'Update' : 'Add Gate'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -282,7 +268,8 @@ export default function DamDetailPage() {
                         type: 'Feature', geometry,
                         properties: {
                             type: geometry.type === 'Polygon' ? 'polygon' : 'rectangle',
-                            dbId: zone.id, zoneName: zone.zoneName,
+                            dbId: zone.id, zoneName: zone.zoneName, zoneCode: zone.zoneCode,
+                            description: zone.description, hazardLevelId: zone.hazardLevel?.id,
                             fillColor: zone.fillColor || '#fca5a5', fillOpacity: zone.fillOpacity || 0.4,
                             strokeColor: zone.strokeColor || '#ef4444', strokeWidth: zone.strokeWidth || 2,
                         },
@@ -308,9 +295,10 @@ export default function DamDetailPage() {
                 });
             }
         });
-        if (features.length === 0) return null;
-        return JSON.stringify({ type: 'FeatureCollection', features });
-    }, [hazardZones, gates, sensors]);
+        const mapFeatures = referenceMapFeatures(dam, features);
+        if (mapFeatures.length === 0) return null;
+        return JSON.stringify({ type: 'FeatureCollection', features: mapFeatures });
+    }, [dam, hazardZones, gates, sensors]);
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -382,40 +370,41 @@ export default function DamDetailPage() {
         <div className="space-y-5">
             {/* Breadcrumb + Header */}
             <div>
-                <button onClick={() => navigate('/admin/dams')} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 mb-2 transition">
+                <AppButton onClick={() => navigate('/admin/dams')} className="flex items-center gap-1 mb-2">
                     ← Back to Dams
-                </button>
+                </AppButton>
                 <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <h1 className="text-xl font-bold text-gray-900">{dam.name}</h1>
+                            <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">{dam.name}</Typography>
                             <span className="font-mono text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{dam.code}</span>
                             {status?.hazardStatus && <Badge className={hColor(status.hazardStatus)}>{status.hazardStatus}</Badge>}
                         </div>
                         <p className="text-sm text-gray-400 mt-0.5">{dam.region?.name ?? '—'} · {(dam.damType ?? '').replace('_', ' ')} dam</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button
+                        <AppButton variant="outlined"
                             onClick={() => navigate(`/admin/dams/${id}/map`)}
-                            className="px-4 py-2 text-sm font-medium text-blue-700 border border-blue-300 bg-blue-50 rounded-lg hover:bg-blue-100 transition flex items-center gap-1.5"
-                        >🗺️ Map &amp; Layout</button>
-                        <button
+                            className="flex items-center gap-1.5"
+                        ><SymbolIcon name="map" /> Map & Layout</AppButton>
+                        <AppButton variant="outlined"
                             onClick={() => setEditOpen(true)}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                        >Edit Dam</button>
+                            className=""
+                        >Edit Dam</AppButton>
                     </div>
                 </div>
             </div>
 
             {/* Full-width Map Overview */}
-            <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <Paper variant="outlined" className="w-full bg-white  border border-gray-200  overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <span className="text-sm font-semibold text-gray-700">🗺️ Map &amp; Layout Overview</span>
-                    <button
+                    <span className="text-sm font-semibold text-gray-700"><SymbolIcon name="map" /> Map & Layout Overview</span>
+                    <AppButton
                         onClick={() => navigate(`/admin/dams/${id}/map`)}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium transition"
-                    >Edit in full map →</button>
+                        className=""
+                    >Edit in full map →</AppButton>
                 </div>
+                <VictoriaReferenceNotice dam={dam} />
                 <div className="h-64 w-full isolate relative z-0">
                     {mapGeoJson ? (
                         <GeomanMap
@@ -423,17 +412,19 @@ export default function DamDetailPage() {
                             readOnly
                             initialGeoJson={mapGeoJson}
                             height="100%"
-                            fitBoundsOnLoad
+                            referenceGeoJson={victoriaReference(dam)}
+                            safeLocationDamId={dam.id}
+                            fitBoundsOnLoad={!isVictoriaDemo(dam)}
                             onMapChange={() => { }}
                         />
                     ) : (
                         <div className="h-full flex items-center justify-center text-gray-400 text-sm gap-2">
                             <span>No map data yet.</span>
-                            <button onClick={() => navigate(`/admin/dams/${id}/map`)} className="text-blue-600 hover:underline">Add in Map Editor →</button>
+                            <AppButton onClick={() => navigate(`/admin/dams/${id}/map`)} className="hover:underline">Add in Map Editor →</AppButton>
                         </div>
                     )}
                 </div>
-            </div>
+            </Paper>
 
             {/* Quick Stat Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -452,14 +443,14 @@ export default function DamDetailPage() {
             </div>
 
             {/* Tabs */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
                 <div className="flex border-b border-gray-100">
                     {TABS.map(tab => (
-                        <button
+                        <AppButton
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`px-5 py-3 text-sm font-medium capitalize transition ${activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                        >{tab === 'charts' ? '📈 Charts' : tab}</button>
+                        >{tab === 'charts' ? 'Charts' : tab}</AppButton>
                     ))}
                 </div>
 
@@ -467,7 +458,7 @@ export default function DamDetailPage() {
                 {activeTab === 'overview' && (
                     <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Technical Details</h3>
+                            <Typography component="h3" variant="h3" className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Technical Details</Typography>
                             <InfoRow label="Height" value={`${fmt(dam.heightMeters)} m`} />
                             <InfoRow label="Length" value={`${fmt(dam.lengthMeters)} m`} />
                             <InfoRow label="Reservoir Capacity" value={`${fmt(dam.reservoirCapacityMcm)} MCM`} />
@@ -480,7 +471,7 @@ export default function DamDetailPage() {
                             <InfoRow label="Purpose" value={dam.purpose} />
                         </div>
                         <div>
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Contact & Operations</h3>
+                            <Typography component="h3" variant="h3" className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Contact & Operations</Typography>
                             <InfoRow label="Operator" value={dam.operatorOrganization} />
                             <InfoRow label="Contact Phone" value={dam.contactPhone} />
                             <InfoRow label="Emergency Phone" value={dam.emergencyPhone} />
@@ -506,7 +497,7 @@ export default function DamDetailPage() {
                                 <WaterLevelBar pct={status.waterLevelPercentage} hazardStatus={status.hazardStatus} />
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-3">
-                                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hydraulics</h3>
+                                        <Typography component="h3" variant="h3" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hydraulics</Typography>
                                         <InfoRow label="Water Level" value={`${fmt(status.waterLevelMeters)} m`} />
                                         <InfoRow label="Full Reservoir Level" value={`${fmt(status.fullReservoirLevelMeters)} m`} />
                                         <InfoRow label="Danger Level" value={`${fmt(status.dangerLevelMeters)} m`} />
@@ -515,7 +506,7 @@ export default function DamDetailPage() {
                                         <InfoRow label="Storage" value={`${fmt(status.storageCurrentMcm)} MCM (${fmt(status.storagePercentage)}%)`} />
                                     </div>
                                     <div className="space-y-3">
-                                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hazard & Weather</h3>
+                                        <Typography component="h3" variant="h3" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hazard & Weather</Typography>
                                         <InfoRow label="Hazard Status" value={status.hazardStatus ?? 'SAFE'} />
                                         <InfoRow label="Flood Risk Score" value={status.floodRiskScore != null ? `${fmt(status.floodRiskScore)}/10` : '—'} />
                                         <InfoRow label="Rainfall (1hr)" value={`${fmt(status.rainfallLast1hrMm)} mm`} />
@@ -535,10 +526,10 @@ export default function DamDetailPage() {
                     <div className="p-5">
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-xs text-gray-500">{gates.length} gates registered</p>
-                            <button
+                            <AppButton variant="contained"
                                 onClick={() => setGateModal('new')}
-                                className="flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
-                            >+ Add Gate</button>
+                                className="flex items-center gap-1.5"
+                            >+ Add Gate</AppButton>
                         </div>
                         {gates.length === 0 ? (
                             <div className="text-center py-12">
@@ -547,42 +538,42 @@ export default function DamDetailPage() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                                <Table className="w-full text-sm">
+                                    <TableHead>
+                                        <TableRow className="bg-gray-50 border-b border-gray-100 text-left">
                                             {['Gate #', 'Type', 'Max Opening', 'Current Opening', 'Status', 'Last Operation', 'Actions'].map(h => (
-                                                <th key={h} className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                                                <TableCell component="th" key={h} className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</TableCell>
                                             ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody className="divide-y divide-gray-50">
                                         {gates.map(gate => {
                                             const isOpen = (gate.status || '').toUpperCase() === 'OPEN' || (gate.status || '').toUpperCase() === 'PARTIALLY_OPEN';
                                             return (
-                                                <tr key={gate.id} className="hover:bg-gray-50/50">
-                                                    <td className="px-4 py-3 font-mono font-semibold text-xs text-gray-700">{gate.gateNumber}</td>
-                                                    <td className="px-4 py-3 text-xs text-gray-600 capitalize">{(gate.gateType ?? '').toLowerCase()}</td>
-                                                    <td className="px-4 py-3 text-xs text-gray-600">{fmt(gate.maxOpeningMeters)} m</td>
-                                                    <td className="px-4 py-3 text-xs text-gray-600">{fmt(gate.currentOpeningMeters)} m</td>
-                                                    <td className="px-4 py-3">
+                                                <TableRow key={gate.id} className="hover:bg-gray-50/50">
+                                                    <TableCell className="px-4 py-3 font-mono font-semibold text-xs text-gray-700">{gate.gateNumber}</TableCell>
+                                                    <TableCell className="px-4 py-3 text-xs text-gray-600 capitalize">{(gate.gateType ?? '').toLowerCase()}</TableCell>
+                                                    <TableCell className="px-4 py-3 text-xs text-gray-600">{fmt(gate.maxOpeningMeters)} m</TableCell>
+                                                    <TableCell className="px-4 py-3 text-xs text-gray-600">{fmt(gate.currentOpeningMeters)} m</TableCell>
+                                                    <TableCell className="px-4 py-3">
                                                         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${isOpen ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                                             {(gate.status ?? '').replace('_', ' ')}
                                                         </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs text-gray-400">
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-xs text-gray-400">
                                                         {gate.lastOperationAt ? new Date(gate.lastOperationAt).toLocaleString() : '—'}
-                                                    </td>
-                                                    <td className="px-4 py-3">
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3">
                                                         <div className="flex items-center gap-2">
-                                                            <button onClick={() => setGateModal(gate)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                                                            <button onClick={() => setDeletingGate(gate)} className="text-xs text-red-500 hover:underline">Delete</button>
+                                                            <AppButton onClick={() => setGateModal(gate)} className="hover:underline">Edit</AppButton>
+                                                            <AppButton onClick={() => setDeletingGate(gate)} className="hover:underline">Delete</AppButton>
                                                         </div>
-                                                    </td>
-                                                </tr>
+                                                    </TableCell>
+                                                </TableRow>
                                             );
                                         })}
-                                    </tbody>
-                                </table>
+                                    </TableBody>
+                                </Table>
                             </div>
                         )}
                     </div>
@@ -592,7 +583,7 @@ export default function DamDetailPage() {
                 {activeTab === 'charts' && (
                     <DamSensorChart damId={Number(id)} />
                 )}
-            </div>
+            </Paper>
 
             {/* Modals */}
             {editOpen && (
@@ -614,16 +605,16 @@ export default function DamDetailPage() {
             )}
 
             {deletingGate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <AppDialog onClose={() => setDeletingGate(null)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-                        <h2 className="text-sm font-semibold text-gray-900 mb-2">Delete Gate {deletingGate.gateNumber}?</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900 mb-2">Delete Gate {deletingGate.gateNumber}?</Typography>
                         <p className="text-xs text-gray-500 mb-5">This action cannot be undone.</p>
                         <div className="flex justify-end gap-3">
-                            <button onClick={() => setDeletingGate(null)} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                            <button onClick={() => handleGateDelete(deletingGate)} className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 transition">Delete</button>
+                            <AppButton onClick={() => setDeletingGate(null)} className="">Cancel</AppButton>
+                            <AppButton variant="contained" color="error" onClick={() => handleGateDelete(deletingGate)} className="">Delete</AppButton>
                         </div>
                     </div>
-                </div>
+                </AppDialog>
             )}
         </div>
     );

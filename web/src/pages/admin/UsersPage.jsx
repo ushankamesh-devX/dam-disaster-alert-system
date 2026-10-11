@@ -1,3 +1,6 @@
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { StatusChip as Badge, LoadingSkeleton as Skeleton, Field as Inp, Field as Sel, AppDialog, AppButton, AppTextarea, DetailDrawer, AppInput } from '../../components/ui/controls';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -28,27 +31,10 @@ const statusDot = {
 function sDot(s = '') { return statusDot[(s || '').toUpperCase()] || 'bg-gray-300'; }
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
-function Badge({ children, className }) {
-    return <span className={`inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-md border capitalize ${className}`}>{children}</span>;
-}
-function Skeleton({ className }) { return <div className={`animate-pulse bg-gray-100 rounded ${className}`} />; }
-function Inp({ label, error, ...p }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <input className={`w-full text-sm px-3 py-2 rounded-lg border ${error ? 'border-red-400' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition`} {...p} />
-            {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
-        </div>
-    );
-}
-function Sel({ label, children, ...p }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition" {...p}>{children}</select>
-        </div>
-    );
-}
+
+
+
+
 
 // ─── Avatar initials ─────────────────────────────────────────────────────────
 function Avatar({ name, url, size = 8 }) {
@@ -94,11 +80,11 @@ function CreateUserModal({ roles, onClose, onCreated }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-semibold text-gray-900">Create New User</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">Create New User</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
                     <Inp label="Full Name *" placeholder="Jane Doe" value={form.fullName} onChange={e => set('fullName', e.target.value)} error={errors.fullName} />
@@ -120,12 +106,12 @@ function CreateUserModal({ roles, onClose, onCreated }) {
                         <option value="ta">தமிழ் (Tamil)</option>
                     </Sel>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">{saving ? 'Creating…' : 'Create User'}</button>
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">{saving ? 'Creating…' : 'Create User'}</AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -148,11 +134,11 @@ function EditProfileModal({ user, onClose, onUpdated }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">Edit Profile — {user.email}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Edit Profile — {user.email}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-5 space-y-3">
                     <Inp label="Full Name" value={form.fullName} onChange={e => set('fullName', e.target.value)} />
@@ -163,12 +149,12 @@ function EditProfileModal({ user, onClose, onUpdated }) {
                         <option value="ta">தமிழ்</option>
                     </Sel>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-4 py-1.5 text-xs text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">{saving ? 'Saving…' : 'Save'}</button>
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -190,27 +176,27 @@ function ChangeStatusModal({ user, onClose, onUpdated }) {
         finally { setSaving(false); }
     };
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">Change Status — {user.fullName}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Change Status — {user.fullName}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-5 space-y-3">
                     <Sel label="New Status" value={status} onChange={e => setStatus(e.target.value)}>
                         {USER_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                     </Sel>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Reason (optional)</label>
-                        <textarea rows={2} className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for status change…" />
+                        <label htmlFor="field-UsersPage-12194" className="block text-xs font-medium text-gray-700 mb-1">Reason (optional)</label>
+                        <AppTextarea id="field-UsersPage-12194" rows={2} className="w-full resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for status change…" />
                     </div>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-4 py-1.5 text-xs text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">{saving ? 'Saving…' : 'Update'}</button>
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">{saving ? 'Saving…' : 'Update'}</AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -233,11 +219,11 @@ function ChangeRoleModal({ user, roles, onClose, onUpdated }) {
         finally { setSaving(false); }
     };
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">Change Role — {user.fullName}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Change Role — {user.fullName}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-5 space-y-3">
                     <Sel label="New Role" value={roleId} onChange={e => setRoleId(e.target.value)}>
@@ -245,16 +231,16 @@ function ChangeRoleModal({ user, roles, onClose, onUpdated }) {
                         {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </Sel>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Reason (optional)</label>
-                        <textarea rows={2} className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for role change…" />
+                        <label htmlFor="field-UsersPage-15052" className="block text-xs font-medium text-gray-700 mb-1">Reason (optional)</label>
+                        <AppTextarea id="field-UsersPage-15052" rows={2} className="w-full resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for role change…" />
                     </div>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-4 py-1.5 text-xs text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">{saving ? 'Saving…' : 'Update'}</button>
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">{saving ? 'Saving…' : 'Update'}</AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -272,19 +258,19 @@ function DeleteModal({ user, onClose, onDeleted }) {
         finally { setSaving(false); }
     };
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
-                    <span className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg">⚠</span>
-                    <div><h2 className="text-sm font-semibold text-gray-900">Deactivate User</h2><p className="text-xs text-gray-500">This is a soft delete — user can be restored</p></div>
+                    <span className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg"><SymbolIcon name="warning" /></span>
+                    <div><Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Deactivate User</Typography><p className="text-xs text-gray-500">This is a soft delete — user can be restored</p></div>
                 </div>
                 <p className="text-sm text-gray-700 mb-5">Deactivate <strong>{user.fullName}</strong> ({user.email})?</p>
                 <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                    <button onClick={confirm} disabled={saving} className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-60 transition">{saving ? 'Deactivating…' : 'Deactivate'}</button>
+                    <AppButton onClick={onClose} className="">Cancel</AppButton>
+                    <AppButton variant="contained" color="error" onClick={confirm} disabled={saving} className="disabled:opacity-60">{saving ? 'Deactivating…' : 'Deactivate'}</AppButton>
                 </div>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -301,20 +287,20 @@ function UserDrawer({ user, roles, onClose, onUpdated }) {
     };
 
     return (
-        <>
-            <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-            <div className="fixed right-0 top-0 h-full z-50 w-full max-w-sm bg-white shadow-2xl flex flex-col">
+        <DetailDrawer onClose={onClose}>
+
+            <div className="flex h-full flex-col overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">User Details</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">User Details</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-5">
                     {/* Profile header */}
                     <div className="flex items-center gap-3">
-                        <Avatar name={user.fullName} url={user.avatarUrl} size={12} />
+                        <Avatar name={user.fullName} url={user.avatarUrl} sx={{ fontSize: 12 }} />
                         <div>
                             <p className="text-sm font-semibold text-gray-900">{user.fullName}</p>
                             <p className="text-xs text-gray-500">{user.email}</p>
@@ -349,15 +335,15 @@ function UserDrawer({ user, roles, onClose, onUpdated }) {
                 {/* Actions */}
                 <div className="p-4 border-t border-gray-100 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => setActiveAction('edit')} className="py-2 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Edit Profile</button>
-                        <button onClick={() => setActiveAction('status')} className="py-2 text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition">Change Status</button>
+                        <AppButton variant="outlined" onClick={() => setActiveAction('edit')} className="">Edit Profile</AppButton>
+                        <AppButton variant="outlined" onClick={() => setActiveAction('status')} className="">Change Status</AppButton>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => setActiveAction('role')} className="py-2 text-xs font-medium text-violet-700 border border-violet-200 bg-violet-50 rounded-lg hover:bg-violet-100 transition">Change Role</button>
+                        <AppButton variant="outlined" onClick={() => setActiveAction('role')} className="">Change Role</AppButton>
                         {(user.status || '').toLowerCase() === 'inactive' ? (
-                            <button onClick={handleRestore} className="py-2 text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition">Restore User</button>
+                            <AppButton variant="outlined" onClick={handleRestore} className="">Restore User</AppButton>
                         ) : (
-                            <button onClick={() => setActiveAction('delete')} className="py-2 text-xs font-medium text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition">Deactivate</button>
+                            <AppButton variant="outlined" onClick={() => setActiveAction('delete')} className="">Deactivate</AppButton>
                         )}
                     </div>
                 </div>
@@ -368,7 +354,7 @@ function UserDrawer({ user, roles, onClose, onUpdated }) {
             {activeAction === 'status' && <ChangeStatusModal user={user} onClose={() => setActiveAction(null)} onUpdated={u => { onUpdated(u); setActiveAction(null); }} />}
             {activeAction === 'role' && <ChangeRoleModal user={user} roles={roles} onClose={() => setActiveAction(null)} onUpdated={u => { onUpdated(u); setActiveAction(null); }} />}
             {activeAction === 'delete' && <DeleteModal user={user} onClose={() => setActiveAction(null)} onDeleted={() => { onUpdated(null); onClose(); }} />}
-        </>
+        </DetailDrawer>
     );
 }
 
@@ -441,110 +427,110 @@ export default function UsersPage() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">Users</h1>
+                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">Users</Typography>
                     <p className="text-sm text-gray-400">{loading ? '…' : `${total} users`}</p>
                 </div>
-                <button onClick={() => setShowCreate(true)}
-                    className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm">
+                <AppButton variant="contained" onClick={() => setShowCreate(true)}
+                    className="flex items-center gap-2">
                     <span className="text-base leading-none">+</span> Add User
-                </button>
+                </AppButton>
             </div>
 
             {/* Stat cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {statCards.map(({ label, count, color, status }) => (
-                    <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
+                    <AppButton key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
                         className={`bg-white border rounded-xl p-4 text-left hover:shadow-md transition-shadow ${statusFilter === status ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200'}`}>
                         <div className="flex items-center gap-2 mb-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
                             <span className="text-xs text-gray-500">{label}</span>
                         </div>
                         <p className="text-2xl font-bold text-gray-900">{count}</p>
-                    </button>
+                    </AppButton>
                 ))}
             </div>
 
             {/* Search + status filter */}
             <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                    <input ref={searchRef} value={searchQ} onChange={e => { setSearchQ(e.target.value); setStatusFilter(''); }}
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"><SymbolIcon name="search" /></span>
+                    <AppInput aria-label="Search by name, email, or phone…" ref={searchRef} value={searchQ} onChange={e => { setSearchQ(e.target.value); setStatusFilter(''); }}
                         placeholder="Search by name, email, or phone…"
-                        className="w-full text-sm pl-9 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition" />
+                        className="w-full" />
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
                     {[{ label: 'All', value: '' }, ...USER_STATUSES.map(s => ({ label: s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), value: s }))].map(({ label, value }) => (
-                        <button key={value} onClick={() => { setStatusFilter(value); setSearchQ(''); }}
+                        <AppButton key={value} onClick={() => { setStatusFilter(value); setSearchQ(''); }}
                             className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${statusFilter === value && !searchQ ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                             {label}
-                        </button>
+                        </AppButton>
                     ))}
                 </div>
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                    <Table className="w-full text-sm">
+                        <TableHead>
+                            <TableRow className="bg-gray-50 border-b border-gray-100 text-left">
                                 {['User', 'Email', 'Role', 'Status', 'Last Login', 'Created', 'Actions'].map(h => (
-                                    <th key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                                    <TableCell component="th" key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</TableCell>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
+                            </TableRow>
+                        </TableHead>
+                        <TableBody className="divide-y divide-gray-50">
                             {loading ? (
                                 Array.from({ length: 8 }).map((_, i) => (
-                                    <tr key={i}>{Array.from({ length: 7 }).map((_, j) => (
-                                        <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
-                                    ))}</tr>
+                                    <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => (
+                                        <TableCell key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></TableCell>
+                                    ))}</TableRow>
                                 ))
                             ) : users.length === 0 ? (
-                                <tr><td colSpan={7} className="py-16 text-center">
+                                <TableRow><TableCell colSpan={7} className="py-16 text-center">
                                     <p className="text-sm text-gray-400">No users found</p>
-                                    {(searchQ || statusFilter) && <button onClick={() => { setSearchQ(''); setStatusFilter(''); }} className="mt-2 text-xs text-blue-600 underline">Clear filters</button>}
-                                </td></tr>
+                                    {(searchQ || statusFilter) && <AppButton onClick={() => { setSearchQ(''); setStatusFilter(''); }} className="mt-2 underline">Clear filters</AppButton>}
+                                </TableCell></TableRow>
                             ) : users.map(u => (
-                                <tr key={u.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                <TableRow key={u.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer"
                                     onClick={() => setSelectedUser(u)}>
                                     {/* User cell with avatar */}
-                                    <td className="px-4 py-3">
+                                    <TableCell className="px-4 py-3">
                                         <div className="flex items-center gap-2.5">
-                                            <Avatar name={u.fullName} url={u.avatarUrl} size={8} />
+                                            <Avatar name={u.fullName} url={u.avatarUrl} sx={{ fontSize: 8 }} />
                                             <div>
                                                 <p className="font-medium text-gray-900 text-sm whitespace-nowrap">{u.fullName}</p>
                                                 {u.phoneNumber && <p className="text-[11px] text-gray-400">{u.phoneNumber}</p>}
                                             </div>
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-gray-600">{u.email}</td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-xs text-gray-600">{u.email}</TableCell>
+                                    <TableCell className="px-4 py-3">
                                         {u.role
                                             ? <Badge className="bg-violet-50 text-violet-700 border-violet-200">{u.role.name}</Badge>
                                             : <span className="text-xs text-gray-400">—</span>}
-                                    </td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
                                         <div className="flex items-center gap-1.5">
                                             <span className={`w-1.5 h-1.5 rounded-full ${sDot(u.status)}`} />
                                             <Badge className={sStyle(u.status)}>{(u.status || '').replace(/_/g, ' ')}</Badge>
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                                         {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never'}
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
-                                    </td>
-                                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => setSelectedUser(u)} className="text-xs text-blue-600 hover:underline">View</button>
+                                            <AppButton onClick={() => setSelectedUser(u)} className="hover:underline">View</AppButton>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
 
                 {/* Pagination */}
@@ -552,18 +538,18 @@ export default function UsersPage() {
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
                         <p className="text-xs text-gray-500">Page {page + 1} of {totalPages} · {total} total</p>
                         <div className="flex gap-1">
-                            <button disabled={page === 0} onClick={() => load(page - 1)} className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">← Prev</button>
+                            <AppButton variant="outlined" disabled={page === 0} onClick={() => load(page - 1)} className="disabled:opacity-40">← Prev</AppButton>
                             {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
                                 const pg = Math.max(0, page - 2) + i;
                                 if (pg >= totalPages) return null;
-                                return <button key={pg} onClick={() => load(pg)}
-                                    className={`w-8 h-8 text-xs font-medium rounded-lg border transition ${pg === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 hover:bg-gray-50'}`}>{pg + 1}</button>;
+                                return <AppButton key={pg} onClick={() => load(pg)}
+                                    className={`w-8 h-8 text-xs font-medium rounded-lg border transition ${pg === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 hover:bg-gray-50'}`}>{pg + 1}</AppButton>;
                             })}
-                            <button disabled={page + 1 >= totalPages} onClick={() => load(page + 1)} className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next →</button>
+                            <AppButton variant="outlined" disabled={page + 1 >= totalPages} onClick={() => load(page + 1)} className="disabled:opacity-40">Next →</AppButton>
                         </div>
                     </div>
                 )}
-            </div>
+            </Paper>
 
             {/* Side drawer */}
             {selectedUser && (

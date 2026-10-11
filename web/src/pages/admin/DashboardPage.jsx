@@ -1,3 +1,8 @@
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { FlatIcon as SvgIcon } from '../../components/ui/controls';
+import { tokens } from '../../theme/tokens';
+import { Paper, Typography, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { LoadingSkeleton as Skeleton, AppButton } from '../../components/ui/controls';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -14,113 +19,113 @@ import { getAllRegionsList } from '../../services/region.service';
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 const Icons = {
     Dam: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <rect x="2" y="6" width="20" height="3" rx="1"/>
             <rect x="4" y="9" width="2" height="9" rx="0.5"/>
             <rect x="11" y="9" width="2" height="9" rx="0.5"/>
             <rect x="18" y="9" width="2" height="9" rx="0.5"/>
             <line x1="2" y1="18" x2="22" y2="18"/>
             <path d="M2 21 Q6 19 12 21 Q18 23 22 21"/>
-        </svg>
+        </SvgIcon>
     ),
     Alert: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13"/>
             <line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
+        </SvgIcon>
     ),
     Sensor: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M5 12.55a11 11 0 0114.08 0"/>
             <path d="M1.42 9a16 16 0 0121.16 0"/>
             <path d="M8.53 16.11a6 6 0 016.95 0"/>
             <circle cx="12" cy="20" r="1" fill="currentColor"/>
-        </svg>
+        </SvgIcon>
     ),
     Warning: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
+        </SvgIcon>
     ),
     Users: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
             <circle cx="9" cy="7" r="4"/>
             <path d="M23 21v-2a4 4 0 00-3-3.87"/>
             <path d="M16 3.13a4 4 0 010 7.75"/>
-        </svg>
+        </SvgIcon>
     ),
     Wrench: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
-        </svg>
+        </SvgIcon>
     ),
     CheckCircle: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
             <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
+        </SvgIcon>
     ),
     Bell: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 01-3.46 0"/>
-        </svg>
+        </SvgIcon>
     ),
     Globe: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <circle cx="12" cy="12" r="10"/>
             <line x1="2" y1="12" x2="22" y2="12"/>
             <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
-        </svg>
+        </SvgIcon>
     ),
     News: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2"/>
             <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
-        </svg>
+        </SvgIcon>
     ),
     Map: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
             <line x1="9" y1="3" x2="9" y2="18"/>
             <line x1="15" y1="6" x2="15" y2="21"/>
-        </svg>
+        </SvgIcon>
     ),
     Shield: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
+        </SvgIcon>
     ),
     Activity: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-        </svg>
+        </SvgIcon>
     ),
     Refresh: ({ size = 16, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polyline points="23 4 23 10 17 10"/>
             <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
-        </svg>
+        </SvgIcon>
     ),
     Key: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-        </svg>
+        </SvgIcon>
     ),
     Droplets: ({ size = 18, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/>
             <path d="M12.56 6.6A10.97 10.97 0 0014 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 01-11.91 4.97"/>
-        </svg>
+        </SvgIcon>
     ),
     ChevronRight: ({ size = 14, className = '' }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <SvgIcon aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polyline points="9 18 15 12 9 6"/>
-        </svg>
+        </SvgIcon>
     ),
 };
 
@@ -128,10 +133,10 @@ const Icons = {
 
 const hazardColor = (status) => {
     const s = (status || '').toUpperCase();
-    if (s === 'CRITICAL' || s === 'EXTREME' || s === 'EXTREME_DANGER') return { dot: 'bg-red-500', bar: 'bg-red-500', badge: 'bg-red-50 text-red-600 border-red-200', hex: '#ef4444' };
-    if (s === 'HIGH' || s === 'DANGER') return { dot: 'bg-orange-500', bar: 'bg-orange-400', badge: 'bg-orange-50 text-orange-600 border-orange-200', hex: '#f97316' };
-    if (s === 'MEDIUM' || s === 'WARNING' || s === 'WATCH') return { dot: 'bg-amber-400', bar: 'bg-amber-400', badge: 'bg-amber-50 text-amber-600 border-amber-200', hex: '#f59e0b' };
-    return { dot: 'bg-emerald-500', bar: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', hex: '#10b981' };
+    if (s === 'CRITICAL' || s === 'EXTREME' || s === 'EXTREME_DANGER') return { dot: 'bg-red-500', bar: 'bg-red-500', badge: 'bg-red-50 text-red-600 border-red-200', hex: tokens.error };
+    if (s === 'HIGH' || s === 'DANGER') return { dot: 'bg-orange-500', bar: 'bg-orange-400', badge: 'bg-orange-50 text-orange-600 border-orange-200', hex: tokens.danger };
+    if (s === 'MEDIUM' || s === 'WARNING' || s === 'WATCH') return { dot: 'bg-amber-400', bar: 'bg-amber-400', badge: 'bg-amber-50 text-amber-600 border-amber-200', hex: tokens.warning };
+    return { dot: 'bg-emerald-500', bar: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', hex: tokens.success };
 };
 
 const sevColor = (sev) => {
@@ -182,18 +187,16 @@ function WaterBar({ pct, status }) {
     );
 }
 
-function Skeleton({ className }) {
-    return <div className={`animate-pulse bg-gray-100 rounded-lg ${className}`} />;
-}
 
-const PIE_COLORS = ['#10b981', '#94a3b8', '#ef4444', '#f59e0b'];
-const ALERT_PIE_COLORS = ['#3b82f6', '#10b981', '#f97316', '#ef4444', '#94a3b8', '#8b5cf6'];
+
+const PIE_COLORS = [tokens.success, tokens.outline, tokens.error, tokens.warning];
+const ALERT_PIE_COLORS = [tokens.primary, tokens.success, tokens.danger, tokens.error, tokens.outline, '#8b5cf6'];
 
 // Custom recharts tooltip
 function ChartTooltip({ active, payload, label }) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">
+        <Paper variant="outlined" className="bg-white border border-gray-200   px-3 py-2 text-xs">
             {label && <p className="font-semibold text-gray-700 mb-1">{label}</p>}
             {payload.map((p, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -202,7 +205,7 @@ function ChartTooltip({ active, payload, label }) {
                     <span className="font-semibold text-gray-800">{p.value}</span>
                 </div>
             ))}
-        </div>
+        </Paper>
     );
 }
 
@@ -252,7 +255,7 @@ export default function DashboardPage() {
                 if (cancelled) return;
 
                 const [
-                    damStatsR, damStatusesR, highRiskR, allDamsR, userR, userStatsR, 
+                    damStatsR, damStatusesR, highRiskR, allDamsR, userR, userStatsR,
                     alertAnalR, activeAlertsR, allAlertsR, activeS, inactiveS, faultyS, maintS,
                     newsR, activitiesR, regionsR
                 ] = results;
@@ -264,12 +267,12 @@ export default function DashboardPage() {
                 if (userStatsR.status === 'fulfilled') setUserStats(userStatsR.value);
                 if (alertAnalR.status === 'fulfilled') setAlertAnalytics(alertAnalR.value);
                 if (allAlertsR.status === 'fulfilled') setAllAlertsList(allAlertsR.value || []);
-                
+
                 const activeAlerts = activeAlertsR.status === 'fulfilled' ? (activeAlertsR.value || []) : [];
                 setRecentAlerts(activeAlerts);
                 if (newsR.status === 'fulfilled') setNews(newsR.value?.content || []);
                 if (activitiesR.status === 'fulfilled') setActivities(activitiesR.value?.content || []);
-                
+
                 let regionsList = [];
                 if (regionsR.status === 'fulfilled') {
                     regionsList = regionsR.value || [];
@@ -284,7 +287,7 @@ export default function DashboardPage() {
                     acc[alert.regionId].activeAlerts++;
                     return acc;
                 }, {});
-                
+
                 const impactArr = Object.values(impactMap);
                 impactArr.forEach(ri => {
                     const r = regionsList.find(r => r.id === ri.regionId);
@@ -293,10 +296,10 @@ export default function DashboardPage() {
                 });
                 impactArr.sort((a,b) => b.activeAlerts - a.activeAlerts);
                 setRegionalImpact(impactArr);
-                
+
                 let initHighRisk = highRiskR.status === 'fulfilled' ? (highRiskR.value || []) : [];
                 setHighRisk(initHighRisk);
-                
+
                 if (initHighRisk.length > 0) {
                     Promise.allSettled(initHighRisk.map(async dam => {
                         const [gatesR, zonesR] = await Promise.allSettled([
@@ -449,9 +452,9 @@ export default function DashboardPage() {
             {/* ── Header ────────────────────────────────────────────────────────── */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">
+                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">
                         {greeting}{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}
-                    </h1>
+                    </Typography>
                     <p className="text-sm text-gray-400 mt-0.5">{today} · Dam Disaster Alert System</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -464,19 +467,19 @@ export default function DashboardPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         System live
                     </span>
-                    <button
+                    <AppButton variant="outlined"
                         onClick={() => window.location.reload()}
-                        className="flex items-center gap-1.5 text-sm text-gray-600 bg-white border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                        className="flex items-center gap-1.5"
                     >
                         <Icons.Refresh size={14} /> Refresh
-                    </button>
+                    </AppButton>
                 </div>
             </div>
 
             {/* ── Stat Cards (6 cards, 3×2 on lg) ──────────────────────────────── */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {STATS.map(({ label, value, sub, Icon, color, ring, onClick }) => (
-                    <button key={label} onClick={onClick}
+                    <AppButton key={label} onClick={onClick}
                         className={`bg-white border border-gray-200/80 rounded-xl p-4 shadow-sm hover:shadow-md hover:ring-2 ${ring} transition-all text-left w-full group`}>
                         <div className="flex items-center gap-2 mb-3">
                             <span className={`w-9 h-9 rounded-lg ${color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
@@ -489,17 +492,17 @@ export default function DashboardPage() {
                         }
                         <p className="text-[11px] font-medium text-gray-500 mt-0.5">{label}</p>
                         {!loading && sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
-                    </button>
+                    </AppButton>
                 ))}
             </div>
 
             {/* ── Row 1: Alerts Over Time + Alert Severity + Alert Status ──────── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Alert trend - area chart */}
-                <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-xl shadow-sm p-5">
+                <Paper variant="outlined" className="lg:col-span-2 bg-white border border-gray-200/80   p-5">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h2 className="text-sm font-semibold text-gray-800">Alert Activity</h2>
+                            <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Alert Activity</Typography>
                             <p className="text-xs text-gray-400 mt-0.5">Alerts created in the last 14 days</p>
                         </div>
                         <span className="text-xs text-gray-400">{allAlertsList.length} total</span>
@@ -507,27 +510,27 @@ export default function DashboardPage() {
                     {loading ? (
                         <Skeleton className="h-52 w-full" />
                     ) : (
-                        <ResponsiveContainer width="100%" height={220}>
+                        <ResponsiveContainer initialDimension={{ width: 300, height: 220 }} minWidth={0} width="100%" height={220}>
                             <AreaChart data={alertTimeData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="alertGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        <stop offset="5%" stopColor={tokens.primary} stopOpacity={0.15} />
+                                        <stop offset="95%" stopColor={tokens.primary} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: tokens.outline }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10, fill: tokens.outline }} axisLine={false} tickLine={false} allowDecimals={false} />
                                 <Tooltip content={<ChartTooltip />} />
-                                <Area type="monotone" dataKey="alerts" stroke="#3b82f6" strokeWidth={2} fill="url(#alertGrad)" name="Alerts" />
+                                <Area type="monotone" dataKey="alerts" stroke={tokens.primary} strokeWidth={2} fill="url(#alertGrad)" name="Alerts" />
                             </AreaChart>
                         </ResponsiveContainer>
                     )}
-                </div>
+                </Paper>
 
                 {/* Alert severity breakdown - pie */}
-                <div className="bg-white border border-gray-200/80 rounded-xl shadow-sm p-5">
-                    <h2 className="text-sm font-semibold text-gray-800 mb-1">Alert Severity</h2>
+                <Paper variant="outlined" className="bg-white border border-gray-200/80   p-5">
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800 mb-1">Alert Severity</Typography>
                     <p className="text-xs text-gray-400 mb-3">Distribution across all alerts</p>
                     {loading ? (
                         <Skeleton className="h-48 w-full" />
@@ -535,12 +538,12 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-center h-48 text-sm text-gray-400">No alerts yet</div>
                     ) : (
                         <div className="flex items-center gap-4">
-                            <ResponsiveContainer width="55%" height={180}>
+                            <ResponsiveContainer initialDimension={{ width: 300, height: 220 }} minWidth={0} width="55%" height={180}>
                                 <PieChart>
                                     <Pie data={alertSevData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3}
                                         dataKey="value" stroke="none">
                                         {alertSevData.map((_, i) => (
-                                            <Cell key={i} fill={['#3b82f6', '#f59e0b', '#f97316', '#ef4444'][i % 4]} />
+                                            <Cell key={i} fill={[tokens.primary, tokens.warning, tokens.danger, tokens.error][i % 4]} />
                                         ))}
                                     </Pie>
                                     <Tooltip content={<ChartTooltip />} />
@@ -549,7 +552,7 @@ export default function DashboardPage() {
                             <div className="flex-1 space-y-2">
                                 {alertSevData.map((d, i) => (
                                     <div key={d.name} className="flex items-center gap-2">
-                                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: ['#3b82f6', '#f59e0b', '#f97316', '#ef4444'][i % 4] }} />
+                                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: [tokens.primary, tokens.warning, tokens.danger, tokens.error][i % 4] }} />
                                         <span className="text-xs text-gray-600 capitalize flex-1">{d.name}</span>
                                         <span className="text-xs font-semibold text-gray-800">{d.value}</span>
                                     </div>
@@ -557,32 +560,32 @@ export default function DashboardPage() {
                             </div>
                         </div>
                     )}
-                </div>
+                </Paper>
             </div>
 
             {/* ── Row 2: Water Levels Bar Chart + Hazard Distribution ──────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 {/* Water levels bar chart — 3 cols */}
-                <div className="lg:col-span-3 bg-white border border-gray-200/80 rounded-xl shadow-sm p-5">
+                <Paper variant="outlined" className="lg:col-span-3 bg-white border border-gray-200/80   p-5">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h2 className="text-sm font-semibold text-gray-800">Water Levels</h2>
+                            <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Water Levels</Typography>
                             <p className="text-xs text-gray-400 mt-0.5">Top 10 dams by current water level %</p>
                         </div>
-                        <button onClick={() => navigate('/admin/dams')} className="text-xs text-blue-600 font-medium hover:underline">
+                        <AppButton onClick={() => navigate('/admin/dams')} className="hover:underline">
                             All dams →
-                        </button>
+                        </AppButton>
                     </div>
                     {loading ? (
                         <Skeleton className="h-56 w-full" />
                     ) : waterLevelData.length === 0 ? (
                         <div className="flex items-center justify-center h-56 text-sm text-gray-400">No water level data</div>
                     ) : (
-                        <ResponsiveContainer width="100%" height={240}>
+                        <ResponsiveContainer initialDimension={{ width: 300, height: 220 }} minWidth={0} width="100%" height={240}>
                             <BarChart data={waterLevelData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: tokens.outline }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10, fill: tokens.outline }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
                                 <Tooltip content={<ChartTooltip />} />
                                 <Bar dataKey="water" name="Water %" radius={[4, 4, 0, 0]} maxBarSize={32}>
                                     {waterLevelData.map((entry, i) => (
@@ -592,11 +595,11 @@ export default function DashboardPage() {
                             </BarChart>
                         </ResponsiveContainer>
                     )}
-                </div>
+                </Paper>
 
                 {/* Dam Hazard Distribution — 2 cols */}
-                <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-xl shadow-sm p-5">
-                    <h2 className="text-sm font-semibold text-gray-800 mb-1">Dam Hazard Status</h2>
+                <Paper variant="outlined" className="lg:col-span-2 bg-white border border-gray-200/80   p-5">
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800 mb-1">Dam Hazard Status</Typography>
                     <p className="text-xs text-gray-400 mb-3">Overall hazard distribution across {allDams.length} dams</p>
                     {loading ? (
                         <Skeleton className="h-48 w-full" />
@@ -604,7 +607,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-center h-48 text-sm text-gray-400">No dams registered</div>
                     ) : (
                         <div className="flex items-center gap-4">
-                            <ResponsiveContainer width="55%" height={180}>
+                            <ResponsiveContainer initialDimension={{ width: 300, height: 220 }} minWidth={0} width="55%" height={180}>
                                 <PieChart>
                                     <Pie data={hazardPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70}
                                         paddingAngle={3} dataKey="value" stroke="none">
@@ -626,16 +629,16 @@ export default function DashboardPage() {
                             </div>
                         </div>
                     )}
-                </div>
+                </Paper>
             </div>
 
             {/* ── Row 3: High-Risk Dams + Sensor Health Donut + Active Alerts ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
                 {/* High-Risk Dams */}
-                <div className="bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                <Paper variant="outlined" className="bg-white border border-gray-200/80  ">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">High-Risk Dams</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">High-Risk Dams</Typography>
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${highRisk.length > 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
                             {highRisk.length} flagged
                         </span>
@@ -668,8 +671,8 @@ export default function DashboardPage() {
                                                 </p>
                                                 {(dam.openGates != null || dam.activeZones != null) && (dam.openGates > 0 || dam.activeZones > 0) && (
                                                     <div className="flex gap-2 mt-1.5 flex-wrap">
-                                                        {dam.openGates > 0 && <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">🌊 {dam.openGates} Gates Open</span>}
-                                                        {dam.activeZones > 0 && <span className="text-[10px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-200">⚠ {dam.activeZones} Active Zones</span>}
+                                                        {dam.openGates > 0 && <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200"><SymbolIcon name="dam" /> {dam.openGates} Gates Open</span>}
+                                                        {dam.activeZones > 0 && <span className="text-[10px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-200"><SymbolIcon name="warning" /> {dam.activeZones} Active Zones</span>}
                                                     </div>
                                                 )}
                                             </div>
@@ -680,11 +683,11 @@ export default function DashboardPage() {
                             })}
                         </ul>
                     )}
-                </div>
+                </Paper>
 
                 {/* Sensor Fleet Health — donut */}
-                <div className="bg-white border border-gray-200/80 rounded-xl shadow-sm p-5">
-                    <h2 className="text-sm font-semibold text-gray-800 mb-1">Sensor Fleet</h2>
+                <Paper variant="outlined" className="bg-white border border-gray-200/80   p-5">
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800 mb-1">Sensor Fleet</Typography>
                     <p className="text-xs text-gray-400 mb-3">{totalSensors} sensors monitored</p>
                     {loading ? (
                         <Skeleton className="h-48 w-full" />
@@ -693,7 +696,7 @@ export default function DashboardPage() {
                     ) : (
                         <>
                             <div className="flex items-center gap-4">
-                                <ResponsiveContainer width="55%" height={160}>
+                                <ResponsiveContainer initialDimension={{ width: 300, height: 220 }} minWidth={0} width="55%" height={160}>
                                     <PieChart>
                                         <Pie data={sensorPieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62}
                                             paddingAngle={4} dataKey="value" stroke="none">
@@ -734,12 +737,12 @@ export default function DashboardPage() {
                             </div>
                         </>
                     )}
-                </div>
+                </Paper>
 
                 {/* Active Alerts Feed */}
-                <div className="bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                <Paper variant="outlined" className="bg-white border border-gray-200/80  ">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">Active Alerts</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Active Alerts</Typography>
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${recentAlerts.length > 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
                             {recentAlerts.length} live
                         </span>
@@ -781,20 +784,20 @@ export default function DashboardPage() {
                     )}
                     {recentAlerts.length > 0 && (
                         <div className="px-5 py-3 border-t border-gray-100">
-                            <button onClick={() => navigate('/admin/alerts')} className="text-xs text-blue-600 font-medium hover:underline">
+                            <AppButton onClick={() => navigate('/admin/alerts')} className="hover:underline">
                                 Manage all alerts →
-                            </button>
+                            </AppButton>
                         </div>
                     )}
-                </div>
+                </Paper>
             </div>
 
             {/* ── Row 4: All Dam Water Levels + Dam Registry ───────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 {/* Dam Water Levels — 2 cols */}
-                <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                <Paper variant="outlined" className="lg:col-span-2 bg-white border border-gray-200/80  ">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">Live Water Levels</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Live Water Levels</Typography>
                         <span className="text-xs text-gray-400">{damStatuses.length} monitored</span>
                     </div>
                     {loading ? (
@@ -826,15 +829,15 @@ export default function DashboardPage() {
                             ))}
                         </div>
                     )}
-                </div>
+                </Paper>
 
                 {/* Dam Registry — 3 cols */}
-                <div className="lg:col-span-3 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                <Paper variant="outlined" className="lg:col-span-3 bg-white border border-gray-200/80  ">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">Dam Registry</h2>
-                        <button onClick={() => navigate('/admin/dams')} className="text-xs text-blue-600 font-medium hover:underline">
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Dam Registry</Typography>
+                        <AppButton onClick={() => navigate('/admin/dams')} className="hover:underline">
                             View all →
-                        </button>
+                        </AppButton>
                     </div>
                     {loading ? (
                         <div className="p-5 space-y-3">{[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10" />)}</div>
@@ -844,49 +847,49 @@ export default function DashboardPage() {
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr className="bg-gray-50 text-left">
+                            <Table className="w-full text-xs">
+                                <TableHead>
+                                    <TableRow className="bg-gray-50 text-left">
                                         {['Dam', 'Region', 'Type', 'Hazard', 'Status'].map(h => (
-                                            <th key={h} className="px-4 py-2.5 font-semibold text-gray-500 uppercase tracking-wide text-[10px]">{h}</th>
+                                            <TableCell component="th" key={h} className="px-4 py-2.5 font-semibold text-gray-500 uppercase tracking-wide text-[10px]">{h}</TableCell>
                                         ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody className="divide-y divide-gray-50">
                                     {allDams.slice(0, 8).map((dam) => (
-                                        <tr key={dam.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                        <TableRow key={dam.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer"
                                             onClick={() => navigate(`/admin/dams/${dam.id}`)}>
-                                            <td className="px-4 py-3">
+                                            <TableCell className="px-4 py-3">
                                                 <p className="font-medium text-gray-800 truncate max-w-[150px]">{dam.name}</p>
                                                 <p className="text-[10px] text-gray-400">{dam.code}</p>
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-500 truncate max-w-[110px]">{dam.regionName ?? '—'}</td>
-                                            <td className="px-4 py-3 text-gray-500 capitalize">{(dam.damType ?? '').toLowerCase().replace('_', ' ')}</td>
-                                            <td className="px-4 py-3"><Badge status={dam.overallHazardStatus} /></td>
-                                            <td className="px-4 py-3">
+                                            </TableCell>
+                                            <TableCell className="px-4 py-3 text-gray-500 truncate max-w-[110px]">{dam.regionName ?? '—'}</TableCell>
+                                            <TableCell className="px-4 py-3 text-gray-500 capitalize">{(dam.damType ?? '').toLowerCase().replace('_', ' ')}</TableCell>
+                                            <TableCell className="px-4 py-3"><Badge status={dam.overallHazardStatus} /></TableCell>
+                                            <TableCell className="px-4 py-3">
                                                 <span className={`text-[11px] font-medium ${(dam.status ?? '').toUpperCase() === 'OPERATIONAL' ? 'text-emerald-600' : 'text-gray-400'}`}>
                                                     {(dam.status ?? '—').replace('_', ' ')}
                                                 </span>
-                                            </td>
-                                        </tr>
+                                            </TableCell>
+                                        </TableRow>
                                     ))}
-                                </tbody>
-                            </table>
+                                </TableBody>
+                            </Table>
                         </div>
                     )}
-                </div>
+                </Paper>
             </div>
 
             {/* ── Row 5: Recent News + Admin Activity + Regional Impact ────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                
+
                 {/* Recent News & Updates (2 cols) */}
-                <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                <Paper variant="outlined" className="lg:col-span-2 bg-white border border-gray-200/80  ">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">Recent News & Updates</h2>
-                        <button onClick={() => navigate('/admin/news')} className="text-xs text-blue-600 font-medium hover:underline">
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Recent News & Updates</Typography>
+                        <AppButton onClick={() => navigate('/admin/news')} className="hover:underline">
                             View all →
-                        </button>
+                        </AppButton>
                     </div>
                     {loading ? (
                         <div className="p-5 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12" />)}</div>
@@ -904,12 +907,12 @@ export default function DashboardPage() {
                             ))}
                         </ul>
                     )}
-                </div>
+                </Paper>
 
                 {/* Regional Impact (1 col) */}
-                <div className="lg:col-span-1 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                <Paper variant="outlined" className="lg:col-span-1 bg-white border border-gray-200/80  ">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">Regional Impact</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Regional Impact</Typography>
                     </div>
                     {loading ? (
                         <div className="p-5 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10" />)}</div>
@@ -937,12 +940,12 @@ export default function DashboardPage() {
                             ))}
                         </ul>
                     )}
-                </div>
+                </Paper>
 
                 {/* Admin Activity Log (2 cols) */}
-                <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                <Paper variant="outlined" className="lg:col-span-2 bg-white border border-gray-200/80  ">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">My Recent Activity</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">My Recent Activity</Typography>
                         <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Audit Log</span>
                     </div>
                     {loading ? (
@@ -962,15 +965,15 @@ export default function DashboardPage() {
                             ))}
                         </ul>
                     )}
-                </div>
-                
+                </Paper>
+
             </div>
 
             {/* ── Quick Actions ─────────────────────────────────────────────────── */}
-            <div className="bg-white border border-gray-200/80 rounded-xl shadow-sm p-5">
+            <Paper variant="outlined" className="bg-white border border-gray-200/80   p-5">
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h2 className="text-sm font-semibold text-gray-800">Quick Actions</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-800">Quick Actions</Typography>
                         <p className="text-xs text-gray-400 mt-0.5">Navigate to key management areas</p>
                     </div>
                 </div>
@@ -985,8 +988,8 @@ export default function DashboardPage() {
                         { label: 'Roles', desc: 'Roles & permissions', Icon: Icons.Shield, path: '/admin/roles', color: 'text-indigo-600 bg-indigo-50 group-hover:bg-indigo-100' },
                         { label: 'Map', desc: 'Interactive map view', Icon: Icons.Map, path: '/admin/map', color: 'text-emerald-600 bg-emerald-50 group-hover:bg-emerald-100' },
                     ].map(({ label, desc, Icon, path, color }) => (
-                        <button key={path} onClick={() => navigate(path)}
-                            className="group flex flex-col items-center text-center gap-2 px-3 py-4 bg-gray-50 border border-gray-200/80 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all">
+                        <AppButton variant="outlined" key={path} onClick={() => navigate(path)}
+                            className="group flex flex-col items-center gap-2">
                             <span className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${color}`}>
                                 <Icon size={18} />
                             </span>
@@ -994,10 +997,10 @@ export default function DashboardPage() {
                                 <p className="text-xs font-semibold text-gray-800">{label}</p>
                                 <p className="text-[10px] text-gray-400 mt-0.5 hidden sm:block leading-tight">{desc}</p>
                             </div>
-                        </button>
+                        </AppButton>
                     ))}
                 </div>
-            </div>
+            </Paper>
         </div>
     );
 }

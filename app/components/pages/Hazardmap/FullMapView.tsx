@@ -14,6 +14,7 @@ interface HazardLevel {
 }
 
 interface FullMapViewProps {
+  focusDamId?: string;
   level?: number;
   hazardValue?: string;
   hazardLevels?: HazardLevel[];
@@ -33,6 +34,7 @@ const DEFAULT_HAZARD_LEVELS: HazardLevel[] = [
 ];
 
 export function FullMapView({
+  focusDamId,
   level = 75,
   hazardValue = '>1.2 m²s',
   hazardLevels = DEFAULT_HAZARD_LEVELS,
@@ -54,6 +56,7 @@ export function FullMapView({
         onTouchCancel={onMapTouchEnd}
       >
         <LiveHazardMapView
+          focusDamId={focusDamId}
           showZones={showZones}
           showLocations={showLocations}
           showDams={showDams}

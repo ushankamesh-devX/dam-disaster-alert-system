@@ -1,3 +1,7 @@
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { FlatIcon as SvgIcon } from '../../components/ui/controls';
+import { Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { AppButton, AppSelect, AppInput, AppTextarea, AppDialog } from '../../components/ui/controls';
 import { useState, useEffect, useCallback } from 'react';
 import {
     getAllDeviceApiKeys,
@@ -128,20 +132,20 @@ export default function DeviceKeysPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Device API Keys</h1>
+                    <Typography component="h1" variant="h1" className="text-2xl font-bold text-gray-900">Device API Keys</Typography>
                     <p className="text-sm text-gray-500 mt-1">
                         Manage API keys for ESP32/IoT devices to submit sensor readings
                     </p>
                 </div>
-                <button
+                <AppButton variant="contained"
                     onClick={() => setShowCreate(true)}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    className="flex items-center gap-2"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <SvgIcon aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    </SvgIcon>
                     Generate API Key
-                </button>
+                </AppButton>
             </div>
 
             {error && (
@@ -158,53 +162,53 @@ export default function DeviceKeysPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <Paper variant="outlined" className="bg-white  border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Name</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Key Prefix</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Sensor</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Dam</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Last Used</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Expires</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600">Created</th>
-                                <th className="px-4 py-3 text-right font-semibold text-gray-600">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
+                    <Table className="w-full text-sm">
+                        <TableHead className="bg-gray-50 border-b border-gray-200">
+                            <TableRow>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Name</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Key Prefix</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Sensor</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Dam</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Status</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Last Used</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Expires</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-left font-semibold text-gray-600">Created</TableCell>
+                                <TableCell component="th" className="px-4 py-3 text-right font-semibold text-gray-600">Actions</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody className="divide-y divide-gray-100">
                             {keys.length === 0 ? (
-                                <tr>
-                                    <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
+                                <TableRow>
+                                    <TableCell colSpan={9} className="px-4 py-12 text-center text-gray-400">
                                         <div className="flex flex-col items-center gap-2">
-                                            <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <SvgIcon aria-hidden="true" className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                            </svg>
+                                            </SvgIcon>
                                             <p>No device API keys yet</p>
                                             <p className="text-xs">Generate a key to connect your first ESP32 device</p>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ) : (
                                 keys.map((key) => (
-                                    <tr key={key.id} className="hover:bg-gray-50/50">
-                                        <td className="px-4 py-3">
+                                    <TableRow key={key.id} className="hover:bg-gray-50/50">
+                                        <TableCell className="px-4 py-3">
                                             <div className="font-medium text-gray-900">{key.name}</div>
                                             {key.description && (
                                                 <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">{key.description}</div>
                                             )}
-                                        </td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3">
                                             <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">{key.keyPrefix}...</code>
-                                        </td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3">
                                             <div className="text-gray-900">{key.sensorName}</div>
                                             <div className="text-xs text-gray-400">{key.sensorUid}</div>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600">{key.damName}</td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3 text-gray-600">{key.damName}</TableCell>
+                                        <TableCell className="px-4 py-3">
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${key.isActive
                                                 ? 'bg-green-50 text-green-700'
                                                 : 'bg-red-50 text-red-700'
@@ -212,15 +216,15 @@ export default function DeviceKeysPage() {
                                                 <span className={`w-1.5 h-1.5 rounded-full ${key.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
                                                 {key.isActive ? 'Active' : 'Inactive'}
                                             </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(key.lastUsedAt)}</td>
-                                        <td className="px-4 py-3 text-gray-500 text-xs">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3 text-gray-500 text-xs">{formatDate(key.lastUsedAt)}</TableCell>
+                                        <TableCell className="px-4 py-3 text-gray-500 text-xs">
                                             {key.expiresAt ? formatDate(key.expiresAt) : <span className="text-gray-300">Never</span>}
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(key.createdAt)}</td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3 text-gray-500 text-xs">{formatDate(key.createdAt)}</TableCell>
+                                        <TableCell className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1">
-                                                <button
+                                                <AppButton
                                                     onClick={() => handleToggleActive(key)}
                                                     title={key.isActive ? 'Deactivate' : 'Activate'}
                                                     className={`p-1.5 rounded-lg transition-colors ${key.isActive
@@ -229,51 +233,51 @@ export default function DeviceKeysPage() {
                                                         }`}
                                                 >
                                                     {key.isActive ? (
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <SvgIcon aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                                        </svg>
+                                                        </SvgIcon>
                                                     ) : (
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <SvgIcon aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
+                                                        </SvgIcon>
                                                     )}
-                                                </button>
-                                                <button
+                                                </AppButton>
+                                                <AppButton iconOnly
                                                     onClick={() => setConfirmAction({ type: 'regenerate', id: key.id, name: key.name })}
                                                     title="Regenerate key"
-                                                    className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                                                    className=""
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <SvgIcon aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                                    </svg>
-                                                </button>
-                                                <button
+                                                    </SvgIcon>
+                                                </AppButton>
+                                                <AppButton iconOnly
                                                     onClick={() => setConfirmAction({ type: 'delete', id: key.id, name: key.name })}
                                                     title="Delete key"
-                                                    className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                                                    className=""
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <SvgIcon aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
+                                                    </SvgIcon>
+                                                </AppButton>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 ))
                             )}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
-            </div>
+            </Paper>
 
             {/* ESP32 Quick Setup Guide */}
             <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 rounded-xl border border-gray-200 p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <Typography component="h3" variant="h3" className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <SvgIcon aria-hidden="true" className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                    </svg>
+                    </SvgIcon>
                     ESP32 Quick Setup
-                </h3>
+                </Typography>
                 <div className="bg-gray-900 rounded-lg p-4 text-xs font-mono text-green-400 overflow-x-auto">
                     <pre>{`// ESP32 Arduino Code Snippet
 // Server buffers readings & saves mean at configured interval
@@ -325,12 +329,12 @@ void sendReading(float value, float battery, float signal) {
                 <Modal onClose={() => setShowCreate(false)} title="Generate New Device API Key">
                     <form onSubmit={handleCreate} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Sensor *</label>
-                            <select
+                            <label htmlFor="field-DeviceKeysPage-17640" className="block text-sm font-medium text-gray-700 mb-1">Sensor *</label>
+                            <AppSelect id="field-DeviceKeysPage-17640"
                                 value={form.sensorId}
                                 onChange={e => setForm(f => ({ ...f, sensorId: e.target.value }))}
                                 required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full"
                             >
                                 <option value="">Select a sensor...</option>
                                 {sensors.map(s => (
@@ -338,54 +342,54 @@ void sendReading(float value, float battery, float signal) {
                                         {s.sensorUid} — {s.name}
                                     </option>
                                 ))}
-                            </select>
+                            </AppSelect>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Key Name *</label>
-                            <input
+                            <label htmlFor="field-DeviceKeysPage-18629" className="block text-sm font-medium text-gray-700 mb-1">Key Name *</label>
+                            <AppInput id="field-DeviceKeysPage-18629"
                                 type="text"
                                 value={form.name}
                                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                                 placeholder="e.g. Victoria Dam Water Level ESP32"
                                 required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                            <textarea
+                            <label htmlFor="field-DeviceKeysPage-19349" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <AppTextarea id="field-DeviceKeysPage-19349"
                                 value={form.description}
                                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                                 placeholder="Optional device description..."
                                 rows={2}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Expires At</label>
-                            <input
+                            <label htmlFor="field-DeviceKeysPage-20035" className="block text-sm font-medium text-gray-700 mb-1">Expires At</label>
+                            <AppInput id="field-DeviceKeysPage-20035"
                                 type="datetime-local"
                                 value={form.expiresAt}
                                 onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full"
                             />
                             <p className="text-xs text-gray-400 mt-1">Leave empty for no expiration</p>
                         </div>
                         <div className="flex justify-end gap-3 pt-2">
-                            <button
+                            <AppButton
                                 type="button"
                                 onClick={() => setShowCreate(false)}
-                                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                className=""
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </AppButton>
+                            <AppButton variant="contained"
                                 type="submit"
                                 disabled={creating}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                className="disabled:opacity-50"
                             >
                                 {creating ? 'Generating...' : 'Generate Key'}
-                            </button>
+                            </AppButton>
                         </div>
                     </form>
                 </Modal>
@@ -393,10 +397,10 @@ void sendReading(float value, float battery, float signal) {
 
             {/* Show API Key Modal (once only) */}
             {showApiKey && (
-                <Modal onClose={() => setShowApiKey(null)} title="🔑 Your New API Key">
+                <Modal onClose={() => setShowApiKey(null)} title={<><SymbolIcon name="key" /> Your New API Key</>}>
                     <div className="space-y-4">
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                            <p className="text-sm font-medium text-amber-800">⚠️ Copy this key now!</p>
+                            <p className="text-sm font-medium text-amber-800"><SymbolIcon name="warning" /> Copy this key now!</p>
                             <p className="text-xs text-amber-600 mt-1">This key will not be shown again. Store it safely and flash it into your ESP32 device.</p>
                         </div>
                         <div>
@@ -406,24 +410,24 @@ void sendReading(float value, float battery, float signal) {
                                 <code className="flex-1 bg-gray-900 text-green-400 px-3 py-2 rounded-lg text-xs font-mono break-all select-all">
                                     {showApiKey.apiKey}
                                 </code>
-                                <button
+                                <AppButton iconOnly variant="contained"
                                     onClick={() => copyToClipboard(showApiKey.apiKey)}
-                                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shrink-0"
+                                    className="shrink-0"
                                     title="Copy to clipboard"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <SvgIcon aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                                    </svg>
-                                </button>
+                                    </SvgIcon>
+                                </AppButton>
                             </div>
                         </div>
                         <div className="flex justify-end pt-2">
-                            <button
+                            <AppButton variant="contained"
                                 onClick={() => setShowApiKey(null)}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                className=""
                             >
                                 I've Copied the Key
-                            </button>
+                            </AppButton>
                         </div>
                     </div>
                 </Modal>
@@ -442,13 +446,13 @@ void sendReading(float value, float battery, float signal) {
                             }
                         </p>
                         <div className="flex justify-end gap-3">
-                            <button
+                            <AppButton
                                 onClick={() => setConfirmAction(null)}
-                                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                className=""
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </AppButton>
+                            <AppButton
                                 onClick={() => confirmAction.type === 'delete'
                                     ? handleDelete(confirmAction.id)
                                     : handleRegenerate(confirmAction.id)
@@ -459,7 +463,7 @@ void sendReading(float value, float battery, float signal) {
                                     }`}
                             >
                                 {confirmAction.type === 'delete' ? 'Delete' : 'Regenerate'}
-                            </button>
+                            </AppButton>
                         </div>
                     </div>
                 </Modal>
@@ -486,19 +490,19 @@ function StatCard({ label, value, color }) {
 
 function Modal({ children, onClose, title }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+        <AppDialog onClose={onClose}>
+
             <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-900">{title}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="">
+                        <SvgIcon aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                        </SvgIcon>
+                    </AppButton>
                 </div>
                 {children}
             </div>
-        </div>
+        </AppDialog>
     );
 }

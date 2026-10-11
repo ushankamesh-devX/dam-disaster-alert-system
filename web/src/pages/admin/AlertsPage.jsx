@@ -1,4 +1,7 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { StatusChip as Badge, LoadingSkeleton as Skeleton, Field as Input, TextareaField as Textarea, Field as Select, AppDialog, AppButton, DetailDrawer, AppInput, AppSelect } from '../../components/ui/controls';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
     getAllAlerts, searchAlerts, getAlertAnalytics,
@@ -40,40 +43,11 @@ function statStyle(s = '') { return statusStyle[(s || '').toLowerCase()] || stat
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
-function Badge({ children, className }) {
-    return <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border capitalize ${className}`}>{children}</span>;
-}
-function Skeleton({ className }) {
-    return <div className={`animate-pulse bg-gray-100 rounded ${className}`} />;
-}
-function Input({ label, error, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <input className={`w-full text-sm px-3 py-2 rounded-lg border ${error ? 'border-red-400' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition`} {...props} />
-            {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
-        </div>
-    );
-}
-function Textarea({ label, error, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <textarea rows={3} className={`w-full text-sm px-3 py-2 rounded-lg border ${error ? 'border-red-400' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition resize-none`} {...props} />
-            {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
-        </div>
-    );
-}
-function Select({ label, children, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 bg-white transition" {...props}>
-                {children}
-            </select>
-        </div>
-    );
-}
+
+
+
+
+
 
 // ─── Create Alert Modal ───────────────────────────────────────────────────────
 
@@ -119,11 +93,11 @@ function CreateAlertModal({ dams, regions, onClose, onCreated }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-semibold text-gray-900">Create New Alert</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">Create New Alert</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
                     <Input label="Title *" placeholder="Dam overflow warning — Mahaweli Zone" value={form.title} onChange={e => set('title', e.target.value)} error={errors.title} />
@@ -148,14 +122,14 @@ function CreateAlertModal({ dams, regions, onClose, onCreated }) {
                     </div>
                     <Input label="Alert Type ID" type="number" min="1" value={form.alertTypeId} onChange={e => set('alertTypeId', e.target.value)} />
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">
                             {saving ? 'Creating…' : 'Create Alert'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -200,14 +174,14 @@ function RegionBroadcastModal({ regions, dams, onClose, onBroadcasted }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                     <div>
-                        <h2 className="text-base font-semibold text-gray-900">Region Broadcast</h2>
+                        <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">Region Broadcast</Typography>
                         <p className="text-xs text-gray-400 mt-0.5">Only users in the selected region will be notified</p>
                     </div>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">✕</button>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
                     <Select label="Target Region *" value={form.regionId} onChange={e => set('regionId', e.target.value)}>
@@ -227,14 +201,14 @@ function RegionBroadcastModal({ regions, dams, onClose, onBroadcasted }) {
                         </Select>
                     </div>
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-60 transition">
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton type="submit" disabled={saving} className="disabled:opacity-60">
                             {saving ? 'Broadcasting…' : 'Broadcast to Region'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -271,13 +245,13 @@ function EmergencyOverrideModal({ onClose, onBroadcasted }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                 <div className="px-6 py-4 border-b border-red-100 bg-red-50 rounded-t-2xl">
                     <div className="flex items-center gap-3">
-                        <span className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-lg">🚨</span>
+                        <span className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-lg"><SymbolIcon name="alert" /></span>
                         <div>
-                            <h2 className="text-base font-bold text-red-800">Emergency Override</h2>
+                            <Typography component="h2" variant="h2" className="text-base font-bold text-red-800">Emergency Override</Typography>
                             <p className="text-xs text-red-600">Bypasses all queues · Forces emergency severity · SUPER_ADMIN only</p>
                         </div>
                     </div>
@@ -286,14 +260,14 @@ function EmergencyOverrideModal({ onClose, onBroadcasted }) {
                     <Input label="Title *" value={form.title} onChange={e => set('title', e.target.value)} />
                     <Textarea label="Emergency Message *" placeholder="Describe the emergency situation…" value={form.message} onChange={e => set('message', e.target.value)} />
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-60 transition">
-                            {saving ? 'Sending…' : '🚨 BROADCAST NOW'}
-                        </button>
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" color="error" type="submit" disabled={saving} className="disabled:opacity-60">
+                            {saving ? 'Sending…' : <><SymbolIcon name="alert" /> BROADCAST NOW</>}
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -332,11 +306,11 @@ function BulkActionModal({ type, dams, onClose, onDone }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-semibold text-gray-900">Bulk {isResolve ? 'Resolve' : 'Escalate'}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">Bulk {isResolve ? 'Resolve' : 'Escalate'}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
                     <p className="text-xs text-gray-500">
@@ -353,15 +327,15 @@ function BulkActionModal({ type, dams, onClose, onDone }) {
                         {SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
                     </Select>
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving}
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton type="submit" disabled={saving}
                             className={`px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-60 transition ${isResolve ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-600 hover:bg-orange-700'}`}>
                             {saving ? 'Processing…' : isResolve ? 'Resolve All Matching' : 'Escalate All Matching'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -387,25 +361,25 @@ function StatusUpdateModal({ alert, onClose, onUpdated }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">Update Status — #{alert.id}</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Update Status — #{alert.id}</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-5 space-y-4">
                     <Select label="New Status" value={status} onChange={e => setStatus(e.target.value)}>
                         {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
                     </Select>
                     <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-4 py-1.5 text-xs text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">
                             {saving ? 'Saving…' : 'Update'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -431,20 +405,20 @@ function AlertDrawer({ alert, dams, onClose, onUpdated }) {
     };
 
     return (
-        <>
+        <DetailDrawer onClose={onClose}>
             {/* Overlay */}
-            <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+
 
             {/* Panel */}
-            <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white shadow-2xl border-l border-gray-200 flex flex-col">
+            <div className="flex h-full flex-col overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className={`w-2.5 h-2.5 rounded-full ${sevDot(alert.severity)}`} />
-                        <h2 className="text-sm font-bold text-gray-900">Alert #{alert.id}</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-bold text-gray-900">Alert #{alert.id}</Typography>
                         {alert.simulationMode && <Badge className="bg-violet-50 text-violet-600 border-violet-200">DRILL</Badge>}
                     </div>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">✕</button>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
 
                 {/* Body */}
@@ -457,7 +431,7 @@ function AlertDrawer({ alert, dams, onClose, onUpdated }) {
 
                     {/* Title & Message */}
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900 leading-snug mb-2">{alert.title}</h3>
+                        <Typography component="h3" variant="h3" className="text-lg font-bold text-gray-900 leading-snug mb-2">{alert.title}</Typography>
                         <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4 border border-gray-100">{alert.message}</p>
                     </div>
 
@@ -483,14 +457,14 @@ function AlertDrawer({ alert, dams, onClose, onUpdated }) {
                 {/* Actions */}
                 <div className="p-4 border-t border-gray-100 space-y-2 shrink-0">
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => setActiveAction('status')}
-                            className="py-2 text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                        <AppButton variant="outlined" onClick={() => setActiveAction('status')}
+                            className="">
                             Change Status
-                        </button>
-                        <button onClick={handleToggleSim} disabled={toggling}
-                            className="py-2 text-xs font-medium text-violet-700 border border-violet-200 bg-violet-50 rounded-lg hover:bg-violet-100 disabled:opacity-60 transition">
+                        </AppButton>
+                        <AppButton variant="outlined" onClick={handleToggleSim} disabled={toggling}
+                            className="disabled:opacity-60">
                             {toggling ? 'Toggling…' : alert.simulationMode ? 'Disable Drill' : 'Enable Drill'}
-                        </button>
+                        </AppButton>
                     </div>
                 </div>
             </div>
@@ -503,7 +477,7 @@ function AlertDrawer({ alert, dams, onClose, onUpdated }) {
                     onUpdated={(updated) => { onUpdated(updated); setActiveAction(null); }}
                 />
             )}
-        </>
+        </DetailDrawer>
     );
 }
 
@@ -511,14 +485,14 @@ function AlertDrawer({ alert, dams, onClose, onUpdated }) {
 
 function StatCard({ label, value, icon, color, onClick, active }) {
     return (
-        <button onClick={onClick}
+        <AppButton onClick={onClick}
             className={`bg-white border rounded-xl p-4 text-left hover:shadow-md transition-shadow w-full ${active ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200'}`}>
             <div className="flex items-center gap-3 mb-2">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${color}`}>{icon}</div>
                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">{value ?? '—'}</p>
-        </button>
+        </AppButton>
     );
 }
 
@@ -642,48 +616,48 @@ export default function AlertsPage() {
             {/* ── Header ───────────────────────────────────────────────────────── */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">Alert Management</h1>
+                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">Alert Management</Typography>
                     <p className="text-sm text-gray-400">{loading ? '…' : `${alerts.length} alerts displayed`}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={() => setShowCreate(true)}
-                        className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm">
+                    <AppButton variant="contained" onClick={() => setShowCreate(true)}
+                        className="flex items-center gap-2">
                         <span className="text-base leading-none">+</span> Create Alert
-                    </button>
-                    <button onClick={() => setShowRegionBroadcast(true)}
-                        className="flex items-center gap-2 text-sm font-medium text-white bg-orange-600 px-4 py-2 rounded-lg hover:bg-orange-700 transition shadow-sm">
-                        📡 Region Broadcast
-                    </button>
-                    <button onClick={() => setShowEmergencyOverride(true)}
-                        className="flex items-center gap-2 text-sm font-medium text-white bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 transition shadow-sm">
-                        🚨 Emergency Override
-                    </button>
+                    </AppButton>
+                    <AppButton onClick={() => setShowRegionBroadcast(true)}
+                        className="flex items-center gap-2">
+                        <SymbolIcon name="sensor" /> Region Broadcast
+                    </AppButton>
+                    <AppButton variant="contained" color="error" onClick={() => setShowEmergencyOverride(true)}
+                        className="flex items-center gap-2">
+                        <SymbolIcon name="alert" /> Emergency Override
+                    </AppButton>
                 </div>
             </div>
 
             {/* ── Stat Cards ───────────────────────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Total Alerts" value={totalCount} icon="📊" color="bg-gray-50"
+                <StatCard label="Total Alerts" value={totalCount} icon={<SymbolIcon name="chart" />} color="bg-gray-50"
                     onClick={() => clearFilters()} active={!hasFilters && !search} />
-                <StatCard label="Active" value={activeCount} icon="🔴" color="bg-emerald-50"
+                <StatCard label="Active" value={activeCount} icon={<SymbolIcon name="alert" />} color="bg-emerald-50"
                     onClick={() => { setFilterStatus(filterStatus === 'active' ? '' : 'active'); setFilterSeverity(''); setFilterRegion(''); }}
                     active={filterStatus === 'active'} />
-                <StatCard label="Escalated" value={escalatedCount} icon="⚠️" color="bg-orange-50"
+                <StatCard label="Escalated" value={escalatedCount} icon={<SymbolIcon name="warning" />} color="bg-orange-50"
                     onClick={() => { setFilterStatus(filterStatus === 'escalated' ? '' : 'escalated'); setFilterSeverity(''); setFilterRegion(''); }}
                     active={filterStatus === 'escalated'} />
-                <StatCard label="Resolved" value={resolvedCount} icon="✅" color="bg-blue-50"
+                <StatCard label="Resolved" value={resolvedCount} icon={<SymbolIcon name="check" />} color="bg-blue-50"
                     onClick={() => { setFilterStatus(filterStatus === 'resolved' ? '' : 'resolved'); setFilterSeverity(''); setFilterRegion(''); }}
                     active={filterStatus === 'resolved'} />
             </div>
 
             {/* ── Search + Filters ─────────────────────────────────────────────── */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-wrap gap-3 items-end">
+            <Paper variant="outlined" className="bg-white border border-gray-200  p-4  flex flex-wrap gap-3 items-end">
                 <div className="flex-1 min-w-[200px]">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                        <input
-                            className="w-full text-sm pl-8 pr-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"><SymbolIcon name="search" /></span>
+                        <AppInput aria-label="Title, UUID, or ID…"
+                            className="w-full"
                             placeholder="Title, UUID, or ID…"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
@@ -691,115 +665,115 @@ export default function AlertsPage() {
                     </div>
                 </div>
                 <div className="min-w-[130px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                    <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition"
+                    <label htmlFor="field-AlertsPage-37012" className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                    <AppSelect id="field-AlertsPage-37012" className="w-full"
                         value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">All statuses</option>
                         {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                    </select>
+                    </AppSelect>
                 </div>
                 <div className="min-w-[130px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Severity</label>
-                    <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition"
+                    <label htmlFor="field-AlertsPage-37655" className="block text-xs font-medium text-gray-500 mb-1">Severity</label>
+                    <AppSelect id="field-AlertsPage-37655" className="w-full"
                         value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
                         <option value="">All severities</option>
                         {SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    </AppSelect>
                 </div>
                 <div className="min-w-[140px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Region</label>
-                    <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition"
+                    <label htmlFor="field-AlertsPage-38286" className="block text-xs font-medium text-gray-500 mb-1">Region</label>
+                    <AppSelect id="field-AlertsPage-38286" className="w-full"
                         value={filterRegion} onChange={e => setFilterRegion(e.target.value)}>
                         <option value="">All regions</option>
                         {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                    </select>
+                    </AppSelect>
                 </div>
                 {(hasFilters || search) && (
-                    <button onClick={clearFilters} className="text-xs text-gray-500 hover:text-gray-800 underline self-end pb-2">Clear all</button>
+                    <AppButton onClick={clearFilters} className="underline self-end">Clear all</AppButton>
                 )}
-            </div>
+            </Paper>
 
             {/* ── Bulk Action Buttons ──────────────────────────────────────────── */}
             <div className="flex items-center gap-2">
-                <button onClick={() => setBulkActionType('resolve')}
-                    className="text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">
+                <AppButton variant="outlined" onClick={() => setBulkActionType('resolve')}
+                    className="">
                     Bulk Resolve
-                </button>
-                <button onClick={() => setBulkActionType('escalate')}
-                    className="text-xs font-medium text-orange-700 border border-orange-200 bg-orange-50 px-3 py-1.5 rounded-lg hover:bg-orange-100 transition">
+                </AppButton>
+                <AppButton variant="outlined" onClick={() => setBulkActionType('escalate')}
+                    className="">
                     Bulk Escalate
-                </button>
+                </AppButton>
             </div>
 
             {/* ── Alerts Table ─────────────────────────────────────────────────── */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                    <Table className="w-full text-sm">
+                        <TableHead>
+                            <TableRow className="bg-gray-50 border-b border-gray-100 text-left">
                                 {['ID', 'Title', 'Severity', 'Status', 'Dam', 'Region', 'Drill', 'Created', 'Actions'].map(h => (
-                                    <th key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                                    <TableCell component="th" key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</TableCell>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
+                            </TableRow>
+                        </TableHead>
+                        <TableBody className="divide-y divide-gray-50">
                             {loading ? (
                                 Array.from({ length: 8 }).map((_, i) => (
-                                    <tr key={i}>
+                                    <TableRow key={i}>
                                         {Array.from({ length: 9 }).map((_, j) => (
-                                            <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+                                            <TableCell key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></TableCell>
                                         ))}
-                                    </tr>
+                                    </TableRow>
                                 ))
                             ) : alerts.length === 0 ? (
-                                <tr>
-                                    <td colSpan={9} className="py-20 text-center">
+                                <TableRow>
+                                    <TableCell colSpan={9} className="py-20 text-center">
                                         <p className="text-sm text-gray-400">No alerts found</p>
                                         <p className="text-xs text-gray-300 mt-1">Try adjusting filters or create a new alert</p>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ) : alerts.map(alert => {
                                 const dam = dams.find(d => d.id === alert.damId);
                                 const region = regions.find(r => r.id === alert.regionId);
                                 return (
-                                    <tr key={alert.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                    <TableRow key={alert.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer"
                                         onClick={() => setSelectedAlert(alert)}>
-                                        <td className="px-4 py-3 font-mono text-xs font-medium text-gray-600">#{alert.id}</td>
-                                        <td className="px-4 py-3">
+                                        <TableCell className="px-4 py-3 font-mono text-xs font-medium text-gray-600">#{alert.id}</TableCell>
+                                        <TableCell className="px-4 py-3">
                                             <p className="font-medium text-gray-900 whitespace-nowrap max-w-[220px] truncate">{alert.title}</p>
                                             <p className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{alert.uuid}</p>
-                                        </td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3">
                                             <div className="flex items-center gap-1.5">
                                                 <span className={`w-1.5 h-1.5 rounded-full ${sevDot(alert.severity)}`} />
                                                 <Badge className={sevStyle(alert.severity)}>{alert.severity}</Badge>
                                             </div>
-                                        </td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3">
                                             <Badge className={statStyle(alert.status)}>{alert.status}</Badge>
-                                        </td>
-                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{dam ? dam.name : (alert.damId ?? '—')}</td>
-                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{region ? region.name : (alert.regionId ?? '—')}</td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{dam ? dam.name : (alert.damId ?? '—')}</TableCell>
+                                        <TableCell className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{region ? region.name : (alert.regionId ?? '—')}</TableCell>
+                                        <TableCell className="px-4 py-3">
                                             {alert.simulationMode
                                                 ? <Badge className="bg-violet-50 text-violet-600 border-violet-200">DRILL</Badge>
                                                 : <span className="text-xs text-gray-400">Live</span>}
-                                        </td>
-                                        <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                                             {alert.createdAt ? new Date(alert.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
-                                        </td>
-                                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                             <div className="flex items-center gap-2">
-                                                <button onClick={() => setSelectedAlert(alert)} className="text-xs text-blue-600 hover:underline font-medium">View</button>
+                                                <AppButton onClick={() => setSelectedAlert(alert)} className="hover:underline">View</AppButton>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
-            </div>
+            </Paper>
 
             {/* ── Modals ───────────────────────────────────────────────────────── */}
             {showCreate && (

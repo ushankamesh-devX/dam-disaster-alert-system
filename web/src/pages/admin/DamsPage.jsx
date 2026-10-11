@@ -1,3 +1,6 @@
+import SymbolIcon from '../../components/ui/SymbolIcon';
+import { Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { StatusChip as Badge, LoadingSkeleton as Skeleton, Field as Input, Field as Select, AppDialog, AppButton, AppInput, AppSelect } from '../../components/ui/controls';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -32,31 +35,10 @@ function sColor(s = '') { return statusColors[(s || '').toUpperCase()] || 'text-
 
 // ─── Shared tiny components ───────────────────────────────────────────────────
 
-function Badge({ children, className }) {
-    return <span className={`inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-md border ${className}`}>{children}</span>;
-}
-function Skeleton({ className }) {
-    return <div className={`animate-pulse bg-gray-100 rounded ${className}`} />;
-}
-function Input({ label, error, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <input className={`w-full text-sm px-3 py-2 rounded-lg border ${error ? 'border-red-400' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition`} {...props} />
-            {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
-        </div>
-    );
-}
-function Select({ label, children, ...props }) {
-    return (
-        <div>
-            {label && <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>}
-            <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 bg-white transition" {...props}>
-                {children}
-            </select>
-        </div>
-    );
-}
+
+
+
+
 
 // ─── Create Dam Modal ─────────────────────────────────────────────────────────
 
@@ -106,11 +88,11 @@ function CreateDamModal({ regions, onClose, onCreated }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-semibold text-gray-900">Add New Dam</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">✕</button>
+                    <Typography component="h2" variant="h2" className="text-base font-semibold text-gray-900">Add New Dam</Typography>
+                    <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-5">
                     <div className="grid grid-cols-2 gap-4">
@@ -160,14 +142,14 @@ function CreateDamModal({ regions, onClose, onCreated }) {
                     <Input label="Location Description" value={form.locationDescription} onChange={e => set('locationDescription', e.target.value)} />
 
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                        <AppButton type="button" onClick={onClose} className="">Cancel</AppButton>
+                        <AppButton variant="contained" type="submit" disabled={saving} className="disabled:opacity-60">
                             {saving ? 'Creating…' : 'Create Dam'}
-                        </button>
+                        </AppButton>
                     </div>
                 </form>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -189,24 +171,24 @@ function DeleteModal({ dam, onClose, onDeleted }) {
         }
     };
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <AppDialog onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
-                    <span className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg">⚠</span>
+                    <span className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg"><SymbolIcon name="warning" /></span>
                     <div>
-                        <h2 className="text-sm font-semibold text-gray-900">Delete Dam</h2>
+                        <Typography component="h2" variant="h2" className="text-sm font-semibold text-gray-900">Delete Dam</Typography>
                         <p className="text-xs text-gray-500">This action cannot be undone</p>
                     </div>
                 </div>
                 <p className="text-sm text-gray-700 mb-5">Are you sure you want to delete <strong>{dam.name}</strong> ({dam.code})?</p>
                 <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                    <button onClick={confirm} disabled={loading} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-60 transition">
+                    <AppButton onClick={onClose} className="">Cancel</AppButton>
+                    <AppButton variant="contained" color="error" onClick={confirm} disabled={loading} className="disabled:opacity-60">
                         {loading ? 'Deleting…' : 'Delete'}
-                    </button>
+                    </AppButton>
                 </div>
             </div>
-        </div>
+        </AppDialog>
     );
 }
 
@@ -286,25 +268,25 @@ export default function DamsPage() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">Dams</h1>
+                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">Dams</Typography>
                     <p className="text-sm text-gray-400">{loading ? '…' : `${total} dams in registry`}</p>
                 </div>
-                <button
+                <AppButton variant="contained"
                     onClick={() => setShowCreate(true)}
-                    className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm"
+                    className="flex items-center gap-2"
                 >
                     <span className="text-base leading-none">+</span> Add Dam
-                </button>
+                </AppButton>
             </div>
 
             {/* Search + Filters */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-wrap gap-3 items-end">
+            <Paper variant="outlined" className="bg-white border border-gray-200  p-4  flex flex-wrap gap-3 items-end">
                 <div className="flex-1 min-w-[200px]">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                        <input
-                            className="w-full text-sm pl-8 pr-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"><SymbolIcon name="search" /></span>
+                        <AppInput aria-label="Name, code, river…"
+                            className="w-full"
                             placeholder="Name, code, river…"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
@@ -312,93 +294,93 @@ export default function DamsPage() {
                     </div>
                 </div>
                 <div className="min-w-[140px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                    <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition" value={filters.status} onChange={e => onFilterChange('status', e.target.value)}>
+                    <label htmlFor="field-DamsPage-17028" className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                    <AppSelect id="field-DamsPage-17028" className="w-full" value={filters.status} onChange={e => onFilterChange('status', e.target.value)}>
                         <option value="">All statuses</option>
                         {DAM_STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                    </select>
+                    </AppSelect>
                 </div>
                 <div className="min-w-[140px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Hazard</label>
-                    <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition" value={filters.hazardStatus} onChange={e => onFilterChange('hazardStatus', e.target.value)}>
+                    <label htmlFor="field-DamsPage-17659" className="block text-xs font-medium text-gray-500 mb-1">Hazard</label>
+                    <AppSelect id="field-DamsPage-17659" className="w-full" value={filters.hazardStatus} onChange={e => onFilterChange('hazardStatus', e.target.value)}>
                         <option value="">All hazard levels</option>
                         {HAZARD_STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                    </select>
+                    </AppSelect>
                 </div>
                 <div className="min-w-[140px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Region</label>
-                    <select className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 bg-white transition" value={filters.regionId} onChange={e => onFilterChange('regionId', e.target.value)}>
+                    <label htmlFor="field-DamsPage-18310" className="block text-xs font-medium text-gray-500 mb-1">Region</label>
+                    <AppSelect id="field-DamsPage-18310" className="w-full" value={filters.regionId} onChange={e => onFilterChange('regionId', e.target.value)}>
                         <option value="">All regions</option>
                         {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                    </select>
+                    </AppSelect>
                 </div>
                 {(hasFilters || search) && (
-                    <button onClick={clearFilters} className="text-xs text-gray-500 hover:text-gray-800 underline self-end pb-2">Clear all</button>
+                    <AppButton onClick={clearFilters} className="underline self-end">Clear all</AppButton>
                 )}
-            </div>
+            </Paper>
 
             {/* Table */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                    <Table className="w-full text-sm">
+                        <TableHead>
+                            <TableRow className="bg-gray-50 border-b border-gray-100 text-left">
                                 {['Code', 'Name', 'Region', 'Type', 'Hazard', 'Status', 'Risk', 'Actions'].map(h => (
-                                    <th key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                                    <TableCell component="th" key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</TableCell>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
+                            </TableRow>
+                        </TableHead>
+                        <TableBody className="divide-y divide-gray-50">
                             {loading ? (
                                 Array.from({ length: 8 }).map((_, i) => (
-                                    <tr key={i}>
+                                    <TableRow key={i}>
                                         {Array.from({ length: 8 }).map((_, j) => (
-                                            <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+                                            <TableCell key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></TableCell>
                                         ))}
-                                    </tr>
+                                    </TableRow>
                                 ))
                             ) : dams.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} className="py-20 text-center">
+                                <TableRow>
+                                    <TableCell colSpan={8} className="py-20 text-center">
                                         <p className="text-sm text-gray-400">No dams found</p>
                                         <p className="text-xs text-gray-300 mt-1">Try adjusting filters or add a new dam</p>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ) : dams.map(dam => (
-                                <tr key={dam.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/admin/dams/${dam.id}`)}>
-                                    <td className="px-4 py-3 font-mono text-xs font-medium text-gray-600">{dam.code}</td>
-                                    <td className="px-4 py-3">
+                                <TableRow key={dam.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/admin/dams/${dam.id}`)}>
+                                    <TableCell className="px-4 py-3 font-mono text-xs font-medium text-gray-600">{dam.code}</TableCell>
+                                    <TableCell className="px-4 py-3">
                                         <p className="font-medium text-gray-900 whitespace-nowrap">{dam.name}</p>
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{dam.regionName ?? '—'}</td>
-                                    <td className="px-4 py-3 text-gray-500 text-xs capitalize">{(dam.damType ?? '').toLowerCase().replace('_', ' ') || '—'}</td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{dam.regionName ?? '—'}</TableCell>
+                                    <TableCell className="px-4 py-3 text-gray-500 text-xs capitalize">{(dam.damType ?? '').toLowerCase().replace('_', ' ') || '—'}</TableCell>
+                                    <TableCell className="px-4 py-3">
                                         <Badge className={hColor(dam.overallHazardStatus)}>
                                             {dam.overallHazardStatus ?? 'Safe'}
                                         </Badge>
-                                    </td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
                                         <span className={`text-xs font-medium capitalize ${sColor(dam.status)}`}>
                                             {(dam.status ?? '').replace('_', ' ') || '—'}
                                         </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-gray-500 capitalize">{(dam.riskClassification ?? '').replace('_', ' ') || '—'}</td>
-                                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-xs text-gray-500 capitalize">{(dam.riskClassification ?? '').replace('_', ' ') || '—'}</TableCell>
+                                    <TableCell className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                         <div className="flex items-center gap-2">
-                                            <button
+                                            <AppButton
                                                 onClick={() => navigate(`/admin/dams/${dam.id}`)}
-                                                className="text-xs text-blue-600 hover:underline font-medium"
-                                            >View</button>
-                                            <button
+                                                className="hover:underline"
+                                            >View</AppButton>
+                                            <AppButton
                                                 onClick={() => setDeletingDam(dam)}
-                                                className="text-xs text-red-500 hover:underline font-medium"
-                                            >Delete</button>
+                                                className="hover:underline"
+                                            >Delete</AppButton>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
 
                 {/* Pagination */}
@@ -408,29 +390,29 @@ export default function DamsPage() {
                             Page {page + 1} of {totalPages} · {total} total dams
                         </p>
                         <div className="flex items-center gap-1">
-                            <button
+                            <AppButton variant="outlined"
                                 disabled={page === 0}
                                 onClick={() => load(page - 1)}
-                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition"
-                            >← Prev</button>
+                                className="disabled:opacity-40"
+                            >← Prev</AppButton>
                             {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
                                 const pg = Math.max(0, page - 2) + i;
                                 if (pg >= totalPages) return null;
                                 return (
-                                    <button key={pg} onClick={() => load(pg)}
+                                    <AppButton key={pg} onClick={() => load(pg)}
                                         className={`w-8 h-8 text-xs font-medium rounded-lg border transition ${pg === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 hover:bg-gray-50'}`}
-                                    >{pg + 1}</button>
+                                    >{pg + 1}</AppButton>
                                 );
                             })}
-                            <button
+                            <AppButton variant="outlined"
                                 disabled={page + 1 >= totalPages}
                                 onClick={() => load(page + 1)}
-                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition"
-                            >Next →</button>
+                                className="disabled:opacity-40"
+                            >Next →</AppButton>
                         </div>
                     </div>
                 )}
-            </div>
+            </Paper>
 
             {/* Modals */}
             {showCreate && (

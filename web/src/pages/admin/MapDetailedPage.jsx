@@ -1,10 +1,29 @@
+import { findFeatureLayer, syncFeatureProperties, recordSavedFeature, persistMapDeletion } from '../../components/map/editorState';
+import { Typography, Paper } from '@mui/material';
+import { AppButton, AppInput, AppSelect } from '../../components/ui/controls';
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Cpu, Map, MapPin, Hexagon, Square, Circle, Database, Code, Edit3, Save, Trash2, RefreshCw, Loader2, Download, Droplets } from 'lucide-react';
+import Cpu from '@mui/icons-material/MemoryRounded';
+import Map from '@mui/icons-material/MapRounded';
+import MapPin from '@mui/icons-material/PlaceRounded';
+import Hexagon from '@mui/icons-material/HexagonRounded';
+import Square from '@mui/icons-material/SquareRounded';
+import Circle from '@mui/icons-material/CircleRounded';
+import Database from '@mui/icons-material/StorageRounded';
+import Code from '@mui/icons-material/CodeRounded';
+import Edit3 from '@mui/icons-material/EditRounded';
+import Save from '@mui/icons-material/SaveRounded';
+import Trash2 from '@mui/icons-material/DeleteRounded';
+import RefreshCw from '@mui/icons-material/RefreshRounded';
+import Loader2 from '@mui/icons-material/AutorenewRounded';
+import Download from '@mui/icons-material/DownloadRounded';
+import Droplets from '@mui/icons-material/WaterDropRounded';
 import GeomanMap, { AREA_COLORS } from '../../components/map/GeomanMap';
 import { createHazardZone, updateHazardZone, deleteHazardZone, createGate, updateGate, deleteGate, getDamHazardZones, getDamGates, updateDam, deleteDam, getDamById } from '../../services/dam.service';
 import { createSensor, updateSensor, deleteSensor, getSensorsByDam } from '../../services/sensor.service';
 import toast from 'react-hot-toast';
+import VictoriaReferenceNotice from '../../components/map/VictoriaReference';
+import { referenceMapFeatures, victoriaReference, isVictoriaDemo } from '../../components/map/victoriaGeography';
 
 export default function MapDetailedPage() {
     const { id } = useParams();
@@ -32,15 +51,19 @@ export default function MapDetailedPage() {
         loadSavedData(damId);
     }, [damId]);
 
+    const loadRequestRef = useRef(0);
+
     const loadSavedData = async (dId) => {
+        const requestId = ++loadRequestRef.current;
         setIsLoadingData(true);
         try {
             const [hazardZones, gates, sensors, currentDam] = await Promise.all([
-                getDamHazardZones(dId).catch(() => []),
-                getDamGates(dId).catch(() => []),
-                getSensorsByDam(dId).catch(() => []),
-                getDamById(dId).catch(() => null),
+                getDamHazardZones(dId),
+                getDamGates(dId),
+                getSensorsByDam(dId),
+                getDamById(dId),
             ]);
+            if (requestId !== loadRequestRef.current) return;
 
             if (currentDam) setDam(currentDam);
 
@@ -66,7 +89,7 @@ export default function MapDetailedPage() {
                                 areaSqKm: zone.areaSqKm, distanceFromDamKm: zone.distanceFromDamKm,
                                 estimatedFloodArrivalMinutes: zone.estimatedFloodArrivalMinutes,
                                 estimatedWaterDepthMeters: zone.estimatedWaterDepthMeters,
-                                fillColor: zone.fillColor || '#fca5a5', fillOpacity: zone.fillOpacity || 0.4,
+                                fillColor: zone.fillColor || '#fca5a5', fillOpacity: zone.fillOpacity ?? 0.4,
                                 strokeColor: zone.strokeColor || '#ef4444', strokeWidth: zone.strokeWidth || 2,
                                 displayOrder: zone.displayOrder, showLabel: zone.showLabel, isActive: zone.isActive,
                             },
@@ -127,7 +150,7 @@ export default function MapDetailedPage() {
             }
 
             if (features.length > 0) {
-                const geoJSON = { type: 'FeatureCollection', features };
+                const geoJSON = { type: 'FeatureCollection', features: referenceMapFeatures(currentDam, features) };
                 setInitialGeoJSON(JSON.stringify(geoJSON));
                 setCurrentGeoJSON(JSON.stringify(geoJSON));
                 setMapKey(prev => prev + 1);
@@ -138,10 +161,11 @@ export default function MapDetailedPage() {
                 setMapKey(prev => prev + 1);
             }
         } catch (error) {
+            if (requestId !== loadRequestRef.current) return;
             console.error('Failed to load saved data:', error);
             toast.error('Failed to load saved data from database');
         } finally {
-            setIsLoadingData(false);
+            if (requestId === loadRequestRef.current) setIsLoadingData(false);
         }
     };
 
@@ -244,7 +268,7 @@ export default function MapDetailedPage() {
                     }
                     return feature;
                 });
-                if (modified) { setCurrentGeoJSON(JSON.stringify(parsed)); return; }
+                if (modified) { setCurrentGeoJSON(JSON.stringify(syncFeatureProperties(mapFeatureGroupRef.current, parsed))); return; }
             } catch (e) { console.error('Error patching GeoJSON properties', e); }
         }
         setCurrentGeoJSON(geojson);
@@ -268,17 +292,17 @@ export default function MapDetailedPage() {
                 feature.properties[field] = value;
                 if (field === 'fillColor' || field === 'strokeColor' || field === 'fillOpacity') {
                     if (mapFeatureGroupRef.current) {
-                        const layers = Object.values(mapFeatureGroupRef.current._layers || {});
-                        if (layers[idx]) {
-                            layers[idx].setStyle({
+                        const layer = findFeatureLayer(mapFeatureGroupRef.current, feature, idx);
+                        if (layer) {
+                            layer.setStyle({
                                 fillColor: feature.properties.fillColor,
                                 color: feature.properties.strokeColor,
-                                fillOpacity: feature.properties.fillOpacity || 0.4,
+                                fillOpacity: feature.properties.fillOpacity ?? 0.4,
                             });
                         }
                     }
                 }
-                setCurrentGeoJSON(JSON.stringify(parsed));
+                setCurrentGeoJSON(JSON.stringify(syncFeatureProperties(mapFeatureGroupRef.current, parsed)));
             }
         } catch (e) { console.error(e); }
     };
@@ -289,28 +313,28 @@ export default function MapDetailedPage() {
 
     const isSaved = (feature) => feature.properties?.dbId != null;
 
-    const updateFeatureDbId = (idx, newDbId) => {
-        if (!currentGeoJSON) return;
-        try {
-            const parsed = JSON.parse(currentGeoJSON);
-            if (parsed.features[idx]) { parsed.features[idx].properties.dbId = newDbId; setCurrentGeoJSON(JSON.stringify(parsed)); }
-        } catch (e) { console.error(e); }
+    const updateFeatureDbId = (layer, dbId) => {
+        if (!layer || !mapFeatureGroupRef.current?.hasLayer(layer)) return;
+        layer.feature.properties.dbId = dbId;
+        setCurrentGeoJSON(previous => recordSavedFeature(previous, layer, dbId));
     };
 
     const removeFeatureFromMap = (idx) => {
         if (!currentGeoJSON) return;
         try {
             const parsed = JSON.parse(currentGeoJSON);
+            const feature = parsed.features[idx];
             parsed.features.splice(idx, 1);
             setCurrentGeoJSON(parsed.features.length > 0 ? JSON.stringify(parsed) : null);
             if (mapFeatureGroupRef.current) {
-                const layers = Object.values(mapFeatureGroupRef.current._layers || {});
-                if (layers[idx]) mapFeatureGroupRef.current.removeLayer(layers[idx]);
+                const layer = findFeatureLayer(mapFeatureGroupRef.current, feature, idx);
+                if (layer) mapFeatureGroupRef.current.removeLayer(layer);
             }
         } catch (e) { console.error(e); }
     };
 
     const handleSave = async (idx, feature) => {
+        const savedLayer = findFeatureLayer(mapFeatureGroupRef.current, feature, idx);
         const type = feature.properties?.type || feature.geometry.type;
         setLoading(idx, 'save', true);
         try {
@@ -330,7 +354,7 @@ export default function MapDetailedPage() {
                     estimatedFloodArrivalMinutes: feature.properties.estimatedFloodArrivalMinutes || null,
                     estimatedWaterDepthMeters: feature.properties.estimatedWaterDepthMeters || null,
                     fillColor: feature.properties.fillColor || null,
-                    fillOpacity: feature.properties.fillOpacity || null,
+                    fillOpacity: feature.properties.fillOpacity ?? null,
                     strokeColor: feature.properties.strokeColor || null,
                     strokeWidth: feature.properties.strokeWidth || null,
                     displayOrder: feature.properties.displayOrder || null,
@@ -338,7 +362,7 @@ export default function MapDetailedPage() {
                     isActive: feature.properties.isActive !== false,
                 };
                 const result = await createHazardZone(payload);
-                updateFeatureDbId(idx, result.id);
+                updateFeatureDbId(savedLayer, result.id);
                 toast.success(`Hazard Zone "${payload.zoneName}" saved successfully!`);
             } else if (type === 'gateCircle') {
                 const payload = {
@@ -352,7 +376,7 @@ export default function MapDetailedPage() {
                     status: feature.properties.status || 'closed',
                 };
                 const result = await createGate(payload);
-                updateFeatureDbId(idx, result.id);
+                updateFeatureDbId(savedLayer, result.id);
                 toast.success(`Gate "${payload.gateNumber}" saved successfully!`);
             } else if (type === 'sensorCircle' || type === 'circleMarker') {
                 const payload = {
@@ -379,7 +403,7 @@ export default function MapDetailedPage() {
                     status: feature.properties.status || 'active',
                 };
                 const result = await createSensor(payload);
-                updateFeatureDbId(idx, result.id);
+                updateFeatureDbId(savedLayer, result.id);
                 toast.success(`Sensor "${payload.name}" saved successfully!`);
             }
         } catch (error) {
@@ -489,42 +513,63 @@ export default function MapDetailedPage() {
         } finally { setLoading(idx, 'delete', false); }
     };
 
+    const handleToolbarDelete = async (layer) => {
+        const feature = layer.feature;
+        const type = feature.properties?.type;
+        if (type === 'damCircle') {
+            toast.error('Cannot delete Dam Location. You can only move it.');
+            return false;
+        }
+        try {
+            const deleted = await persistMapDeletion(feature, {
+                polygon: deleteHazardZone, rectangle: deleteHazardZone,
+                gateCircle: deleteGate, sensorCircle: deleteSensor, damCircle: deleteDam,
+            }, () => confirm('Delete this map item? Saved items will also be deleted from the database.'));
+            if (!deleted) return false;
+            toast.success('Map item deleted.');
+            return true;
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to delete map item.');
+            return false;
+        }
+    };
+
     return (
         <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-4">
             {/* Header */}
             <div className="flex justify-between items-center shrink-0">
                 <div>
-                    <button
+                    <AppButton
                         onClick={() => navigate(`/admin/dams/${id}`)}
-                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 mb-1.5 transition"
+                        className="flex items-center gap-1 mb-1.5"
                     >
                         ← Back to Dam
-                    </button>
-                    <h1 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
+                    </AppButton>
+                    <Typography component="h1" variant="h1" className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
                         {dam ? `${dam.name} — Map & Layout` : 'Map & Layout'}
-                    </h1>
+                    </Typography>
                     <p className="text-sm text-gray-500 mt-0.5 pl-4 flex items-center gap-2">
                         <Cpu className="w-4 h-4" />
                         Draw, edit and manage hazard zones, gates and sensors on the map
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
+                    <AppButton
                         onClick={() => loadSavedData(damId)}
                         disabled={isLoadingData}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 disabled:opacity-50"
                     >
                         {isLoadingData ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         Reload
-                    </button>
+                    </AppButton>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
                 {/* Map Section */}
-                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col min-h-[500px]">
+                <Paper variant="outlined" className="lg:col-span-2 bg-white   border border-gray-200 p-4 flex flex-col min-h-[500px]">
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-semibold text-gray-800">Interactive Map</h2>
+                        <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800">Interactive Map</Typography>
                         {isLoadingData && (
                             <span className="text-sm text-blue-600 flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -532,30 +577,35 @@ export default function MapDetailedPage() {
                             </span>
                         )}
                     </div>
+                    <VictoriaReferenceNotice dam={dam} />
                     <div className="flex-1 w-full rounded border border-gray-300 overflow-hidden isolate relative z-0">
                         <GeomanMap
                             key={mapKey}
                             onMapChange={handleMapChange}
+                            onShapeDeleted={handleToolbarDelete}
                             activeAreaColor={activeColor}
                             height="100%"
                             initialGeoJson={initialGeoJSON}
+                            referenceGeoJson={victoriaReference(dam)}
+                            safeLocationDamId={dam?.id}
+                            fitBoundsOnLoad={!isVictoriaDemo(dam)}
                             onFeatureGroupReady={handleFeatureGroupRef}
                         />
                     </div>
-                </div>
+                </Paper>
 
                 {/* Entities Panel */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                <Paper variant="outlined" className="bg-white   border border-gray-200 flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-800">Map Entities</h2>
+                            <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800">Map Entities</Typography>
                             <p className="text-xs text-gray-500 mt-1">Manage drawn elements</p>
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
                             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Draw Color</span>
                             <div className="flex gap-1.5">
                                 {AREA_COLORS.map(color => (
-                                    <button
+                                    <AppButton
                                         key={color.id}
                                         onClick={() => setActiveColor(color)}
                                         title={color.name}
@@ -616,21 +666,21 @@ export default function MapDetailedPage() {
 
                                         {/* Tabs */}
                                         <div className="flex gap-1 border-b border-gray-200 mt-1 overflow-x-auto">
-                                            <button onClick={() => toggleTab(idx, 'data')} className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'data' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'} rounded-t-md`}>
+                                            <AppButton onClick={() => toggleTab(idx, 'data')} className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'data' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'} rounded-t-md`}>
                                                 <Database className="w-3.5 h-3.5" /> Data
-                                            </button>
+                                            </AppButton>
                                             {(isPolygon || isSensor || isGate) && (
-                                                <button onClick={() => toggleTab(idx, 'edit')} className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'edit' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'} rounded-t-md`}>
+                                                <AppButton onClick={() => toggleTab(idx, 'edit')} className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'edit' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'} rounded-t-md`}>
                                                     <Edit3 className="w-3.5 h-3.5" /> Edit Props
-                                                </button>
+                                                </AppButton>
                                             )}
-                                            <button onClick={() => toggleTab(idx, 'json')} className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'json' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'} rounded-t-md`}>
+                                            <AppButton onClick={() => toggleTab(idx, 'json')} className={`flex items-center whitespace-nowrap gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 ${currentTab === 'json' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'} rounded-t-md`}>
                                                 <Code className="w-3.5 h-3.5" /> JSON
-                                            </button>
+                                            </AppButton>
                                         </div>
 
                                         {/* Tab Content */}
-                                        <div className="bg-white border flex flex-col justify-center border-gray-100 rounded-lg p-2 min-h-[64px]">
+                                        <Paper variant="outlined" className="bg-white border flex flex-col justify-center border-gray-100  p-2 min-h-[64px]">
                                             {currentTab === 'data' ? (
                                                 <div className="flex flex-col gap-1.5 text-xs text-gray-600">
                                                     <div className="flex justify-between items-center px-1">
@@ -658,13 +708,13 @@ export default function MapDetailedPage() {
                                                             { label: 'Name (Sinhala)', field: 'zoneNameSi', type: 'text', placeholder: 'සිංහල...' },
                                                         ].map(({ label, field, type: t, placeholder }) => (
                                                             <div key={field} className="flex flex-col gap-1">
-                                                                <label className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
-                                                                <input type={t} value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, t === 'number' ? parseInt(e.target.value) : e.target.value)} placeholder={placeholder} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
+                                                                <label htmlFor="field-MapDetailedPage-43227" className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
+                                                                <AppInput id="field-MapDetailedPage-43227" type={t} value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, t === 'number' ? parseInt(e.target.value) : e.target.value)} placeholder={placeholder} className="" />
                                                             </div>
                                                         ))}
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
-                                                            <input type="text" value={feature.properties.description || ''} onChange={e => handlePropertyChange(idx, 'description', e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
+                                                            <label htmlFor="field-MapDetailedPage-43996" className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
+                                                            <AppInput id="field-MapDetailedPage-43996" type="text" value={feature.properties.description || ''} onChange={e => handlePropertyChange(idx, 'description', e.target.value)} className="" />
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
@@ -675,35 +725,35 @@ export default function MapDetailedPage() {
                                                             { label: 'Depth (Meters)', field: 'estimatedWaterDepthMeters', step: '0.1' },
                                                         ].map(({ label, field, step }) => (
                                                             <div key={field} className="flex flex-col gap-1">
-                                                                <label className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
-                                                                <input type="number" step={step} value={feature.properties[field] || 0} onChange={e => handlePropertyChange(idx, field, parseFloat(e.target.value))} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                                <label htmlFor="field-MapDetailedPage-45546" className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
+                                                                <AppInput id="field-MapDetailedPage-45546" type="number" step={step} value={feature.properties[field] || 0} onChange={e => handlePropertyChange(idx, field, parseFloat(e.target.value))} className="" />
                                                             </div>
                                                         ))}
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Fill Color</label>
-                                                            <input type="color" value={feature.properties.fillColor || '#fca5a5'} onChange={e => handlePropertyChange(idx, 'fillColor', e.target.value)} className="w-full h-8 px-1 rounded border border-gray-200 cursor-pointer bg-white" />
+                                                            <label htmlFor="field-MapDetailedPage-46428" className="text-[10px] font-semibold text-gray-500 uppercase">Fill Color</label>
+                                                            <AppInput id="field-MapDetailedPage-46428" type="color" value={feature.properties.fillColor || '#fca5a5'} onChange={e => handlePropertyChange(idx, 'fillColor', e.target.value)} className="w-full h-8 cursor-pointer" />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Color</label>
-                                                            <input type="color" value={feature.properties.strokeColor || '#ef4444'} onChange={e => handlePropertyChange(idx, 'strokeColor', e.target.value)} className="w-full h-8 px-1 rounded border border-gray-200 cursor-pointer bg-white" />
+                                                            <label htmlFor="field-MapDetailedPage-47026" className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Color</label>
+                                                            <AppInput id="field-MapDetailedPage-47026" type="color" value={feature.properties.strokeColor || '#ef4444'} onChange={e => handlePropertyChange(idx, 'strokeColor', e.target.value)} className="w-full h-8 cursor-pointer" />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Fill Opacity</label>
-                                                            <input type="number" step="0.1" min="0" max="1" value={feature.properties.fillOpacity || 0.4} onChange={e => handlePropertyChange(idx, 'fillOpacity', parseFloat(e.target.value))} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                            <label htmlFor="field-MapDetailedPage-47628" className="text-[10px] font-semibold text-gray-500 uppercase">Fill Opacity</label>
+                                                            <AppInput id="field-MapDetailedPage-47628" type="number" step="0.1" min="0" max="1" value={feature.properties.fillOpacity ?? 0.4} onChange={e => handlePropertyChange(idx, 'fillOpacity', parseFloat(e.target.value))} className="" />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Width</label>
-                                                            <input type="number" min="0" value={feature.properties.strokeWidth || 2} onChange={e => handlePropertyChange(idx, 'strokeWidth', parseInt(e.target.value))} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                            <label htmlFor="field-MapDetailedPage-48277" className="text-[10px] font-semibold text-gray-500 uppercase">Stroke Width</label>
+                                                            <AppInput id="field-MapDetailedPage-48277" type="number" min="0" value={feature.properties.strokeWidth || 2} onChange={e => handlePropertyChange(idx, 'strokeWidth', parseInt(e.target.value))} className="" />
                                                         </div>
                                                         <div className="flex flex-col gap-2 col-span-2">
                                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                                <input type="checkbox" checked={feature.properties.showLabel !== false} onChange={e => handlePropertyChange(idx, 'showLabel', e.target.checked)} className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300" />
+                                                                <AppInput type="checkbox" checked={feature.properties.showLabel !== false} onChange={e => handlePropertyChange(idx, 'showLabel', e.target.checked)} className="w-3.5 h-3.5" />
                                                                 <span className="text-[11px] font-medium text-gray-700">Show Label</span>
                                                             </label>
                                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                                <input type="checkbox" checked={feature.properties.isActive !== false} onChange={e => handlePropertyChange(idx, 'isActive', e.target.checked)} className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300" />
+                                                                <AppInput type="checkbox" checked={feature.properties.isActive !== false} onChange={e => handlePropertyChange(idx, 'isActive', e.target.checked)} className="w-3.5 h-3.5" />
                                                                 <span className="text-[11px] font-medium text-gray-700">Is Active</span>
                                                             </label>
                                                         </div>
@@ -718,26 +768,26 @@ export default function MapDetailedPage() {
                                                             { label: 'Name', field: 'name', type: 'text' },
                                                         ].map(({ label, field, type: t }) => (
                                                             <div key={field} className="flex flex-col gap-1">
-                                                                <label className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
-                                                                <input type={t} value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, t === 'number' ? parseInt(e.target.value) : e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                                <label htmlFor="field-MapDetailedPage-51277" className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
+                                                                <AppInput id="field-MapDetailedPage-51277" type={t} value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, t === 'number' ? parseInt(e.target.value) : e.target.value)} className="" />
                                                             </div>
                                                         ))}
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
-                                                            <select value={feature.properties.status || 'active'} onChange={e => handlePropertyChange(idx, 'status', e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-blue-400">
+                                                            <label htmlFor="field-MapDetailedPage-51971" className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
+                                                            <AppSelect id="field-MapDetailedPage-51971" value={feature.properties.status || 'active'} onChange={e => handlePropertyChange(idx, 'status', e.target.value)} className="">
                                                                 <option value="active">Active</option>
                                                                 <option value="inactive">Inactive</option>
                                                                 <option value="maintenance">Maintenance</option>
                                                                 <option value="offline">Offline</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Location on Dam</label>
-                                                            <input type="text" value={feature.properties.locationOnDam || ''} onChange={e => handlePropertyChange(idx, 'locationOnDam', e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                            <label htmlFor="field-MapDetailedPage-53087" className="text-[10px] font-semibold text-gray-500 uppercase">Location on Dam</label>
+                                                            <AppInput id="field-MapDetailedPage-53087" type="text" value={feature.properties.locationOnDam || ''} onChange={e => handlePropertyChange(idx, 'locationOnDam', e.target.value)} className="" />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
-                                                            <input type="text" value={feature.properties.description || ''} onChange={e => handlePropertyChange(idx, 'description', e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                            <label htmlFor="field-MapDetailedPage-53708" className="text-[10px] font-semibold text-gray-500 uppercase">Description</label>
+                                                            <AppInput id="field-MapDetailedPage-53708" type="text" value={feature.properties.description || ''} onChange={e => handlePropertyChange(idx, 'description', e.target.value)} className="" />
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
@@ -747,13 +797,13 @@ export default function MapDetailedPage() {
                                                             { label: 'Serial Number', field: 'serialNumber' },
                                                         ].map(({ label, field }) => (
                                                             <div key={field} className="flex flex-col gap-1">
-                                                                <label className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
-                                                                <input type="text" value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                                <label htmlFor="field-MapDetailedPage-55001" className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
+                                                                <AppInput id="field-MapDetailedPage-55001" type="text" value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, e.target.value)} className="" />
                                                             </div>
                                                         ))}
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Elevation (m)</label>
-                                                            <input type="number" step="0.1" value={feature.properties.elevationMeters || 0} onChange={e => handlePropertyChange(idx, 'elevationMeters', parseFloat(e.target.value))} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                            <label htmlFor="field-MapDetailedPage-55661" className="text-[10px] font-semibold text-gray-500 uppercase">Elevation (m)</label>
+                                                            <AppInput id="field-MapDetailedPage-55661" type="number" step="0.1" value={feature.properties.elevationMeters || 0} onChange={e => handlePropertyChange(idx, 'elevationMeters', parseFloat(e.target.value))} className="" />
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded border border-gray-100">
@@ -765,8 +815,8 @@ export default function MapDetailedPage() {
                                                             { label: 'Interval (sec)', field: 'readingIntervalSeconds', isInt: true },
                                                         ].map(({ label, field, isInt }) => (
                                                             <div key={field} className="flex flex-col gap-1">
-                                                                <label className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
-                                                                <input type="number" step={isInt ? '1' : '0.1'} value={feature.properties[field] || 0} onChange={e => handlePropertyChange(idx, field, isInt ? parseInt(e.target.value) : parseFloat(e.target.value))} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400" />
+                                                                <label htmlFor="field-MapDetailedPage-57257" className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
+                                                                <AppInput id="field-MapDetailedPage-57257" type="number" step={isInt ? '1' : '0.1'} value={feature.properties[field] || 0} onChange={e => handlePropertyChange(idx, field, isInt ? parseInt(e.target.value) : parseFloat(e.target.value))} className="" />
                                                             </div>
                                                         ))}
                                                     </div>
@@ -777,8 +827,8 @@ export default function MapDetailedPage() {
                                                             { label: 'Next Calibration', field: 'nextCalibrationDate' },
                                                         ].map(({ label, field }) => (
                                                             <div key={field} className="flex flex-col gap-1">
-                                                                <label className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
-                                                                <input type="date" value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-blue-400 text-xs" />
+                                                                <label htmlFor="field-MapDetailedPage-58717" className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
+                                                                <AppInput id="field-MapDetailedPage-58717" type="date" value={feature.properties[field] || ''} onChange={e => handlePropertyChange(idx, field, e.target.value)} className="" />
                                                             </div>
                                                         ))}
                                                     </div>
@@ -787,44 +837,44 @@ export default function MapDetailedPage() {
                                                 <div className="flex flex-col gap-3 text-xs overflow-y-auto max-h-[300px] pr-1">
                                                     <div className="grid grid-cols-2 gap-2 p-2 bg-amber-50 rounded border border-amber-100">
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Gate Number</label>
-                                                            <input type="text" value={feature.properties.gateNumber || ''} onChange={e => handlePropertyChange(idx, 'gateNumber', e.target.value)} placeholder="G01" className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-amber-400" />
+                                                            <label htmlFor="field-MapDetailedPage-59856" className="text-[10px] font-semibold text-gray-500 uppercase">Gate Number</label>
+                                                            <AppInput id="field-MapDetailedPage-59856" type="text" value={feature.properties.gateNumber || ''} onChange={e => handlePropertyChange(idx, 'gateNumber', e.target.value)} placeholder="G01" className="" />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Gate Type</label>
-                                                            <select value={feature.properties.gateType || 'radial'} onChange={e => handlePropertyChange(idx, 'gateType', e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-amber-400">
+                                                            <label htmlFor="field-MapDetailedPage-60477" className="text-[10px] font-semibold text-gray-500 uppercase">Gate Type</label>
+                                                            <AppSelect id="field-MapDetailedPage-60477" value={feature.properties.gateType || 'radial'} onChange={e => handlePropertyChange(idx, 'gateType', e.target.value)} className="">
                                                                 <option value="radial">Radial</option>
                                                                 <option value="vertical">Vertical</option>
                                                                 <option value="drum">Drum</option>
                                                                 <option value="flap">Flap</option>
                                                                 <option value="sluice">Sluice</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Max Opening (m)</label>
-                                                            <input type="number" step="0.1" value={feature.properties.maxOpeningMeters || 0} onChange={e => handlePropertyChange(idx, 'maxOpeningMeters', parseFloat(e.target.value))} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-amber-400" />
+                                                            <label htmlFor="field-MapDetailedPage-61671" className="text-[10px] font-semibold text-gray-500 uppercase">Max Opening (m)</label>
+                                                            <AppInput id="field-MapDetailedPage-61671" type="number" step="0.1" value={feature.properties.maxOpeningMeters || 0} onChange={e => handlePropertyChange(idx, 'maxOpeningMeters', parseFloat(e.target.value))} className="" />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Current Opening (m)</label>
-                                                            <input type="number" step="0.1" value={feature.properties.currentOpeningMeters || 0} onChange={e => handlePropertyChange(idx, 'currentOpeningMeters', parseFloat(e.target.value))} className="px-2 py-1.5 rounded border border-gray-200 focus:outline-none focus:border-amber-400" />
+                                                            <label htmlFor="field-MapDetailedPage-62320" className="text-[10px] font-semibold text-gray-500 uppercase">Current Opening (m)</label>
+                                                            <AppInput id="field-MapDetailedPage-62320" type="number" step="0.1" value={feature.properties.currentOpeningMeters || 0} onChange={e => handlePropertyChange(idx, 'currentOpeningMeters', parseFloat(e.target.value))} className="" />
                                                         </div>
                                                         <div className="flex flex-col gap-1 col-span-2">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
-                                                            <select value={feature.properties.status || 'closed'} onChange={e => handlePropertyChange(idx, 'status', e.target.value)} className="px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:border-amber-400">
+                                                            <label htmlFor="field-MapDetailedPage-62975" className="text-[10px] font-semibold text-gray-500 uppercase">Status</label>
+                                                            <AppSelect id="field-MapDetailedPage-62975" value={feature.properties.status || 'closed'} onChange={e => handlePropertyChange(idx, 'status', e.target.value)} className="">
                                                                 <option value="closed">Closed</option>
                                                                 <option value="partial">Partial</option>
                                                                 <option value="fully_open">Fully Open</option>
                                                                 <option value="maintenance">Maintenance</option>
                                                                 <option value="jammed">Jammed</option>
-                                                            </select>
+                                                            </AppSelect>
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
-                                                            <input type="number" step="0.0001" value={feature.properties.latitude || 0} readOnly className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed" />
+                                                            <label htmlFor="field-MapDetailedPage-64182" className="text-[10px] font-semibold text-gray-500 uppercase">Latitude</label>
+                                                            <AppInput id="field-MapDetailedPage-64182" type="number" step="0.0001" value={feature.properties.latitude || 0} readOnly className="cursor-not-allowed" />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
-                                                            <input type="number" step="0.0001" value={feature.properties.longitude || 0} readOnly className="px-2 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed" />
+                                                            <label htmlFor="field-MapDetailedPage-64738" className="text-[10px] font-semibold text-gray-500 uppercase">Longitude</label>
+                                                            <AppInput id="field-MapDetailedPage-64738" type="number" step="0.0001" value={feature.properties.longitude || 0} readOnly className="cursor-not-allowed" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -835,26 +885,26 @@ export default function MapDetailedPage() {
                                                     </pre>
                                                 </div>
                                             )}
-                                        </div>
+                                        </Paper>
 
                                         {/* Action Buttons */}
                                         {(isPolygon || isSensor || isGate || isDam) && (
                                             <div className="flex gap-2 pt-2 border-t border-gray-200 mt-1">
                                                 {!isSaved(feature) ? (
-                                                    <button onClick={() => handleSave(idx, feature)} disabled={loadingStates[idx]?.save} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50">
+                                                    <AppButton variant="contained" onClick={() => handleSave(idx, feature)} disabled={loadingStates[idx]?.save} className="flex-1 flex items-center justify-center gap-1.5 disabled:opacity-50">
                                                         {loadingStates[idx]?.save ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                                                         Save to DB
-                                                    </button>
+                                                    </AppButton>
                                                 ) : (
-                                                    <button onClick={() => handleUpdate(idx, feature)} disabled={loadingStates[idx]?.update} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50">
+                                                    <AppButton variant="contained" onClick={() => handleUpdate(idx, feature)} disabled={loadingStates[idx]?.update} className="flex-1 flex items-center justify-center gap-1.5 disabled:opacity-50">
                                                         {loadingStates[idx]?.update ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                                                         Update
-                                                    </button>
+                                                    </AppButton>
                                                 )}
-                                                <button onClick={() => handleDelete(idx, feature)} disabled={loadingStates[idx]?.delete} className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50">
+                                                <AppButton variant="contained" color="error" onClick={() => handleDelete(idx, feature)} disabled={loadingStates[idx]?.delete} className="flex items-center justify-center gap-1.5 disabled:opacity-50">
                                                     {loadingStates[idx]?.delete ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                                     Delete
-                                                </button>
+                                                </AppButton>
                                             </div>
                                         )}
                                         {isSaved(feature) && (
@@ -868,7 +918,7 @@ export default function MapDetailedPage() {
                             });
                         })()}
                     </div>
-                </div>
+                </Paper>
             </div>
         </div>
     );

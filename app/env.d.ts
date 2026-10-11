@@ -1,6 +1,7 @@
 declare module "@env" {
   export const API_BASE_URL: string;
   export const API_TIMEOUT: string;
+  export const API_USE_EXPO_PROXY: string;
   export const VIEWER_EMAIL: string;
   export const VIEWER_PASSWORD: string;
   export const TEST_TOKEN: string;

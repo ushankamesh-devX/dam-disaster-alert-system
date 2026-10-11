@@ -17,7 +17,22 @@ Spring Boot backend API for the Dam Disaster Alert System.
 
 ### Access Locally
 - API: http://localhost:8080
-- Database: localhost:3306
+- Database: localhost:3307 (Docker)
+
+### Seed the demo database
+
+With `api/.env` configured and Docker running, execute from `api`:
+
+```powershell
+python scripts/setup_demo.py
+```
+
+This starts MySQL, migrates its schema, seeds the demo data, then starts API/web.
+Use `--database-only` to migrate and seed without starting API/web. The API uses
+Hibernate schema validation, so run setup before its first startup.
+Repeat runs preserve existing records and prevent duplicates. Check without
+changing database records using `python scripts/seed_demo.py --validate-only`.
+See [demo data coverage and requirements](scripts/DEMO-DATA.md).
 
 ---
 

@@ -16,20 +16,22 @@ VIEWPORTS = {
 }
 
 ADMIN_PAGES = {
-    "dashboard":   {"path": "/admin/dashboard",   "heading": "dashboard"},
-    "reports":     {"path": "/admin/reports",     "heading": "report"},
-    "dams":        {"path": "/admin/dams",        "heading": "dam"},
-    "sensors":     {"path": "/admin/sensors",     "heading": "sensor"},
-    "alerts":      {"path": "/admin/alerts",      "heading": "alert"},
-    "device_keys": {"path": "/admin/device-keys", "heading": "key|device"},
-    "users":       {"path": "/admin/users",       "heading": "user"},
-    "regions":     {"path": "/admin/regions",     "heading": "region"},
-    "roles":       {"path": "/admin/roles",       "heading": "role"},
-    "news":        {"path": "/admin/news",        "heading": "news"},
+    "dashboard":      {"path": "/admin/dashboard",                  "heading": "dashboard"},
+    "reports":        {"path": "/admin/reports",                    "heading": "report"},
+    "dams":           {"path": "/admin/dams",                       "heading": "dam"},
+    "sensors":        {"path": "/admin/sensors",                    "heading": "sensor"},
+    "alerts":         {"path": "/admin/alerts",                     "heading": "alert"},
+    "device_keys":    {"path": "/admin/device-keys",                "heading": "key|device"},
+    "users":          {"path": "/admin/users",                      "heading": "user"},
+    "regions":        {"path": "/admin/regions",                    "heading": "region"},
+    "roles":          {"path": "/admin/roles",                      "heading": "role"},
+    "news":           {"path": "/admin/news",                       "heading": "news"},
+    "map_func":       {"path": "/admin/mapFunc",                    "heading": "map"},
+    "safe_locations": {"path": "/admin/system-safe-locations-test", "heading": "safe|location|evacuation"},
 }
 
 PUBLIC_PAGES = {
-    "home":     {"path": "/",         "heading": ""},
+    "home":     {"path": "/home",     "heading": ""},
     "login":    {"path": "/login",    "heading": "login|sign in|welcome"},
     "register": {"path": "/register", "heading": "register|sign up|create"},
 }

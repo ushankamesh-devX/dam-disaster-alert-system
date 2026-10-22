@@ -11,6 +11,7 @@ import AdminRoute from '../components/guards/AdminRoute';
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'));
 const HomePage = lazy(() => import('../pages/HomePage'));
+const PublicAlertsPage = lazy(() => import('../pages/PublicAlertsPage'));
 const DashboardPage = lazy(() => import('../pages/admin/DashboardPage'));
 const DamsPage = lazy(() => import('../pages/admin/DamsPage'));
 const DamDetailPage = lazy(() => import('../pages/admin/DamDetailPage'));
@@ -42,6 +43,10 @@ function Soon({ title }) {
 
 const router = createBrowserRouter([
     { path: '/', element: <Navigate to="/login" replace /> },
+
+    // ── Public Information Page (no authentication required) ─────────────────
+    { path: '/alerts', element: <PublicAlertsPage /> },
+    { path: '/public/alerts', element: <Navigate to="/alerts" replace /> },
 
     {
         element: <AuthLayout />,

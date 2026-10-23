@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
 public class AlertService {
 
         private static final Logger log = LoggerFactory.getLogger(AlertService.class);

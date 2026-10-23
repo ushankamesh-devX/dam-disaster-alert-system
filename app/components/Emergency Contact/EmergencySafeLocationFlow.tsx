@@ -164,6 +164,7 @@ export function EmergencySafeLocationFlow() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="flex-row items-center justify-between mb-3">
           <TouchableOpacity
+            testID="safe-location-back-btn"
             accessibilityRole="button"
             accessibilityLabel="Back to map"
             onPress={() => setSelected(null)}
@@ -195,6 +196,7 @@ export function EmergencySafeLocationFlow() {
 
             <View className="flex-row gap-3 mt-4">
               <TouchableOpacity
+                testID="safe-location-directions-btn"
                 accessibilityRole="button"
                 accessibilityLabel="Directions"
                 onPress={() => openDirections(selected.latitude, selected.longitude, selected.name)}
@@ -205,6 +207,7 @@ export function EmergencySafeLocationFlow() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                testID="safe-location-call-btn"
                 accessibilityRole="button"
                 accessibilityLabel="Call"
                 onPress={() => makeCall(selected.phoneNumber)}
@@ -320,6 +323,9 @@ export function EmergencySafeLocationFlow() {
 
       {/* National emergency call banner */}
       <TouchableOpacity
+        testID="emergency-hotline-banner"
+        accessibilityRole="button"
+        accessibilityLabel="Call Disaster Management Centre 117"
         onPress={() => makeCall(DEFAULT_EMERGENCY_NUMBER)}
         className="mt-4 bg-red-600 rounded-2xl px-4 py-3 flex-row items-center justify-between"
         activeOpacity={0.85}
@@ -347,6 +353,9 @@ export function EmergencySafeLocationFlow() {
             return (
               <TouchableOpacity
                 key={loc.id}
+                testID="safe-location-card"
+                accessibilityRole="button"
+                accessibilityLabel={loc.name}
                 activeOpacity={0.85}
                 onPress={() => setSelected(loc)}
                 className="bg-white border border-gray-200 rounded-2xl px-4 py-3"

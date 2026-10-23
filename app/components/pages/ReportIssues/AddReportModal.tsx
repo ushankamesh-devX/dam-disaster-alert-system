@@ -160,6 +160,9 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                 {t('select_dam')}
                             </Text>
                             <TouchableOpacity
+                                testID="report-select-dam"
+                                accessibilityRole="button"
+                                accessibilityLabel="Select Dam"
                                 onPress={() => setShowDamPicker(!showDamPicker)}
                                 className="bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between border-2 border-gray-200"
                                 style={{
@@ -286,6 +289,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                 {t('description')}
                             </Text>
                             <TextInput
+                                testID="report-input-desc"
                                 className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 text-base"
                                 placeholder={t('describe_issue_placeholder')}
                                 placeholderTextColor="#9CA3AF"
@@ -335,8 +339,8 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                                     style={{
                                                         shadowColor: '#000',
                                                         shadowOffset: { width: 0, height: 2 },
-                                                        shadowOpacity: 0.3,
-                                                        shadowRadius: 3,
+                                                        shadowOpacity: 0.25,
+                                                        shadowRadius: 3.84,
                                                         elevation: 5,
                                                     }}
                                                 >
@@ -381,12 +385,18 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Action Buttons */}
                         <View className="flex-row mb-4">
                             <TouchableOpacity
+                                testID="report-cancel-btn"
+                                accessibilityRole="button"
+                                accessibilityLabel="Cancel"
                                 onPress={handleClose}
                                 className="flex-1 mr-2 bg-gray-100 rounded-xl py-4 items-center"
                             >
                                 <Text className="text-gray-700 font-semibold text-base">{t('cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
+                                testID="report-submit-btn"
+                                accessibilityRole="button"
+                                accessibilityLabel="Submit Report"
                                 onPress={handleSubmit}
                                 className="flex-1 ml-2 bg-[#455A64] rounded-xl py-4 items-center"
                             >

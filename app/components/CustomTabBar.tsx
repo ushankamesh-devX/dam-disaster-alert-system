@@ -8,18 +8,18 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
     <View style={styles.container}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
-        
+
         // Hide hazard-map from tab bar
         if (route.name === 'hazard-map') {
           return null;
         }
-        
+
         const label =
           options.tabBarLabel !== undefined
             ? options.tabBarLabel
             : options.title !== undefined
-            ? options.title
-            : route.name;
+              ? options.title
+              : route.name;
 
         const isFocused = state.index === index;
 
@@ -48,18 +48,18 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         if (isEmergency) {
           return (
             <View key={route.key} style={styles.emergencyContainer}>
-               <View style={styles.emergencyButtonWrapper}>
+              <View style={styles.emergencyButtonWrapper}>
                 <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityState={isFocused ? { selected: true } : {}}
-                    accessibilityLabel={options.tabBarAccessibilityLabel}
-                    testID={options.tabBarButtonTestID}
-                    onPress={onPress}
-                    onLongPress={onLongPress}
-                    style={styles.emergencyButton}
+                  accessibilityRole="button"
+                  accessibilityState={isFocused ? { selected: true } : {}}
+                  accessibilityLabel={options.tabBarAccessibilityLabel}
+                  testID={options.tabBarButtonTestID}
+                  onPress={onPress}
+                  onLongPress={onLongPress}
+                  style={styles.emergencyButton}
                 >
-                    <MaterialCommunityIcons name="alarm-light-outline" size={32} color="#374151" />
-                    <Text style={styles.emergencyText}>Emergency{'\n'}Contact</Text>
+                  <MaterialCommunityIcons name="alarm-light-outline" size={32} color="#374151" />
+                  <Text style={styles.emergencyText}>Emergency{'\n'}Contact</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -120,24 +120,24 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   emergencyButtonWrapper: {
-      width: 90,
-      height: 90,
-      borderRadius: 45,
-      
-      backgroundColor: 'white',
-      alignItems: 'center',
-      justifyContent: 'center',
-      // Shadow for the floating effect
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: -2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-      elevation: 5,
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Shadow for the floating effect
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   emergencyButton: {
     alignItems: 'center',
@@ -146,10 +146,10 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   emergencyText: {
-      fontSize: 10,
-      color: '#374151',
-      textAlign: 'center',
-      marginTop: 2,
-      lineHeight: 12
+    fontSize: 10,
+    color: '#374151',
+    textAlign: 'center',
+    marginTop: 2,
+    lineHeight: 12
   }
 });

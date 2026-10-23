@@ -93,6 +93,9 @@ export default function ReportScreen() {
 
         {/* Floating Action Button */}
         <TouchableOpacity
+          testID="report-fab-add-btn"
+          accessibilityRole="button"
+          accessibilityLabel="Add Report"
           onPress={() => setModalVisible(true)}
           className="absolute bottom-6 right-6 w-16 h-16 bg-[#455A64] rounded-full items-center justify-center shadow-lg"
           style={{

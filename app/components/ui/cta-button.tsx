@@ -41,11 +41,15 @@ export function CTAButtonYellow(props: CTAButtonProps) {
   return <CTAButton {...props} gradientColors={props.gradientColors ?? [Colors.light.buttonYellowGradientStart, Colors.light.buttonYellowGradientEnd]} />;
 }
 const styles = StyleSheet.create({
-  button: { borderRadius: 16, overflow: 'hidden', elevation: 3,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4 },
+  button: {
+    borderRadius: 16, overflow: 'hidden', elevation: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4
+  },
   compact: { borderRadius: 28 },
-  content: { minHeight: 72, paddingHorizontal: 18, paddingVertical: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12 },
+  content: {
+    minHeight: 72, paddingHorizontal: 18, paddingVertical: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12
+  },
   compactContent: { minHeight: 52, paddingVertical: 12 },
   icon: { width: 28, alignItems: 'center', flexShrink: 0 },
   copy: { flex: 1, minWidth: 0 },

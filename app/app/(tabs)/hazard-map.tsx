@@ -185,6 +185,7 @@ export default function HazardMapScreen() {
         {/* Back Button */}
         <View className="flex-row items-center justify-between mb-3">
           <TouchableOpacity
+            testID="hazard-map-back-btn"
             accessibilityRole="button"
             accessibilityLabel="Back to Dashboard"
             onPress={() => router.replace('/')}
@@ -245,6 +246,9 @@ export default function HazardMapScreen() {
 
       {/* Test Trigger Button - Floating */}
       <TouchableOpacity
+        testID="hazard-test-call-btn"
+        accessibilityRole="button"
+        accessibilityLabel="Test Emergency Call"
         style={styles.testButton}
         onPress={triggerTestCall}
         activeOpacity={0.8}

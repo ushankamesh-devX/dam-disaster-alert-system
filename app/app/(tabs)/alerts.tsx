@@ -75,24 +75,25 @@ export default function AlertsScreen() {
       subtitle={t('alerts_subtitle')}
     >
       <View className="flex-row px-1 mb-6 mt-2">
-        <View className="bg-red-50 border border-red-100 flex-1 rounded-2xl p-3 mr-2 items-center shadow-sm">
+        <View className="bg-red-50 border border-red-100 flex-1 rounded-2xl p-3 mr-2 items-center shadow-sm" testID="alert-count-critical">
           <Text className="text-red-600 font-bold text-lg">{criticalCount}</Text>
           <Text className="text-red-500 text-[10px] uppercase font-bold">Critical</Text>
         </View>
-        <View className="bg-amber-50 border border-amber-100 flex-1 rounded-2xl p-3 mr-2 items-center shadow-sm">
+        <View className="bg-amber-50 border border-amber-100 flex-1 rounded-2xl p-3 mr-2 items-center shadow-sm" testID="alert-count-warning">
           <Text className="text-amber-600 font-bold text-lg">{warningCount}</Text>
           <Text className="text-amber-500 text-[10px] uppercase font-bold">Warnings</Text>
         </View>
-        <View className="bg-blue-50 border border-blue-100 flex-1 rounded-2xl p-3 items-center shadow-sm">
+        <View className="bg-blue-50 border border-blue-100 flex-1 rounded-2xl p-3 items-center shadow-sm" testID="alert-count-updates">
           <Text className="text-blue-600 font-bold text-lg">{updatesCount}</Text>
           <Text className="text-blue-500 text-[10px] uppercase font-bold">Updates</Text>
         </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#2563eb" className="mt-10" />
+        <ActivityIndicator size="large" color="#2563eb" className="mt-10" testID="alerts-loading" />
       ) : (
         <ScrollView
+          testID="alerts-list"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
         >

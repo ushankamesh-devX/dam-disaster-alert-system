@@ -55,7 +55,7 @@ export function AlertCard({ title, description, location, timestamp, imageUrl, t
     const styles = getStyles();
 
     return (
-        <View className="bg-white rounded-3xl mb-4 shadow-md border border-gray-100 overflow-hidden">
+        <View className="bg-white rounded-3xl mb-4 shadow-md border border-gray-100 overflow-hidden" testID="alert-card">
             <View className="flex-row items-start p-5">
                 {/* Icon with Ring Decoration */}
                 <View className={`${styles.iconBg} rounded-2xl w-12 h-12 items-center justify-center mr-4 shadow-sm`}>

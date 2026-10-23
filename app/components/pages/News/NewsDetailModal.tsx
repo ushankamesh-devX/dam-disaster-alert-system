@@ -115,6 +115,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
         >
           <TouchableOpacity 
             activeOpacity={1} 
+            testID="news-detail-modal"
             className="flex-1 bg-white rounded-t-3xl overflow-hidden"
             onPress={(e) => e.stopPropagation()}
           >
@@ -127,6 +128,9 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             <View className="flex-row items-center justify-between px-5 py-3 bg-white border-b border-gray-100">
               <TouchableOpacity 
                 onPress={onClose} 
+                testID="news-detail-close-btn"
+                accessibilityRole="button"
+                accessibilityLabel="Close news detail"
                 className="p-2 -ml-2 rounded-full active:bg-gray-100"
                 activeOpacity={0.7}
               >

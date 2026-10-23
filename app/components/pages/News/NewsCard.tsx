@@ -23,6 +23,9 @@ export const NewsCard: React.FC<NewsCardProps> = ({
   return (
     <TouchableOpacity 
       onPress={onPress}
+      testID="news-card"
+      accessibilityRole="button"
+      accessibilityLabel={title}
       className="bg-white rounded-2xl mb-4 overflow-hidden shadow-sm"
       activeOpacity={0.7}
     >
@@ -42,7 +45,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
 
       {/* Content Section */}
       <View className="p-4">
-        <Text className="text-gray-900 text-lg font-bold mb-2">
+        <Text className="text-gray-900 text-lg font-bold mb-2" testID="news-card-title">
           {title}
         </Text>
         <Text className="text-gray-600 text-sm leading-5 mb-3" numberOfLines={3}>

@@ -26,6 +26,9 @@ export default function SettingsScreen() {
 
                 <View className="bg-gray-100 rounded-xl overflow-hidden">
                     <TouchableOpacity
+                        testID="settings-lang-en"
+                        accessibilityRole="button"
+                        accessibilityLabel="English Language"
                         className={`p-4 border-b border-gray-200 bg-white ${i18n.language === 'en' ? 'bg-[#455A64]' : ''}`}
                         onPress={() => changeLanguage('en')}
                     >
@@ -38,6 +41,9 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                        testID="settings-lang-si"
+                        accessibilityRole="button"
+                        accessibilityLabel="Sinhala Language"
                         className={`p-4 border-b border-gray-200 bg-white ${i18n.language === 'si' ? 'bg-[#455A64]' : ''}`}
                         onPress={() => changeLanguage('si')}
                     >

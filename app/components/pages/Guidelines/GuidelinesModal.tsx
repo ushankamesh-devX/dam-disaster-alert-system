@@ -30,14 +30,19 @@ export function GuidelinesModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/50 items-center justify-center px-4">
+      <View className="flex-1 bg-black/50 items-center justify-center px-4" testID="guidelines-modal">
         <View className="bg-white w-full rounded-2xl overflow-hidden">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-200">
             <View className="flex-row items-center">
               <MaterialCommunityIcons name="book-open-variant" size={22} color="#111827" />
               <Text className="text-lg font-semibold text-gray-900 ml-2">{title}</Text>
             </View>
-            <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Close guidelines">
+            <TouchableOpacity
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close guidelines"
+              testID="guidelines-close-btn"
+            >
               <MaterialCommunityIcons name="close" size={22} color="#6b7280" />
             </TouchableOpacity>
           </View>

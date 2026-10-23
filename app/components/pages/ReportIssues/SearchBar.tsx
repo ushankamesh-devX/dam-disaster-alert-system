@@ -26,6 +26,7 @@ export function SearchBar({
             <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3 mb-3">
                 <MaterialCommunityIcons name="magnify" size={22} color="#6B7280" />
                 <TextInput
+                    testID="report-search-input"
                     className="flex-1 ml-2 text-gray-900 text-base"
                     placeholder={t('search_reports_placeholder')}
                     placeholderTextColor="#9CA3AF"
@@ -33,7 +34,7 @@ export function SearchBar({
                     onChangeText={onSearchChange}
                 />
                 {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => onSearchChange('')}>
+                    <TouchableOpacity onPress={() => onSearchChange('')} testID="report-search-clear">
                         <MaterialCommunityIcons name="close-circle" size={20} color="#6B7280" />
                     </TouchableOpacity>
                 )}
@@ -47,6 +48,9 @@ export function SearchBar({
             >
                 {/* All Filter */}
                 <TouchableOpacity
+                    testID="report-filter-all"
+                    accessibilityRole="button"
+                    accessibilityLabel={t('filter_all')}
                     onPress={() => onFilterChange(null)}
                     className={`mr-2 px-4 py-2 rounded-full ${selectedFilter === null ? 'bg-[#455A64]' : 'bg-gray-100'
                         }`}
@@ -63,6 +67,9 @@ export function SearchBar({
                 {ISSUE_TYPES.map((issueType) => (
                     <TouchableOpacity
                         key={issueType.value}
+                        testID={`report-filter-${issueType.value}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={issueType.label}
                         onPress={() => onFilterChange(
                             selectedFilter === issueType.value ? null : issueType.value
                         )}

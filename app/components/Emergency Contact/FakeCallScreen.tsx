@@ -178,7 +178,7 @@ export default function FakeCallScreen({
                 </BlurView>
 
                 {/* Call Content */}
-                <View style={styles.content}>
+                <View style={styles.content} testID="fake-call-container">
                     {/* Emergency Badge */}
                     <View style={styles.emergencyBadge}>
                         <Ionicons name="warning" size={24} color="#fff" />
@@ -209,6 +209,9 @@ export default function FakeCallScreen({
 
                     {/* Turn Off Alarm Button */}
                     <TouchableOpacity
+                        testID="fake-call-answer-btn"
+                        accessibilityRole="button"
+                        accessibilityLabel="Turn Off Alarm"
                         style={styles.turnOffButton}
                         onPress={handleAnswer}
                         activeOpacity={0.8}

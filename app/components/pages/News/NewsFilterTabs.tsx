@@ -32,6 +32,9 @@ export const NewsFilterTabs: React.FC<NewsFilterTabsProps> = ({
           {filters.map((filter) => (
             <TouchableOpacity
               key={filter.id}
+              testID={`news-filter-${filter.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={filter.label}
               onPress={() => onFilterChange(filter.id)}
               style={{ height: 36 }}
               className={`px-4 rounded-full justify-center ${activeFilter === filter.id

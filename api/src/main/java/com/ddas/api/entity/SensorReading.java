@@ -37,6 +37,7 @@ public class SensorReading {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private ReadingQuality quality = ReadingQuality.good;
 
     @Column(name = "recorded_at", nullable = false)

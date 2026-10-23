@@ -36,6 +36,7 @@ public class Region {
     private String stateProvince;
 
     @Column(length = 100)
+    @Builder.Default
     private String country = "Sri Lanka";
 
     @Column(precision = 10, scale = 8)

@@ -37,6 +37,26 @@ services:
     networks:
       - ddas-network
 
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: ddas-mqtt-broker
+    restart: always
+    ports:
+      - "1883:1883"   # MQTT TCP  — ESP32 devices connect here
+      - "9001:9001"   # MQTT WebSocket — Web dashboard subscribes here
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "ddas/system/healthcheck", "-m", "ping", "-q", "1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ddas-network
+
   api:
     build: .
     container_name: ddas-api
@@ -51,10 +71,18 @@ services:
       DDAS_ADMIN_EMAIL: ${DDAS_ADMIN_EMAIL:-}
       DDAS_ADMIN_PASSWORD: ${DDAS_ADMIN_PASSWORD:-}
       DDAS_ADMIN_NAME: ${DDAS_ADMIN_NAME:-DDAS Administrator}
+      # MQTT Broker connection (Eclipse Mosquitto)
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: 1883
+      MQTT_CLIENT_ID: ddas-api-server
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
     ports:
       - "8080:8080"
     depends_on:
       mysql:
+        condition: service_healthy
+      mosquitto:
         condition: service_healthy
     networks:
       - ddas-network
@@ -76,6 +104,8 @@ services:
 
 volumes:
   mysql-data:
+  mosquitto-data:
+  mosquitto-log:
 
 networks:
   ddas-network:

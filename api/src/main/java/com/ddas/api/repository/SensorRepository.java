@@ -16,6 +16,13 @@ public interface SensorRepository extends JpaRepository<Sensor, Long> {
 
     Optional<Sensor> findBySensorUid(String sensorUid);
 
+    /**
+     * SensorType JOIN FETCH — HazardAssessmentService sensor type check-ට.
+     * LazyInitializationException prevent කිරීමට.
+     */
+    @Query("SELECT s FROM Sensor s JOIN FETCH s.sensorType JOIN FETCH s.dam WHERE s.sensorUid = :uid")
+    Optional<Sensor> findBySensorUidWithType(@Param("uid") String uid);
+
     List<Sensor> findByDamId(Long damId);
 
     Page<Sensor> findByDamId(Long damId, Pageable pageable);

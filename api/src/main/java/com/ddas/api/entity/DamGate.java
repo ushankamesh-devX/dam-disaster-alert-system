@@ -44,10 +44,12 @@ public class DamGate {
     private BigDecimal maxOpeningMeters;
 
     @Column(name = "current_opening_meters", precision = 6, scale = 2)
+    @Builder.Default
     private BigDecimal currentOpeningMeters = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private GateStatus status = GateStatus.closed;
 
     @Column(name = "last_operation_at")

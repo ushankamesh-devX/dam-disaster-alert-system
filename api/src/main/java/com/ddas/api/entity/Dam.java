@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
-import java.util.Set;
 
 @Entity
 @Table(name = "dams")
@@ -106,6 +105,7 @@ public class Dam {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "overall_hazard_status")
+    @Builder.Default
     private HazardStatus overallHazardStatus = HazardStatus.safe;
 
     @Column(name = "hazard_last_assessed_at")
@@ -116,10 +116,12 @@ public class Dam {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private DamStatus status = DamStatus.operational;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "risk_classification")
+    @Builder.Default
     private RiskClassification riskClassification = RiskClassification.medium;
 
     @Column(name = "last_inspection_date")
@@ -138,6 +140,7 @@ public class Dam {
     private BigDecimal mapCenterLongitude;
 
     @Column(name = "map_default_zoom")
+    @Builder.Default
     private Integer mapDefaultZoom = 12;
 
     @Column(name = "dam_boundary_geojson", columnDefinition = "JSON")

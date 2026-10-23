@@ -45,12 +45,14 @@ public class HazardLevel {
     private String color;
 
     @Column(name = "fill_opacity", precision = 3, scale = 2)
+    @Builder.Default
     private BigDecimal fillOpacity = new BigDecimal("0.35");
 
     @Column(name = "stroke_color", length = 20)
     private String strokeColor;
 
     @Column(name = "stroke_width")
+    @Builder.Default
     private Integer strokeWidth = 2;
 
     @Column(length = 100)
@@ -63,19 +65,23 @@ public class HazardLevel {
     private BigDecimal riskScoreMax;
 
     @Column(name = "evacuation_required")
+    @Builder.Default
     private Boolean evacuationRequired = false;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "notification_priority")
+    @Builder.Default
     private NotificationPriority notificationPriority = NotificationPriority.medium;
 
     @Column(name = "estimated_flood_time_minutes")
     private Integer estimatedFloodTimeMinutes;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "display_order")
+    @Builder.Default
     private Integer displayOrder = 0;
 
     @CreationTimestamp

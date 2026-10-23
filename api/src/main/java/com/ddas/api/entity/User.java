@@ -47,13 +47,16 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private UserStatus status = UserStatus.pending_verification;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "language_preference")
+    @Builder.Default
     private Language languagePreference = Language.en;
 
     @Column(name = "notification_enabled")
+    @Builder.Default
     private Boolean notificationEnabled = true;
 
     @Column(name = "push_token", length = 500)

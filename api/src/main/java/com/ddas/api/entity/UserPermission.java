@@ -30,6 +30,7 @@ public class UserPermission {
     private Permission permission;
 
     @Column(name = "is_granted")
+    @Builder.Default
     private Boolean isGranted = true;
 
     @ManyToOne(fetch = FetchType.LAZY)

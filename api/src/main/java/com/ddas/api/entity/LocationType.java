@@ -55,12 +55,15 @@ public class LocationType {
     private String markerIcon;
 
     @Column(name = "is_evacuation_point")
+    @Builder.Default
     private Boolean isEvacuationPoint = false;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "display_order")
+    @Builder.Default
     private Integer displayOrder = 0;
 
     @CreationTimestamp

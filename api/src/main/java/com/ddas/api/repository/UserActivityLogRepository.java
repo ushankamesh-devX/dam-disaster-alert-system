@@ -1,6 +1,5 @@
 package com.ddas.api.repository;
 
-import com.ddas.api.entity.User;
 import com.ddas.api.entity.UserActivityLog;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

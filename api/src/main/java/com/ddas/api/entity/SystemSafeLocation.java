@@ -81,30 +81,39 @@ public class SystemSafeLocation {
     private Integer capacityPersons;
 
     @Column(name = "current_occupancy")
+    @Builder.Default
     private Integer currentOccupancy = 0;
 
     @Column(name = "has_medical_facility")
+    @Builder.Default
     private Boolean hasMedicalFacility = false;
 
     @Column(name = "has_food_supply")
+    @Builder.Default
     private Boolean hasFoodSupply = false;
 
     @Column(name = "has_water_supply")
+    @Builder.Default
     private Boolean hasWaterSupply = false;
 
     @Column(name = "has_power_backup")
+    @Builder.Default
     private Boolean hasPowerBackup = false;
 
     @Column(name = "has_communication")
+    @Builder.Default
     private Boolean hasCommunication = false;
 
     @Column(name = "has_restrooms")
+    @Builder.Default
     private Boolean hasRestrooms = false;
 
     @Column(name = "has_pet_area")
+    @Builder.Default
     private Boolean hasPetArea = false;
 
     @Column(name = "has_accessibility")
+    @Builder.Default
     private Boolean hasAccessibility = false;
 
     @Column(name = "amenities", columnDefinition = "JSON")
@@ -126,6 +135,7 @@ public class SystemSafeLocation {
     private String operatingHours;
 
     @Column(name = "is_24_hours")
+    @Builder.Default
     private Boolean is24Hours = false;
 
     @Column(name = "primary_dam_id")
@@ -142,9 +152,11 @@ public class SystemSafeLocation {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
+    @Builder.Default
     private Status status = Status.active;
 
     @Column(name = "is_verified")
+    @Builder.Default
     private Boolean isVerified = false;
 
     @Column(name = "verified_by")
@@ -160,6 +172,7 @@ public class SystemSafeLocation {
     private LocalDate nextInspectionDate;
 
     @Column(name = "show_on_map")
+    @Builder.Default
     private Boolean showOnMap = true;
 
     @Column(name = "marker_icon", length = 100)

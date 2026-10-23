@@ -53,6 +53,7 @@ public class DamCurrentStatus {
     private String spillwayGateStatus;
 
     @Column(name = "gates_open_count")
+    @Builder.Default
     private Integer gatesOpenCount = 0;
 
     @Column(name = "total_gates_count")
@@ -64,6 +65,7 @@ public class DamCurrentStatus {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "hazard_status")
+    @Builder.Default
     private Dam.HazardStatus hazardStatus = Dam.HazardStatus.safe;
 
     @Column(name = "hazard_value", length = 50)

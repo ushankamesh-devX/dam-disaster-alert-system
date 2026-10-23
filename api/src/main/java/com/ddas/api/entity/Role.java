@@ -37,18 +37,22 @@ public class Role {
     private String description;
 
     @Column(name = "is_system_role")
+    @Builder.Default
     private Boolean isSystemRole = false;
 
     @Column(name = "is_default")
+    @Builder.Default
     private Boolean isDefault = false;
 
     @Column(name = "priority_level")
+    @Builder.Default
     private Integer priorityLevel = 0;
 
     @Column(length = 20)
     private String color;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "created_by")
@@ -68,6 +72,7 @@ public class Role {
             joinColumns = @JoinColumn(name = "role_id"),
             inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
+    @Builder.Default
     private Set<Permission> permissions = new HashSet<>();
 }
 

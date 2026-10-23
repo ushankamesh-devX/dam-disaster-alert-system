@@ -86,18 +86,22 @@ public class DamHazardZone {
     private Integer strokeWidth;
 
     @Column(name = "display_order")
+    @Builder.Default
     private Integer displayOrder = 0;
 
     @Column(name = "show_label")
+    @Builder.Default
     private Boolean showLabel = true;
 
     @Column(name = "label_position", columnDefinition = "JSON")
     private String labelPosition;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "is_verified")
+    @Builder.Default
     private Boolean isVerified = false;
 
     @Column(name = "verified_by")

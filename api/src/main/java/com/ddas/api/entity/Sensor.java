@@ -84,10 +84,12 @@ public class Sensor {
     private BigDecimal criticalThreshold;
 
     @Column(name = "reading_interval_seconds")
+    @Builder.Default
     private Integer readingIntervalSeconds = 300;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private SensorStatus status = SensorStatus.active;
 
     @Column(name = "last_reading_at")

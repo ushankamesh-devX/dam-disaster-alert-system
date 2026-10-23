@@ -159,8 +159,7 @@ public class MqttSubscriberService {
                     return;
                 }
 
-                // Map quality string → SensorReading.ReadingQuality enum
-                SensorReading.ReadingQuality quality = mapQuality(qualityStr);
+                // qualityStr is passed directly to the buffer; mapQuality used only when flushing to DB
 
                 // ── Buffer the reading (SensorReadingBuffer) ──────────────────
                 // SensorReadingBuffer mean value compute කර DB save කරයි

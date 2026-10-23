@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-    getPublicActiveAlerts,
-    getPublicAlertSummary,
-    getSeverityConfig,
-} from '../../services/publicAlert.service';
+import { getPublicActiveAlerts, getPublicAlertSummary, getSeverityConfig } from '../services/publicAlert.service';
 
 // ── Severity Badge ────────────────────────────────────────────────────────────
 function SeverityBadge({ severity }) {

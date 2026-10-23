@@ -38,6 +38,7 @@ public class Permission {
     private String action;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @CreationTimestamp

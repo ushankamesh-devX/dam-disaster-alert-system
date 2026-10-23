@@ -39,6 +39,7 @@ public class DeviceApiKey {
     private String description;
 
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "last_used_at")

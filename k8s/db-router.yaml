@@ -1,0 +1,51 @@
+# MySQL Router: the API connects here.
+#   :6446 → always the current PRIMARY (writes)
+#   :6447 → the replicas, round robin (reads)
+# After a failover the router follows the new primary automatically.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddas-db-router
+  namespace: ddas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ddas-db-router
+  template:
+    metadata:
+      labels:
+        app: ddas-db-router
+    spec:
+      containers:
+        - name: router
+          image: container-registry.oracle.com/mysql/community-router:8.4
+          env:
+            - { name: MYSQL_HOST, value: ddas-db }
+            - { name: MYSQL_PORT, value: "3306" }
+            - { name: MYSQL_USER, value: clusteradmin }
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: ddas-secrets, key: CLUSTER_ADMIN_PASSWORD }
+            - { name: MYSQL_INNODB_CLUSTER_MEMBERS, value: "3" }
+          ports:
+            - { name: rw, containerPort: 6446 }
+            - { name: ro, containerPort: 6447 }
+          readinessProbe:
+            tcpSocket: { port: 6446 }
+            periodSeconds: 10
+          resources:
+            requests: { memory: 32Mi }
+            limits: { memory: 96Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddas-db-router
+  namespace: ddas
+spec:
+  selector:
+    app: ddas-db-router
+  ports:
+    - { name: rw, port: 6446 }
+    - { name: ro, port: 6447 }

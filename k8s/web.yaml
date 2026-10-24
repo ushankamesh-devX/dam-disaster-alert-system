@@ -1,0 +1,33 @@
+# Web dashboard (nginx + React). Open http://<EC2 public IP>
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: ddas
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # hostPort 80 can only be held by one pod
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: web
+          image: ghcr.io/ushankamesh-devx/ddas-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              hostPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 10
+          resources:
+            requests: { memory: 16Mi }
+            limits: { memory: 64Mi }

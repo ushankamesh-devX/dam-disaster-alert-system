@@ -1,0 +1,50 @@
+# MQTT broker. ESP32 devices connect to <EC2 public IP>:1883.
+# ConfigMap mosquitto-config (mosquitto.conf + passwd) is created by install.sh.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: ddas
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # hostPort 1883 can only be held by one pod
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2.0
+          ports:
+            - containerPort: 1883
+              hostPort: 1883
+          readinessProbe:
+            tcpSocket: { port: 1883 }
+            periodSeconds: 10
+          resources:
+            requests: { memory: 16Mi }
+            limits: { memory: 64Mi }
+          volumeMounts:
+            - { name: config, mountPath: /mosquitto/config }
+            - { name: data, mountPath: /mosquitto/data }
+      volumes:
+        - name: config
+          configMap: { name: mosquitto-config }
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: ddas
+spec:
+  selector:
+    app: mosquitto
+  ports:
+    - port: 1883

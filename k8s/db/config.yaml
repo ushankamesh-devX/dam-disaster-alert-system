@@ -1,0 +1,17 @@
+# MySQL settings shared by all 3 cluster members, tuned for a 2 GB t3.small.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddas-db-config
+  namespace: ddas
+data:
+  ddas.cnf: |
+    [mysqld]
+    innodb_buffer_pool_size=32M
+    performance_schema=OFF
+    max_connections=30
+    table_open_cache=256
+    gtid_mode=ON
+    enforce_gtid_consistency=ON
+    # Group Replication message cache: 128M is the minimum (default 1G)
+    loose-group_replication_message_cache_size=134217728

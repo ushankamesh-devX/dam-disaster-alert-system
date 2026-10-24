@@ -1,0 +1,94 @@
+# One-time Job: creates the InnoDB Cluster "ddas" from the 3 MySQL pods,
+# then creates the application database and user. Safe to re-run.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-setup-script
+  namespace: ddas
+data:
+  setup.js: |
+    var rootPw  = os.getenv('MYSQL_ROOT_PASSWORD');
+    var adminPw = os.getenv('CLUSTER_ADMIN_PASSWORD');
+    var appUser = os.getenv('DB_APP_USER');
+    var appPw   = os.getenv('DB_APP_PASSWORD');
+
+    function inst(user, pw, i) {
+      return { user: user, password: pw, host: 'ddas-db-' + i + '.ddas-db', port: 3306 };
+    }
+    function key(i) { return 'ddas-db-' + i + '.ddas-db:3306'; }
+
+    // 1. Wait until all 3 servers accept connections
+    for (var i = 0; i < 3; i++) {
+      for (var t = 0; ; t++) {
+        try { mysql.getClassicSession(inst('root', rootPw, i)).close(); break; }
+        catch (e) { if (t > 60) throw e; println('waiting for ' + key(i)); os.sleep(5); }
+      }
+    }
+
+    // 2. Create the cluster (skipped if it already exists)
+    shell.connect(inst('root', rootPw, 0));
+    var cluster = null;
+    try { cluster = dba.getCluster('ddas'); println('Cluster already exists'); } catch (e) {}
+
+    if (!cluster) {
+      for (var i = 0; i < 3; i++) {
+        dba.configureInstance(inst('root', rootPw, i), {
+          clusterAdmin: "'clusteradmin'@'%'", clusterAdminPassword: adminPw, restart: false });
+      }
+      shell.connect(inst('clusteradmin', adminPw, 0));
+      cluster = dba.createCluster('ddas', { expelTimeout: 30, autoRejoinTries: 10 });
+    }
+
+    // 3. Add members 1 and 2. Clone recovery restarts the pod once; Kubernetes brings it back.
+    function memberStatus(i) {
+      try { return cluster.status().defaultReplicaSet.topology[key(i)]; } catch (e) { return null; }
+    }
+    for (var i = 1; i < 3; i++) {
+      if (!memberStatus(i)) {
+        try { cluster.addInstance(inst('clusteradmin', adminPw, i), { recoveryMethod: 'clone' }); }
+        catch (e) { println(key(i) + ': ' + e.message + ' (expected if the pod restarted after clone)'); }
+      }
+      for (var t = 0; ; t++) {
+        var st = memberStatus(i);
+        if (st && st.status === 'ONLINE') { println(key(i) + ' ONLINE'); break; }
+        if (t > 60) throw new Error(key(i) + ' did not come ONLINE');
+        os.sleep(10);
+        try {
+          if (!st) cluster.addInstance(inst('clusteradmin', adminPw, i), { recoveryMethod: 'incremental' });
+          else if (st.status !== 'RECOVERING') cluster.rejoinInstance(inst('clusteradmin', adminPw, i));
+        } catch (e) { println('retrying ' + key(i) + ': ' + e.message); }
+      }
+    }
+
+    // 4. Application database and user (written on the primary, replicated to all)
+    shell.connect(inst('root', rootPw, 0));
+    var s = shell.getSession();
+    s.runSql('CREATE DATABASE IF NOT EXISTS dam_disaster_db');
+    s.runSql("CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?", [appUser, appPw]);
+    s.runSql("GRANT ALL PRIVILEGES ON dam_disaster_db.* TO ?@'%'", [appUser]);
+
+    println(JSON.stringify(cluster.status(), null, 2));
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-cluster-setup
+  namespace: ddas
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: setup
+          image: mysql:8.4
+          command: ["mysqlsh", "--no-wizard", "--js", "--file", "/scripts/setup.js"]
+          envFrom:
+            - secretRef: { name: ddas-secrets }
+          resources:
+            limits: { memory: 256Mi }
+          volumeMounts:
+            - { name: script, mountPath: /scripts }
+      volumes:
+        - name: script
+          configMap: { name: db-setup-script }

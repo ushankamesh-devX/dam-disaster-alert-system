@@ -16,7 +16,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional // writer: a just-created user must be able to log in immediately
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         var user = userRepository.findActiveUserByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));

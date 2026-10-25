@@ -21,7 +21,7 @@ def entities():
     result={}
     for name,source in sources.items():
         columns={}
-        for match in re.finditer(r'((?:\s*@\w+(?:\([^\n]*\))?\s*)*)private\s+([\w.<>]+)\s+(\w+)\s*(?:=\s*([^;]+))?;',source):
+        for match in re.finditer(r'((?:\s*@[\w.]+(?:\([^\n]*\))?\s*)*)private\s+([\w.<>]+)\s+(\w+)\s*(?:=\s*([^;]+))?;',source):
             annotation,kind,field,initial=match.groups()
             if '<' in kind or '@Transient' in annotation: continue
             column=re.search(r'@(Column|JoinColumn)\(([^\n]*)\)',annotation)

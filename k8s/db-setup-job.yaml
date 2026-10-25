@@ -82,9 +82,15 @@ spec:
       containers:
         - name: setup
           image: mysql:8.4
-          command: ["mysqlsh", "--no-wizard", "--js", "--file", "/scripts/setup.js"]
+          # Start connected to member 0 over TCP; without a URI mysqlsh tries a local socket and exits
+          command: ["mysqlsh", "--no-wizard", "--js", "--uri", "root@ddas-db-0.ddas-db:3306",
+                    "--password=$(MYSQL_ROOT_PASSWORD)", "--file", "/scripts/setup.js"]
           envFrom:
             - secretRef: { name: ddas-secrets }
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: ddas-secrets, key: MYSQL_ROOT_PASSWORD }
           resources:
             limits: { memory: 256Mi }
           volumeMounts:

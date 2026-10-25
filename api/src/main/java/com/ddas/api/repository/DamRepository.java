@@ -59,4 +59,7 @@ public interface DamRepository extends JpaRepository<Dam, Long>, JpaSpecificatio
 
     @Query("SELECT d FROM Dam d LEFT JOIN FETCH d.region LEFT JOIN FETCH d.overallHazardLevel WHERE d.id = :id")
     Optional<Dam> findByIdWithDetails(@Param("id") Long id);
+
+    @Query("SELECT d FROM Dam d LEFT JOIN FETCH d.region ORDER BY d.id ASC")
+    List<Dam> findAllWithRegion();
 }

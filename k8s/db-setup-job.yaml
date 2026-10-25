@@ -75,10 +75,10 @@ metadata:
   name: db-cluster-setup
   namespace: ddas
 spec:
-  backoffLimit: 3
+  backoffLimit: 0   # keep the failed pod so its log can be read
   template:
     spec:
-      restartPolicy: OnFailure
+      restartPolicy: Never
       containers:
         - name: setup
           image: mysql:8.4

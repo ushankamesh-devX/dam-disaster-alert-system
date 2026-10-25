@@ -8,7 +8,8 @@ data:
   ddas.cnf: |
     [mysqld]
     innodb_buffer_pool_size=32M
-    performance_schema=OFF
+    # InnoDB Cluster requires performance_schema; small max_connections keeps it light
+    performance_schema=ON
     max_connections=30
     table_open_cache=256
     gtid_mode=ON

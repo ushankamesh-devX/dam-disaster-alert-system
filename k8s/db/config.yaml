@@ -1,4 +1,4 @@
-# MySQL settings shared by all 3 cluster members, tuned for a 2 GB t3.small.
+# MySQL settings shared by all 3 cluster members, tuned for an 8 GB m7i-flex.large.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,7 +7,7 @@ metadata:
 data:
   ddas.cnf: |
     [mysqld]
-    innodb_buffer_pool_size=32M
+    innodb_buffer_pool_size=128M
     # InnoDB Cluster requires performance_schema; small max_connections keeps it light
     performance_schema=ON
     max_connections=30

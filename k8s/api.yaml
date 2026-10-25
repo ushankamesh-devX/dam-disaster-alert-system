@@ -7,7 +7,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: Recreate   # not enough RAM on a t3.small to run two API pods during an update
+    type: Recreate   # one API pod at a time during updates
   selector:
     matchLabels:
       app: api
@@ -60,9 +60,9 @@ spec:
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: TWILIO_AUTH_TOKEN, optional: true } }
             - name: TWILIO_FROM_NUMBER
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: TWILIO_FROM_NUMBER, optional: true } }
-            # Small heap and fast start-up for a 2 GB node
+            # JVM heap sized for the 8 GB node
             - name: JAVA_TOOL_OPTIONS
-              value: "-Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+              value: "-Xms256m -Xmx512m -XX:MaxMetaspaceSize=192m"
             # application.properties logs SQL at DEBUG/TRACE; too heavy for this node
             - { name: LOGGING_LEVEL_ORG_HIBERNATE_SQL, value: WARN }
             - { name: LOGGING_LEVEL_ORG_HIBERNATE_TYPE_DESCRIPTOR_SQL_BASICBINDER, value: WARN }
@@ -81,8 +81,8 @@ spec:
             periodSeconds: 30
             failureThreshold: 4
           resources:
-            requests: { memory: 384Mi }
-            limits: { memory: 512Mi }
+            requests: { memory: 512Mi }
+            limits: { memory: 1Gi }
 ---
 apiVersion: v1
 kind: Service

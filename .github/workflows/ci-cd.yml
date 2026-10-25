@@ -2,7 +2,7 @@ name: Build images
 
 on:
   push:
-    branches: [main]
+    branches: [production]   # main is for development; merge main → production to release
   workflow_dispatch:
     inputs:
       deploy:

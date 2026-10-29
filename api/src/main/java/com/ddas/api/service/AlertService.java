@@ -36,6 +36,10 @@ public class AlertService {
         private final AlertTypeRepository alertTypeRepository;
         private final AlertAuditLogRepository alertAuditLogRepository;
 
+        // අලුතින් එකතු කළ SMS සේවාව (@RequiredArgsConstructor මගින් ස්වයංක්‍රීයව Inject
+        // වේ)
+        private final SmsDispatcherService smsDispatcherService;
+
         // -------------------------------------------------------------------------
         // Existing Operations (unchanged) Helloooo
         // -------------------------------------------------------------------------
@@ -59,6 +63,10 @@ public class AlertService {
                 Alert saved = alertRepository.save(alert);
                 recordAudit("ALERT_CREATED", saved.getId(),
                                 "Alert created with status=" + saved.getStatus() + ", severity=" + saved.getSeverity());
+
+                // Alert එක Save වූ වහාම SMS යැවීම
+                triggerTestSms(saved);
+
                 return toResponseDTO(saved);
         }
 
@@ -104,30 +112,22 @@ public class AlertService {
         // Admin Dashboard – Analytics
         // -------------------------------------------------------------------------
 
-        /**
-         * Returns aggregated metrics for the Admin Dashboard overview panel.
-         * Includes total count, active/resolved totals, active-per-dam map, and
-         * per-dam resolution rate.
-         */
         @Transactional(readOnly = true)
         public AlertAnalyticsResponseDTO getAlertAnalytics() {
                 long totalAlerts = alertRepository.count();
                 long totalActive = alertRepository.countByStatus(Alert.AlertStatus.active);
                 long totalResolved = alertRepository.countByStatus(Alert.AlertStatus.resolved);
 
-                // Build active-alerts-per-dam map
                 List<Alert> activeAlerts = alertRepository.findByStatus(Alert.AlertStatus.active);
                 Map<Long, Long> activeAlertsByDam = activeAlerts.stream()
                                 .filter(a -> a.getDamId() != null)
                                 .collect(Collectors.groupingBy(Alert::getDamId, Collectors.counting()));
 
-                // Compute resolution rate per dam (resolved / (resolved + active))
                 List<Alert> resolvedAlerts = alertRepository.findByStatus(Alert.AlertStatus.resolved);
                 Map<Long, Long> resolvedByDam = resolvedAlerts.stream()
                                 .filter(a -> a.getDamId() != null)
                                 .collect(Collectors.groupingBy(Alert::getDamId, Collectors.counting()));
 
-                // Collect all dam IDs present in either map
                 Map<Long, Double> resolutionRateByDam = new HashMap<>();
                 for (Long damId : resolvedByDam.keySet()) {
                         long resolved = resolvedByDam.getOrDefault(damId, 0L);
@@ -149,10 +149,6 @@ public class AlertService {
         // Admin Dashboard – Regional Targeting
         // -------------------------------------------------------------------------
 
-        /**
-         * Broadcasts an alert targeted exclusively to a specific region.
-         * People outside that region will NOT receive this alert.
-         */
         @Transactional
         public AlertResponseDTO broadcastToRegion(Long regionId, BroadcastRegionRequestDTO request) {
                 AlertType alertType = alertTypeRepository.findById(request.getAlertTypeId())
@@ -172,6 +168,10 @@ public class AlertService {
                 Alert saved = alertRepository.save(alert);
                 recordAudit("REGIONAL_BROADCAST", saved.getId(),
                                 "Regional broadcast to regionId=" + regionId + ", severity=" + request.getSeverity());
+
+                // Regional Broadcast එකක් Save වූ වහාම SMS යැවීම
+                triggerTestSms(saved);
+
                 return toResponseDTO(saved);
         }
 
@@ -179,25 +179,18 @@ public class AlertService {
         // Admin Dashboard – Emergency Override
         // -------------------------------------------------------------------------
 
-        /**
-         * High-priority emergency broadcast that bypasses standard queues.
-         * Forces severity=emergency and status=active regardless of the request
-         * payload.
-         * Intended for imminent dam-breach scenarios.
-         */
         @Transactional
         public AlertResponseDTO emergencyBroadcast(AlertRequestDTO request) {
                 AlertType alertType = alertTypeRepository.findById(request.getAlertTypeId())
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Alert type not found with id: " + request.getAlertTypeId()));
 
-                // Force emergency settings — override any payload values
                 Alert alert = Alert.builder()
                                 .alertType(alertType)
                                 .title(request.getTitle())
                                 .message(request.getMessage())
-                                .severity(AlertType.AlertSeverity.emergency) // always overridden
-                                .status(Alert.AlertStatus.active) // always active
+                                .severity(AlertType.AlertSeverity.emergency)
+                                .status(Alert.AlertStatus.active)
                                 .damId(request.getDamId())
                                 .regionId(request.getRegionId())
                                 .build();
@@ -208,6 +201,10 @@ public class AlertService {
                                                 + ", regionId=" + saved.getRegionId());
                 log.warn("EMERGENCY_OVERRIDE alert persisted. alertId={}, damId={}, regionId={}",
                                 saved.getId(), saved.getDamId(), saved.getRegionId());
+
+                // Emergency Broadcast එකක් Save වූ වහාම SMS යැවීම
+                triggerTestSms(saved);
+
                 return toResponseDTO(saved);
         }
 
@@ -215,11 +212,6 @@ public class AlertService {
         // Admin Dashboard – Simulation Mode
         // -------------------------------------------------------------------------
 
-        /**
-         * Toggles the simulation flag on an alert.
-         * When simulationMode=true the mobile app must suppress real emergency UI
-         * and display only a drill indicator.
-         */
         @Transactional
         public AlertResponseDTO toggleSimulationMode(Long alertId, boolean enable) {
                 Alert alert = alertRepository.findById(alertId)
@@ -237,11 +229,6 @@ public class AlertService {
         // Admin Dashboard – Bulk Operations
         // -------------------------------------------------------------------------
 
-        /**
-         * Resolves all active alerts matching the given criteria (damId and/or
-         * severity).
-         * At least one filter must be present.
-         */
         @Transactional
         public List<AlertResponseDTO> bulkResolve(BulkAlertActionRequestDTO criteria) {
                 validateBulkCriteria(criteria);
@@ -261,11 +248,6 @@ public class AlertService {
                 return resolved.stream().map(this::toResponseDTO).toList();
         }
 
-        /**
-         * Escalates all active alerts matching the given criteria (damId and/or
-         * severity).
-         * At least one filter must be present.
-         */
         @Transactional
         public List<AlertResponseDTO> bulkEscalate(BulkAlertActionRequestDTO criteria) {
                 validateBulkCriteria(criteria);
@@ -289,16 +271,6 @@ public class AlertService {
         // Audit & Traceability Helpers
         // -------------------------------------------------------------------------
 
-        /**
-         * Records an audit log entry attributed to the currently authenticated admin.
-         * Gracefully falls back to "system" if there is no security context (e.g.
-         * tests).
-         *
-         * @param action  Short action code (e.g. "ALERT_CREATED")
-         * @param alertId The affected alert ID (may be null for bulk ops spanning
-         *                multiple alerts)
-         * @param detail  Human-readable detail string for the audit record
-         */
         private void recordAudit(String action, Long alertId, String detail) {
                 try {
                         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -308,8 +280,6 @@ public class AlertService {
                         if (auth != null && auth.isAuthenticated()
                                         && auth.getPrincipal() instanceof UserDetails userDetails) {
                                 adminEmail = userDetails.getUsername();
-                                // If your UserDetails implementation exposes an id, extract it here.
-                                // For now we keep adminId null and rely on adminEmail for traceability.
                         }
 
                         AlertAuditLog entry = AlertAuditLog.builder()
@@ -324,8 +294,28 @@ public class AlertService {
                         log.info("AUDIT action={} alertId={} admin={} detail={}", action, alertId, adminEmail, detail);
 
                 } catch (Exception ex) {
-                        // Audit failures must never break the main operation
                         log.error("Failed to persist audit log for action={}: {}", action, ex.getMessage(), ex);
+                }
+        }
+
+        // -------------------------------------------------------------------------
+        // SMS Notification Helper
+        // -------------------------------------------------------------------------
+
+        private void triggerTestSms(Alert alert) {
+                // Critical හෝ Emergency අනතුරු මට්ටම් වලදී පමණක් SMS යැවීම
+                if (alert.getSeverity() == AlertType.AlertSeverity.critical
+                                || alert.getSeverity() == AlertType.AlertSeverity.emergency) {
+
+                        String testPhoneNumber = "+94714742292"; // ඔබ ලබා දුන් පරීක්ෂණ අංකය
+                        String smsMessage = "DDAS ALERT: " + alert.getTitle() + " - " + alert.getSeverity();
+
+                        try {
+                                smsDispatcherService.sendSms(testPhoneNumber, smsMessage);
+                                log.info("SMS triggered successfully for alert ID: {}", alert.getId());
+                        } catch (Exception e) {
+                                log.error("Failed to trigger SMS for alert ID: {}", alert.getId(), e);
+                        }
                 }
         }
 

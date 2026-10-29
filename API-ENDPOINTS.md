@@ -143,7 +143,7 @@ Authenticate user and receive JWT token.
   "success": false,
   "error": {
     "code": "INVALID_CREDENTIALS",
-    "message": "Invalid email or password"
+    "message": "Invalid email or the password"
   }
 }
 ```

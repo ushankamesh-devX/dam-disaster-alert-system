@@ -13,12 +13,15 @@ import PlaceRounded from '@mui/icons-material/PlaceRounded';
 import SettingsRounded from '@mui/icons-material/SettingsRounded';
 import MapRounded from '@mui/icons-material/MapRounded';
 import AssignmentRounded from '@mui/icons-material/AssignmentRounded';
+import AutoGraphRounded from '@mui/icons-material/AutoGraphRounded';
+import SmartToyRounded from '@mui/icons-material/SmartToyRounded';
 import LogoutRounded from '@mui/icons-material/LogoutRounded';
 import { useAuth } from '../../contexts/AuthContext';
 
 const groups = [
   ['Overview', [['dashboard', 'Dashboard', DashboardRounded]]],
   ['Monitoring', [['reports', 'Reports', AssignmentRounded], ['dams', 'Dams', WaterRounded], ['sensors', 'Sensors', SensorsRounded], ['alerts', 'Alerts', NotificationsRounded], ['device-keys', 'Device keys', VpnKeyRounded]]],
+  ['AI & Intelligence', [['ml-operations', 'ML Operations', AutoGraphRounded], ['ai-assistant', 'SOP Assistant', SmartToyRounded]]],
   ['Management', [['users', 'Users', PeopleRounded], ['regions', 'Regions', PublicRounded], ['roles', 'Roles', ShieldRounded], ['news', 'News', NewspaperRounded], ['system-safe-locations-test', 'Safe locations', PlaceRounded]]],
   ['System', [['settings', 'Settings', SettingsRounded], ['mapFunc', 'Map editor', MapRounded]]],
 ];

@@ -46,4 +46,7 @@ public interface SensorRepository extends JpaRepository<Sensor, Long> {
     long countActiveSensorsByDamId(@Param("damId") Long damId);
 
     boolean existsBySensorUid(String sensorUid);
+
+    @Query("SELECT s FROM Sensor s JOIN FETCH s.sensorType WHERE s.dam.id = :damId ORDER BY s.id ASC")
+    List<Sensor> findByDamIdWithSensorType(@Param("damId") Long damId);
 }

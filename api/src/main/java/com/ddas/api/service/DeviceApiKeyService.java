@@ -210,7 +210,7 @@ public class DeviceApiKeyService {
     /**
      * Validate an API key and return the associated DeviceApiKey entity.
      */
-    @Transactional(readOnly = true)
+    @Transactional // writer: a new or regenerated key must work immediately
     public DeviceApiKey validateApiKey(String rawApiKey) {
         if (rawApiKey == null || rawApiKey.isBlank()) {
             throw new UnauthorizedException("API key is required");
@@ -424,7 +424,7 @@ public class DeviceApiKeyService {
     /**
      * Get the sensor configuration for a device (used by /ping).
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public Sensor getSensorForApiKey(String rawApiKey) {
         DeviceApiKey key = validateApiKey(rawApiKey);
         return key.getSensor();

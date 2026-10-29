@@ -27,6 +27,8 @@ const NewsPage = lazy(() => import('../pages/admin/NewsPage'));
 const SystemSafeLocationsMapFuncPage = lazy(() => import('../pages/admin/SystemSafeLocationsMapFuncPage'));
 const DeviceKeysPage = lazy(() => import('../pages/admin/DeviceKeysPage'));
 const ReportsPage = lazy(() => import('../pages/admin/ReportsPage'));
+const MlAdminPage = lazy(() => import('../pages/admin/MlAdminPage'));
+const AiAssistantPage = lazy(() => import('../pages/admin/AiAssistantPage'));
 
 
 function Soon({ title }) {
@@ -79,6 +81,8 @@ const router = createBrowserRouter([
                     { path: '/admin/device-keys', element: <DeviceKeysPage /> },
                     { path: '/admin/alerts', element: <AlertsPage /> },
                     { path: '/admin/reports', element: <ReportsPage /> },
+                    { path: '/admin/ml-operations', element: <MlAdminPage /> },
+                    { path: '/admin/ai-assistant', element: <AiAssistantPage /> },
                     { path: '/admin/users', element: <UsersPage /> },
                     { path: '/admin/regions', element: <RegionsPage /> },
                     { path: '/admin/roles', element: <RolesPage /> },

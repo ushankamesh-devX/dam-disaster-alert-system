@@ -72,6 +72,12 @@ web_modules/
 # .env.*
 !.env.example
 
+# Kubernetes deployment secrets (never commit)
+k8s/secrets.env
+k8s/passwd
+*.pem
+ddas-dump.sql
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

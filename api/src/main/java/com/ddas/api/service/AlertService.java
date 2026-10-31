@@ -35,6 +35,7 @@ public class AlertService {
         private final AlertRepository alertRepository;
         private final AlertTypeRepository alertTypeRepository;
         private final AlertAuditLogRepository alertAuditLogRepository;
+        private final NotificationService notificationService;
 
         // -------------------------------------------------------------------------
         // Existing Operations (unchanged) Helloooo
@@ -59,6 +60,7 @@ public class AlertService {
                 Alert saved = alertRepository.save(alert);
                 recordAudit("ALERT_CREATED", saved.getId(),
                                 "Alert created with status=" + saved.getStatus() + ", severity=" + saved.getSeverity());
+                dispatchAlertNotifications(saved);
                 return toResponseDTO(saved);
         }
 
@@ -172,6 +174,7 @@ public class AlertService {
                 Alert saved = alertRepository.save(alert);
                 recordAudit("REGIONAL_BROADCAST", saved.getId(),
                                 "Regional broadcast to regionId=" + regionId + ", severity=" + request.getSeverity());
+                dispatchAlertNotifications(saved);
                 return toResponseDTO(saved);
         }
 
@@ -208,6 +211,7 @@ public class AlertService {
                                                 + ", regionId=" + saved.getRegionId());
                 log.warn("EMERGENCY_OVERRIDE alert persisted. alertId={}, damId={}, regionId={}",
                                 saved.getId(), saved.getDamId(), saved.getRegionId());
+                dispatchAlertNotifications(saved);
                 return toResponseDTO(saved);
         }
 
@@ -349,6 +353,37 @@ public class AlertService {
                                 .createdAt(alert.getCreatedAt())
                                 .updatedAt(alert.getUpdatedAt())
                                 .build();
+        }
+
+        // -------------------------------------------------------------------------
+        // Push Notification Dispatch
+        // -------------------------------------------------------------------------
+
+        /**
+         * Sends an FCM push notification for the given alert.
+         * Only fires when the alert has a non-null regionId so the message can be
+         * routed to the correct regional topic.
+         *
+         * @param alert The persisted alert (must already have an ID)
+         */
+        private void dispatchAlertNotifications(Alert alert) {
+                if (alert.getRegionId() == null) {
+                        log.debug("Skipping FCM notification — alert {} has no regionId.", alert.getId());
+                        return;
+                }
+
+                try {
+                        notificationService.sendRegionalAlertNotification(
+                                        alert.getTitle(),
+                                        alert.getMessage(),
+                                        alert.getRegionId(),
+                                        alert.getId(),
+                                        alert.getSeverity() != null ? alert.getSeverity().name() : "unknown");
+                } catch (Exception ex) {
+                        // Notification failures must never break the main alert operation
+                        log.error("Failed to dispatch FCM notification for alertId={}: {}",
+                                        alert.getId(), ex.getMessage(), ex);
+                }
         }
 
         // -------------------------------------------------------------------------

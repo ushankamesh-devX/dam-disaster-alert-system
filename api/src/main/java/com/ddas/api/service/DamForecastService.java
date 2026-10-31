@@ -215,8 +215,10 @@ public class DamForecastService {
     }
 
     public Map<String, Object> evaluateRealVsPredicted(Long damId, Integer horizonHours) {
-        Long targetDamId = damId;
-        if (targetDamId == null) {
+        final Long targetDamId;
+        if (damId != null) {
+            targetDamId = damId;
+        } else {
             targetDamId = damRepository.findAll().stream()
                     .filter(d -> Boolean.TRUE.equals(d.getIsMlEnabled()))
                     .map(Dam::getId)

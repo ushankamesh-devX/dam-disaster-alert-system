@@ -152,6 +152,10 @@ public class Dam {
     @Column(name = "downstream_river_geojson", columnDefinition = "JSON")
     private String downstreamRiverGeojson;
 
+    @Column(name = "is_ml_enabled")
+    @Builder.Default
+    private Boolean isMlEnabled = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

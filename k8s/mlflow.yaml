@@ -50,8 +50,8 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 15
           resources:
-            requests: { memory: 256Mi }
-            limits: { memory: 768Mi }
+            requests: { memory: 512Mi }
+            limits: { memory: 1536Mi }   # 768Mi was OOMKilled at startup
 ---
 apiVersion: v1
 kind: Service

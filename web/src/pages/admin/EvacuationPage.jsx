@@ -5,8 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import EvacuationService from '../../services/evacuation.service';
-
-const SRI_LANKA_CENTER = [7.25, 80.6];
+import { MAP_OPTIONS, TILE_PROPS, SRI_LANKA_CENTER } from '../../components/map/mapDefaults';
+import { MapBehavior, DamJumpControl } from '../../components/map/MapControls';
 
 function parseGeo(text) {
     try {
@@ -165,11 +165,10 @@ export default function EvacuationPage() {
                         </ToggleButtonGroup>
                         <span className="text-xs text-gray-500">Draw a polygon (top-left tools) to block a road</span>
                     </div>
-                    <MapContainer center={SRI_LANKA_CENTER} zoom={9} style={{ height: 600 }}>
-                        <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
+                    <MapContainer {...MAP_OPTIONS} center={SRI_LANKA_CENTER} zoom={8} style={{ height: 'min(72vh, 760px)', minHeight: 480 }}>
+                        <TileLayer {...TILE_PROPS} />
+                        <MapBehavior fitDams />
+                        <DamJumpControl />
                         <BlockedRoadDrawer onDrawn={onDrawn} />
                         <RouteTester enabled={testMode} onPick={testRoute} />
 

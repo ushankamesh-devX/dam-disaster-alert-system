@@ -907,6 +907,7 @@ export default function MapFuncPage() {
                             onFeatureGroupReady={handleFeatureGroupRef}
                             // When a layer is clicked, focus its card in the side panel
                             onLayerClick={(idx) => setFocusedIdx(idx)}
+                            showDamJump
                         />
                     </div>
                 </Paper>

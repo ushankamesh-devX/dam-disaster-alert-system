@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
@@ -40,6 +41,7 @@ public class MlServiceAuthFilter extends OncePerRequestFilter {
     private final String expectedServiceToken;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public MlServiceAuthFilter(
             @Value("${ddas.ai.spring-service-token:${DDAS_AI_SPRING_SERVICE_TOKEN:}}") String expectedServiceToken,
             ObjectMapper objectMapper

@@ -86,5 +86,10 @@
     "video_permission_required": "Camera permission is required to record videos.",
     "gallery_permission_required": "Gallery permission is required to select media.",
     "failed_to_pick_media": "Failed to pick media. Please try again.",
-    "search_reports_placeholder": "Search reports..."
+    "search_reports_placeholder": "Search reports...",
+    "loading_news": "Loading news articles...",
+    "no_news_found": "No news articles found",
+    "no_news_desc": "There are no articles available in this category.",
+    "failed_to_load_news": "Unable to load news articles. Please check your connection and try again.",
+    "retry": "Retry"
 }

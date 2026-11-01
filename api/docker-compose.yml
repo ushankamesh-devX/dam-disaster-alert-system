@@ -119,7 +119,7 @@ services:
       - ddas-network
 
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: ddas-minio
     restart: always
     command: server /data --console-address ":9090"

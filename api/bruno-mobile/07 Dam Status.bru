@@ -1,0 +1,19 @@
+meta {
+  name: Dam Status
+  type: http
+  seq: 7
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/{{damId}}/status
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Forecast History
+  type: http
+  seq: 27
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/{{damId}}/forecast-history?from={{from}}&to={{to}}&limit=20
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("Cursor response", function () { expect(res.getBody().data.data).to.be.an("array"); });
+}

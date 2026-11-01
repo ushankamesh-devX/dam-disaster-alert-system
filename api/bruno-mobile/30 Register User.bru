@@ -1,0 +1,31 @@
+meta {
+  name: Register User
+  type: http
+  seq: 30
+  tags: [
+    manual
+  ]
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+body:json {
+  {
+    "fullName": "{{fullName}}",
+    "email": "{{email}}",
+    "password": "{{password}}",
+    "languagePreference": "en"
+  }
+}
+
+tests {
+  test("Expected HTTP 201", function () { expect(res.getStatus()).to.equal(201); });
+
+}

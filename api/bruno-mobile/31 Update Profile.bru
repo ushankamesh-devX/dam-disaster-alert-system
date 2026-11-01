@@ -1,0 +1,30 @@
+meta {
+  name: Update Profile
+  type: http
+  seq: 31
+  tags: [
+    manual
+  ]
+}
+
+put {
+  url: {{baseUrl}}/users/me
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+body:json {
+  {
+    "fullName": "{{fullName}}",
+    "languagePreference": "en",
+    "preferredDamId": {{damId}}
+  }
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

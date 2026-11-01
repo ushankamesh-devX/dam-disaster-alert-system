@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "DDAS Mobile Core",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

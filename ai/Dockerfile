@@ -9,7 +9,9 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY app ./app
 
-RUN useradd --create-home --uid 10001 ddas
+RUN useradd --create-home --uid 10001 ddas \
+    && mkdir -p /service/artifacts \
+    && chown -R ddas:ddas /service/artifacts
 USER ddas
 EXPOSE 8000
 CMD ["/service/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

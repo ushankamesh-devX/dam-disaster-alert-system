@@ -30,6 +30,7 @@ public class UserService {
     private final UserRoleHistoryRepository roleHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final DamRepository damRepository;
 
     // ==================== Profile Management ====================
 
@@ -79,6 +80,18 @@ public class UserService {
         }
         if (request.getNotificationEnabled() != null) {
             user.setNotificationEnabled(request.getNotificationEnabled());
+        }
+
+        if (request.getPreferredDamId() != null) {
+            Dam dam = damRepository.findById(request.getPreferredDamId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Selected dam not found"));
+            if (dam.getStatus() != Dam.DamStatus.operational) {
+                throw new BadRequestException("Please select an operational dam");
+            }
+            user.setPreferredDam(dam);
+            if (user.getOnboardingCompletedAt() == null) {
+                user.setOnboardingCompletedAt(LocalDateTime.now());
+            }
         }
 
         user = userRepository.save(user);

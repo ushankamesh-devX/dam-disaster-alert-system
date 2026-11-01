@@ -1,0 +1,11 @@
+auth {
+  mode: bearer
+}
+auth:bearer {
+  token: {{accessToken}}
+}
+script:pre-request {
+  if (req.getTags().includes("manual") && bru.getEnvVar("allowWrites") !== "true") {
+    bru.runner.skipRequest();
+  }
+}

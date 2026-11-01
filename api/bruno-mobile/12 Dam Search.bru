@@ -1,0 +1,19 @@
+meta {
+  name: Dam Search
+  type: http
+  seq: 12
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/search?q={{search}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

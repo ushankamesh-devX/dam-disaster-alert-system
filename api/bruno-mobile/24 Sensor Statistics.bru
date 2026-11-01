@@ -1,0 +1,19 @@
+meta {
+  name: Sensor Statistics
+  type: http
+  seq: 24
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/sensors/{{sensorId}}/statistics?startTime={{startTime}}&endTime={{endTime}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

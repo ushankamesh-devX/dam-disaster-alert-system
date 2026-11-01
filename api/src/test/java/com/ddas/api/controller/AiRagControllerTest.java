@@ -41,6 +41,16 @@ class AiRagControllerTest {
     }
 
     @Test
+    void chatRejectsMissingOrBlankQuery() throws Exception {
+        for (String body : List.of("{}", "{\"query\":\"   \"}", "{\"query\":123}")) {
+            mockMvc.perform(post("/api/v1/ai/chat")
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest());
+        }
+        org.mockito.Mockito.verifyNoInteractions(aiRagService);
+    }
+
+    @Test
     void chat_returnsSuccess() throws Exception {
         when(aiRagService.chat(any())).thenReturn(Map.of(
                 "query", "What is the emergency gate protocol?",

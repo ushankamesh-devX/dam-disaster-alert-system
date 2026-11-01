@@ -5,7 +5,7 @@ import { safeLocationService } from '@/services/safe-locations/safe-location.ser
 import { damService } from '@/services/dams/dam.service';
 import { hazardZoneService } from '@/services/hazard/hazard-zone.service';
 import { ensureAuth } from '@/services/api/auto-auth';
-import { pickDisplayedDam } from '@/services/dams/display-dam';
+import { useAuth } from '@/contexts/AuthContext';
 import { sensorService } from '@/services/sensors/sensor.service';
 import { damGatesService } from '@/services/dams/dam-gates.service';
 
@@ -95,7 +95,7 @@ async function fetchMapData(mode: MapMode, options: MapRenderOptions, focusDamId
   const allLocations: SafeLocation[] = Array.isArray(locRes.data) ? locRes.data : [];
   const allDams: Dam[] = Array.isArray(damRes.data) ? damRes.data : [];
   const selectedDams = mode === 'zones' || focusDamId
-    ? allDams.filter((dam) => String(dam.id) === (focusDamId ?? String(pickDisplayedDam(allDams)?.id)))
+    ? allDams.filter((dam) => String(dam.id) === focusDamId)
     : allDams;
   const dams: Dam[] = await Promise.all(selectedDams.map(async dam => {
     try {
@@ -293,7 +293,7 @@ if (SHOW_LOCATIONS) {
 
     var m = L.marker([lat, lng], {icon: makeEvacIcon(loc.markerColor, loc.markerIcon)});
     m.bindPopup(popup, {maxWidth:220});
-    m.bindTooltip(escapeText(loc.name), {permanent:true, direction:'top', offset:[0,-40]});
+    m.bindTooltip(escapeText(loc.name), {permanent:false, direction:'top', offset:[0,-40]});
     markerDetails.push({marker:m, icon:makeEvacIcon(loc.markerColor, loc.markerIcon), color:loc.markerColor});
     m.addTo(map);
   });
@@ -319,7 +319,7 @@ if (SHOW_LOCATIONS) {
 
     var m = L.marker([lat, lng], {icon: makeDamIcon(dam.overallHazardStatus), zIndexOffset:1000});
     m.bindPopup(popup, {maxWidth:220});
-    m.bindTooltip(escapeText(dam.name), {permanent:true, direction:'top', offset:[0,-42]});
+    m.bindTooltip(escapeText(dam.name), {permanent:false, direction:'top', offset:[0,-42]});
     markerDetails.push({marker:m, icon:makeDamIcon(dam.overallHazardStatus), color:DAM_COLORS[dam.overallHazardStatus]});
     m.addTo(map);
   });
@@ -348,24 +348,16 @@ ZONES.forEach(function(z) {
   var opacity = (typeof z.fillOpacity === 'number') ? z.fillOpacity : parseFloat(z.fillOpacity||'0.35');
   var weight  = parseInt(z.strokeWidth||'2') || 2;
 
-  var popup = '<div class="lp">'+
-    '<div class="lp-name">'+(z.zoneName||'Hazard Zone')+'</div>'+
-    (z.zoneCode ? '<div class="lp-sub">'+z.zoneCode+'</div>' : '')+
-    (z.damName  ? '<div class="lp-row"><span>Dam</span><span>'+z.damName+'</span></div>' : '')+
-    (z.distanceFromDamKm          ? '<div class="lp-row"><span>Distance</span><span>'+z.distanceFromDamKm+' km</span></div>' : '')+
-    (z.estimatedFloodArrivalMinutes ? '<div class="lp-row"><span>⚠️ Flood ETA</span><span>'+z.estimatedFloodArrivalMinutes+' min</span></div>' : '')+
-    (z.estimatedWaterDepthMeters  ? '<div class="lp-row"><span>Depth</span><span>'+z.estimatedWaterDepthMeters+' m</span></div>' : '')+
-    (z.areaSqKm ? '<div class="lp-row"><span>Area</span><span>'+z.areaSqKm+' km²</span></div>' : '')+
-    '</div>';
+  var popup = '<div style="font-size:11px;line-height:14px;font-weight:600">'+escapeText(z.zoneName || z.hazardLevel && z.hazardLevel.name || 'Hazard area')+'</div>';
 
   var layer = L.geoJSON(geo, {
     smoothFactor:1.5,
     style: {color: stroke, weight: weight, fillColor: fill, fillOpacity: opacity, opacity: 0.9}
   });
-  layer.bindPopup(popup, {maxWidth:240});
+  layer.bindPopup(popup, {maxWidth:240, maxHeight:160});
   var labelPoint = geo.coordinates[0][0];
   try { var pos = JSON.parse(z.labelPosition); if (pos && Number.isFinite(pos.lat) && Number.isFinite(pos.lng)) labelPoint = [pos.lng,pos.lat]; } catch(e) {}
-  var label = L.tooltip({permanent:true, direction:'right'}).setLatLng([labelPoint[1],labelPoint[0]])
+  var label = L.tooltip({permanent:false, direction:'right'}).setLatLng([labelPoint[1],labelPoint[0]])
     .setContent(escapeText(z.zoneName || z.hazardLevel && z.hazardLevel.name));
   zoneDetails.push({layer:layer, label:label, opacity:opacity, weight:weight});
   layer.addTo(map);
@@ -382,11 +374,11 @@ function updateDetail() {
   document.getElementById('map').classList.toggle('overview', zoom < 12);
   markerDetails.forEach(function(item) {
     item.marker.setIcon(zoom < 13 ? overviewIcon(item.color) : item.icon);
-    if (zoom >= 15) item.marker.openTooltip(); else item.marker.closeTooltip();
+    item.marker.closeTooltip();
   });
   zoneDetails.forEach(function(item) {
     item.layer.setStyle({weight:zoom < 12 ? 1 : item.weight, fillOpacity:Math.min(item.opacity, zoom < 12 ? .16 : .28)});
-    if (zoom >= 15) item.label.addTo(map); else map.removeLayer(item.label);
+    map.removeLayer(item.label);
     item.layer.bringToFront();
   });
 }
@@ -424,13 +416,15 @@ export function LiveHazardMapView({
   showDams = true,
   focusDamId,
 }: LiveHazardMapViewProps) {
+  const { user } = useAuth();
+  const selectedDamId = focusDamId ?? (user?.preferredDamId ? String(user.preferredDamId) : undefined);
   const [html, setHtml] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>('loading');
 
   useEffect(() => {
     const options = { showLocations, showZones, showDams };
     let cancelled = false;
-    fetchMapData(mode, options, focusDamId)
+    fetchMapData(mode, options, selectedDamId)
       .then(({ locations, dams, zones, equipment }) => {
         if (cancelled) return;
         setHtml(buildHtml(locations, dams, zones, options, equipment));
@@ -438,7 +432,7 @@ export function LiveHazardMapView({
       })
       .catch(() => { if (!cancelled) setState('error'); });
     return () => { cancelled = true; };
-  }, [mode, showLocations, showZones, showDams, focusDamId]);
+  }, [mode, showLocations, showZones, showDams, selectedDamId]);
 
   if (state === 'loading') {
     return (

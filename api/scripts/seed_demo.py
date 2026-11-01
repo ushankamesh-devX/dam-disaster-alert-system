@@ -12,6 +12,7 @@ import uuid
 import os
 import argparse
 import sys
+import shlex
 from functools import lru_cache
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATABASE = os.environ.get('DDAS_SEED_DATABASE', 'dam_disaster_db')
 if not re.fullmatch(r'[A-Za-z0-9_]+', DATABASE):
     raise ValueError('DDAS_SEED_DATABASE must contain only letters, digits and underscores')
-OUT = ROOT / 'local-data' / DATABASE
+OUT = Path(os.environ.get('DDAS_BACKUP_DIR', str(ROOT / 'local-data'))) / DATABASE
 NOW = datetime.now(timezone.utc).replace(tzinfo=None, minute=0, second=0, microsecond=0)
 NS = uuid.UUID('5c790cf5-146a-458b-9936-f8c05757ead0')
 if __name__ == '__main__':
@@ -45,9 +46,32 @@ def docker(command, data=None):
         raise RuntimeError(p.stderr.decode('utf8', errors='replace'))
     return p.stdout
 
-CLIENT = 'export MYSQL_PWD=$MYSQL_PASSWORD; exec mysql --user=$MYSQL_USER --database=$MYSQL_DATABASE --default-character-set=utf8mb4 --batch --raw'
+def mysql_client(program, arguments, data=None):
+    transport=os.environ.get('DDAS_MYSQL_TRANSPORT','compose')
+    if transport=='compose':
+        return docker('export MYSQL_PWD="$MYSQL_PASSWORD"; exec '+program+
+            ' --user="$MYSQL_USER" '+shlex.join(arguments),data)
+    if transport not in {'local','container'}: raise RuntimeError('Unsupported DDAS_MYSQL_TRANSPORT: '+transport)
+    env={**os.environ,'MYSQL_PWD':os.environ['MYSQL_PASSWORD']}
+    if transport=='container':
+        command=['docker','exec','-i','-e','MYSQL_PWD',os.environ['DDAS_MYSQL_CONTAINER'],
+            program,'--user='+os.environ['MYSQL_USER'],*arguments]
+    else:
+        command=[program,'--host='+os.environ['DDAS_MYSQL_HOST'],
+            '--port='+os.environ.get('DDAS_MYSQL_PORT','3306'),
+            '--user='+os.environ['MYSQL_USER'],*arguments]
+    result=subprocess.run(command,input=data,capture_output=True,env=env)
+    if result.returncode: raise RuntimeError(result.stderr.decode('utf8',errors='replace'))
+    return result.stdout
+
+
+def dump_database(*options):
+    return mysql_client('mysqldump',['--single-transaction','--no-tablespaces',
+        '--set-gtid-purged=OFF',*options,DATABASE])
+
 def sql(query):
-    return docker(CLIENT, query.encode('utf8')).decode('utf8')
+    return mysql_client('mysql',['--database='+DATABASE,'--default-character-set=utf8mb4',
+        '--batch','--raw'],query.encode('utf8')).decode('utf8')
 def records(query):
     return list(csv.DictReader(io.StringIO(sql(query)), delimiter='\t'))
 def quote(v):
@@ -109,7 +133,7 @@ def seed_base():
     if 'dams' in tables and records("SELECT id FROM dams WHERE code LIKE 'DEMO-%' LIMIT 1;"):
         raise RuntimeError('Demo rows already exist; refusing to duplicate them.')
     if not (OUT / 'before-demo.sql').exists():
-        backup = docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF $MYSQL_DATABASE')
+        backup = dump_database()
         (OUT / 'before-demo.sql').write_bytes(backup)
     print('Local database backup saved.', flush=True)
     created = []
@@ -284,14 +308,12 @@ def seed_base():
 def initialize_rbac():
     # Reuse the project's permission policy, without creating a default login.
     source=(ROOT/'DB SCHEMA/init_data.sql').read_text(encoding='utf8')
-    source=source.split('-- 4. CREATE INITIAL ADMIN USER')[0]
     source=re.sub(r'--[^\n]*', '', source)
     statements=[]
     for statement in source.split(';'):
         if statement.strip().startswith('INSERT INTO'):
             table=re.search(r'INSERT INTO (\w+)',statement).group(1)
-            col='role_id' if table=='role_permissions' else 'id'
-            statements.append(statement+f' ON DUPLICATE KEY UPDATE {table}.{col}={table}.{col};')
+            statements.append(statement+f' ON DUPLICATE KEY UPDATE {table}.id={table}.id;')
     sql('START TRANSACTION;'+''.join(statements)+'COMMIT;')
 
 
@@ -389,7 +411,7 @@ def main():
     manifest=json.loads(stored[0]['manifest']) if stored else None
     if manifest is None and not args.validate_only:
         if not (OUT/'before-demo.sql').exists():
-            (OUT/'before-demo.sql').write_bytes(docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF $MYSQL_DATABASE'))
+            (OUT/'before-demo.sql').write_bytes(dump_database())
         # Adopt the previous local seed only when its ID ranges and user UUID match.
         legacy=ROOT/'local-data/seed-manifest.json'
         dam_table=records("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dams'")

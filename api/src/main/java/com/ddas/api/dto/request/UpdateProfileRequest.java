@@ -24,4 +24,7 @@ public class UpdateProfileRequest {
     private String languagePreference;
 
     private Boolean notificationEnabled;
+
+    @jakarta.validation.constraints.Positive
+    private Long preferredDamId;
 }

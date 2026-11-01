@@ -33,10 +33,10 @@ export const sensorService = {
 
   getReadingsInRange: (
     id: string,
-    params: { startDate: string; endDate: string }
+    params: { startTime: string; endTime: string }
   ) => axiosInstance.get(ENDPOINTS.SENSORS.READINGS_RANGE(id), { params }),
 
-  getStatistics: (id: string, params?: Record<string, unknown>) =>
+  getStatistics: (id: string, params: { startTime: string; endTime: string }) =>
     axiosInstance.get(ENDPOINTS.SENSORS.STATISTICS(id), { params }),
 
   getStatisticsByDam: (damId: string) =>

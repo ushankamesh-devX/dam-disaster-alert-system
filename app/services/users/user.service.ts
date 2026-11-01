@@ -1,13 +1,19 @@
 import { axiosInstance, ENDPOINTS } from "../api";
+import type { UserProfile } from '@/models/user';
 
 export interface UpdateProfilePayload {
-  name?: string;
-  email?: string;
+  fullName?: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+  languagePreference?: string;
+  notificationEnabled?: boolean;
+  preferredDamId?: number;
 }
 
 export interface UpdatePasswordPayload {
   currentPassword: string;
   newPassword: string;
+  confirmPassword: string;
 }
 
 export interface UpdateLocationPayload {
@@ -16,7 +22,7 @@ export interface UpdateLocationPayload {
 }
 
 export const userService = {
-  getMe: () => axiosInstance.get(ENDPOINTS.USERS.ME),
+  getMe: () => axiosInstance.get<{ data: UserProfile }>(ENDPOINTS.USERS.ME),
 
   getAll: (params?: { page?: number; size?: number }) =>
     axiosInstance.get(ENDPOINTS.USERS.BASE, { params }),
@@ -35,7 +41,7 @@ export const userService = {
     axiosInstance.get(ENDPOINTS.USERS.SEARCH, { params: { q } }),
 
   updateProfile: (data: UpdateProfilePayload) =>
-    axiosInstance.put(ENDPOINTS.USERS.ME, data),
+    axiosInstance.put<{ data: UserProfile }>(ENDPOINTS.USERS.ME, data),
 
   updatePassword: (data: UpdatePasswordPayload) =>
     axiosInstance.put(ENDPOINTS.USERS.ME_PASSWORD, data),

@@ -71,6 +71,10 @@ services:
       DDAS_ADMIN_EMAIL: ${DDAS_ADMIN_EMAIL:-}
       DDAS_ADMIN_PASSWORD: ${DDAS_ADMIN_PASSWORD:-}
       DDAS_ADMIN_NAME: ${DDAS_ADMIN_NAME:-DDAS Administrator}
+      # Containers reach the AI service by its Compose service name.
+      DDAS_AI_BACKEND_URL: http://ai:8000
+      DDAS_AI_INCOMING_SERVICE_TOKEN: ${DDAS_AI_INCOMING_SERVICE_TOKEN:-}
+      DDAS_AI_SPRING_SERVICE_TOKEN: ${DDAS_AI_SPRING_SERVICE_TOKEN:-}
       # MQTT Broker connection (Eclipse Mosquitto)
       MQTT_BROKER_HOST: mosquitto
       MQTT_BROKER_PORT: 1883
@@ -130,6 +134,23 @@ services:
     networks:
       - ddas-network
 
+  mlflow-db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrations
+    restart: "no"
+    command: ["--mlflow-only"]
+    environment:
+      DDAS_MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DDAS_MLFLOW_USER: ${MYSQL_USER}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ddas-network
+
   mlflow:
     build:
       context: ../ai
@@ -147,6 +168,8 @@ services:
     command: >
       --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/mlflow_db --default-artifact-root s3://ddas-artifacts/mlflow --artifacts-destination s3://ddas-artifacts/mlflow --host 0.0.0.0 --port 5000 --allowed-hosts "*"
     depends_on:
+      mlflow-db-init:
+        condition: service_completed_successfully
       mysql:
         condition: service_healthy
       minio:

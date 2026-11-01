@@ -230,6 +230,12 @@ export function EvacuationFlow() {
     setPhase('evacuating');
   };
 
+  // Stop: end the sharing too, so the admin map doesn't keep a stale "on the way"
+  const stop = () => {
+    setPhase('idle');
+    if (!openSos) evacuationService.stopSharing().catch(() => undefined);
+  };
+
   const imSafe = async () => {
     try {
       await evacuationService.imSafe();
@@ -382,7 +388,7 @@ export function EvacuationFlow() {
       {phase === 'evacuating' && (
         <View style={styles.row}>
           <Big label="I'm safe" icon="shield-check" color="#15803D" onPress={imSafe} />
-          <Big label="Stop" icon="stop" color="#64748B" onPress={() => setPhase('idle')} />
+          <Big label="Stop" icon="stop" color="#64748B" onPress={stop} />
         </View>
       )}
       {phase === 'safe' && (

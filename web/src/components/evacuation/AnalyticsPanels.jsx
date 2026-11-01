@@ -107,7 +107,7 @@ export function PersonCard({ person, straggler, route, onRoute, onClose }) {
                     <Navigation /> {route ? `Live route: ${route.distanceKm} km · ~${route.etaMin} min (updates)` : 'Show live route'}
                 </Button>
             )}
-            <p className="text-[11px] text-muted-foreground">Simulated person (demo).</p>
+            <p className="text-[11px] text-muted-foreground">{person.phone ? 'Live phone (DDAS mobile app).' : 'Simulated person (demo).'}</p>
         </div>
     );
 }

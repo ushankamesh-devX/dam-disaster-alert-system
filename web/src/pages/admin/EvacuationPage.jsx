@@ -1,22 +1,26 @@
-import { useCallback, useEffect, useState } from 'react';
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet';
-import { Route } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
+import { FileText, Route } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import 'leaflet/dist/leaflet.css';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import EvacuationService from '../../services/evacuation.service';
-import { MAP_OPTIONS, TILE_PROPS, SRI_LANKA_CENTER } from '../../components/map/mapDefaults';
-import { MapBehavior, DamJumpControl } from '../../components/map/MapControls';
-import { loadMapDams } from '../../components/map/mapDefaults';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CommandCenterService from '../../services/commandCenter.service';
-import { LayerToggles, PeopleLayer, ServicesLayer, SosLayer } from '../../components/evacuation/LiveLayers';
-import { BroadcastDialog, ShelterList, SosQueue, Timeline } from '../../components/evacuation/LivePanels';
+import { MAP_OPTIONS, TILE_PROPS, SRI_LANKA_CENTER, loadMapDams } from '../../components/map/mapDefaults';
+import { MapBehavior, DamJumpControl } from '../../components/map/MapControls';
+import { BottleneckLayer, LayerToggles, ServicesLayer, ShelterLayer, SosLayer } from '../../components/evacuation/LiveLayers';
+import { BroadcastDialog, SosQueue, Timeline } from '../../components/evacuation/LivePanels';
+import { PeoplePanel, PersonCard, ReplayBar, ShelterForecast, ZonesPanel } from '../../components/evacuation/AnalyticsPanels';
+import { EMPTY_FILTER, filterPeople } from '../../components/evacuation/peopleFilter';
+import MovingPeopleLayer from '../../components/evacuation/MovingPeopleLayer';
+import RiverFloodLayer from '../../components/evacuation/RiverFloodLayer';
 
 function parseGeo(text) {
     try {
@@ -26,11 +30,13 @@ function parseGeo(text) {
     }
 }
 
-function shelterColor(s) {
-    if (s.inDangerZone || s.status === 'closed' || s.status === 'inactive') return '#6b7280';
-    if (s.status === 'full' || (s.capacity && s.occupancy >= s.capacity)) return '#dc2626';
-    if (s.capacity && s.occupancy / s.capacity >= 0.8) return '#f59e0b';
-    return '#16a34a';
+/** Zone style by flood timing: flooded = dark solid, water within 10 min = pulsing border. */
+function zoneStyle(zone, timing) {
+    if (timing?.flooded) return { color: '#7F1D1D', weight: 2, fillColor: '#991B1B', fillOpacity: 0.55 };
+    if (timing?.floodInMin != null && timing.floodInMin <= 10) {
+        return { color: '#DC2626', weight: 3, fillColor: zone.color || '#DC2626', fillOpacity: 0.35, className: 'ddas-zone-warn' };
+    }
+    return { color: zone.color || '#DC2626', weight: 2, fillOpacity: 0.3 };
 }
 
 /** Geoman polygon tool for drawing blocked roads. */
@@ -68,6 +74,17 @@ function RouteTester({ enabled, onPick }) {
     return null;
 }
 
+/** Pan to a selected SOS or person. */
+function FlyTo({ target }) {
+    const map = useMap();
+    const lat = target?.[0];
+    const lng = target?.[1];
+    useEffect(() => {
+        if (lat != null && lng != null) map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+    }, [map, lat, lng]);
+    return null;
+}
+
 function Stat({ label, value, alert }) {
     return (
         <div className="flex items-baseline gap-1.5 whitespace-nowrap">
@@ -77,134 +94,160 @@ function Stat({ label, value, alert }) {
     );
 }
 
-function Panel({ title, children, className = '' }) {
+function Panel({ title, children }) {
     return (
-        <Card className={`gap-2 py-3 ${className}`}>
+        <Card className="gap-2 py-3">
             <CardHeader className="px-4"><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
-            <CardContent className="px-4 space-y-2 text-sm">{children}</CardContent>
+            <CardContent className="space-y-2 px-4 text-sm">{children}</CardContent>
         </Card>
     );
 }
 
+const Legend = ({ colour, round = true, label }) => (
+    <span className="flex items-center gap-1">
+        <span className={`size-2.5 ${round ? 'rounded-full' : 'rounded-sm'}`} style={{ background: colour }} /> {label}
+    </span>
+);
+
 export default function EvacuationPage() {
-    const [status, setStatus] = useState(null);
+    const [status, setStatus] = useState(null);       // zones, shelters, blocked roads
+    const [cc, setCc] = useState(null);               // summary, sos, services, timeline, rivers
+    const [people, setPeople] = useState([]);
+    const [analytics, setAnalytics] = useState(null); // zones, shelters, bottlenecks, stragglers, progress, incident
     const [live, setLive] = useState(false);
     const [error, setError] = useState('');
-    const [draft, setDraft] = useState(null);   // { geometry, name, reason, expiresAt }
+    const [layers, setLayers] = useState({
+        zones: true, river: true, people: true, trails: false, flows: false, sos: true, shelters: true,
+        services: true, bottlenecks: true, blocked: true,
+    });
+    const [tab, setTab] = useState('sos');
+    const [filter, setFilter] = useState(EMPTY_FILTER);
+    const [selectedSos, setSelectedSos] = useState(null);
+    const [selectedPersonId, setSelectedPersonId] = useState(null);
+    const [personRoute, setPersonRoute] = useState(null);
+    const [followRoute, setFollowRoute] = useState(false);
+    const [replayFrames, setReplayFrames] = useState([]);
+    const [replayFrame, setReplayFrame] = useState(null);
+    const [dams, setDams] = useState([]);
+    const [draft, setDraft] = useState(null);         // blocked road being drawn
     const [testMode, setTestMode] = useState(false);
     const [travelMode, setTravelMode] = useState('walk');
     const [testResult, setTestResult] = useState(null);
     const [packsMsg, setPacksMsg] = useState('');
-    const [live2, setLive2] = useState(false);          // command-center poll succeeding
-    const [cc, setCc] = useState(null);                 // { summary, peopleCells, sos, services, timeline }
-    const [layers, setLayers] = useState({ zones: true, people: true, sos: true, shelters: true, services: true, blocked: true });
-    const [selectedSos, setSelectedSos] = useState(null);
-    const [tab, setTab] = useState('sos');
-    const [dams, setDams] = useState([]);
 
-    useEffect(() => {
-        EvacuationService.status().then(setStatus).catch((e) => setError(e.message));
-        return EvacuationService.subscribe(setStatus, setLive);
+    // People every 5 s (smooth movement); everything else every 10 s
+    const refreshPeople = useCallback(async () => {
+        try { setPeople(await CommandCenterService.people()); setLive(true); } catch { setLive(false); }
     }, []);
-
-    // Command center: poll every 5 s (also refreshes zones/shelters in case the live stream is blocked)
-    const refresh = useCallback(async () => {
-        try {
-            const [snap, st] = await Promise.all([CommandCenterService.snapshot(), EvacuationService.status()]);
-            setCc(snap);
-            setStatus(st);
-            setLive2(true);
-        } catch {
-            setLive2(false);
-        }
+    const refreshAll = useCallback(async () => {
+        const [snap, st, an] = await Promise.allSettled([
+            CommandCenterService.snapshot(), EvacuationService.status(), CommandCenterService.analytics()]);
+        if (snap.status === 'fulfilled') setCc(snap.value);
+        if (st.status === 'fulfilled') setStatus(st.value);
+        if (an.status === 'fulfilled') setAnalytics(an.value);
+        if (snap.status === 'rejected' && st.status === 'rejected') setError('Cannot reach the API');
     }, []);
     useEffect(() => {
-        const first = setTimeout(refresh, 0);
-        const timer = setInterval(refresh, 5000);
+        const first = setTimeout(() => { refreshPeople(); refreshAll(); }, 0);
+        const p = setInterval(refreshPeople, 5000);
+        const a = setInterval(refreshAll, 10000);
         loadMapDams().then(setDams);
-        return () => { clearTimeout(first); clearInterval(timer); };
-    }, [refresh]);
-
-    const onDrawn = useCallback((geometry) => { setDraft({ geometry, name: '', reason: '', expiresAt: '' }); setTab('tools'); }, []);
-
-    const saveDraft = async () => {
-        try {
-            await EvacuationService.createBlockedRoad(draft);
-            setDraft(null);
-            setStatus(await EvacuationService.status());
-        } catch (e) {
-            setError(e.response?.data?.message || e.message);
-        }
-    };
-
-    const removeBlocked = async (id) => {
-        try {
-            await EvacuationService.deleteBlockedRoad(id);
-            setStatus(await EvacuationService.status());
-        } catch (e) {
-            setError(e.response?.data?.message || e.message);
-        }
-    };
-
-    const testRoute = async ({ lat, lng }) => {
-        setTestResult({ loading: true, from: [lat, lng] });
-        setTab('tools');
-        try {
-            const r = await EvacuationService.route(lat, lng, travelMode);
-            setTestResult({ ...r, from: [lat, lng] });
-        } catch (e) {
-            setTestResult({ error: e.message, from: [lat, lng] });
-        }
-    };
-
-    const rebuildPacks = async () => {
-        setPacksMsg('Rebuilding…');
-        try {
-            const r = await EvacuationService.rebuildPacks();
-            setPacksMsg(`Built ${r.built} offline route packs`);
-        } catch (e) {
-            setPacksMsg(e.response?.data?.message || e.message);
-        }
-    };
+        return () => { clearTimeout(first); clearInterval(p); clearInterval(a); };
+    }, [refreshPeople, refreshAll]);
 
     const zones = status?.dangerZones || [];
     const shelters = status?.shelters || [];
     const blocked = status?.blockedRoads || [];
-    const routeLine = testResult?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
-    const sm = cc?.summary || {};
     const sos = cc?.sos || [];
     const services = cc?.services || [];
-    const isLive = live || live2;
+    const sm = cc?.summary || {};
+    const zoneTiming = useMemo(() => new Map((analytics?.zones || []).map((z) => [z.id, z])), [analytics]);
+    const stragglers = useMemo(() => analytics?.stragglers || [], [analytics]);
+    const stragglerIds = useMemo(() => new Set(stragglers.map((s) => s.id)), [stragglers]);
+    const shown = useMemo(() => filterPeople(people, filter, stragglerIds), [people, filter, stragglerIds]);
+    const selectedPerson = people.find((p) => p.id === selectedPersonId) || null;
+
+    // Replay: positions from the recorded frame instead of live people
+    const mapPeople = useMemo(() => {
+        if (!replayFrame) return layers.people ? shown : [];
+        const names = new Map(people.map((p) => [p.id, p.name]));
+        return replayFrame.p.map(([id, lat, lng, safe]) => ({
+            id, lat, lng, name: names.get(id) || `Person ${id}`, state: safe ? 'safe' : 'moving', mode: 'walk', headingDeg: 0, trail: [],
+        }));
+    }, [replayFrame, shown, people, layers.people]);
+
+    // Live route for the selected person (re-fetched every 15 s while "following")
+    const loadRoute = useCallback(async (p) => {
+        if (!p) return;
+        try { setPersonRoute(await EvacuationService.route(p.lat, p.lng, p.mode)); } catch { setPersonRoute(null); }
+    }, []);
+    useEffect(() => {
+        if (!followRoute || !selectedPerson) return undefined;
+        const timer = setInterval(() => loadRoute(selectedPerson), 15000);
+        return () => clearInterval(timer);
+    }, [followRoute, selectedPerson, loadRoute]);
+
+    const selectPerson = useCallback((id) => {
+        setSelectedPersonId(id);
+        setPersonRoute(null);
+        setFollowRoute(false);
+        setTab('people');
+    }, []);
+
+    const onDrawn = useCallback((geometry) => { setDraft({ geometry, name: '', reason: '', expiresAt: '' }); setTab('tools'); }, []);
+    const saveDraft = async () => {
+        try { await EvacuationService.createBlockedRoad(draft); setDraft(null); refreshAll(); } catch (e) { setError(e.response?.data?.message || e.message); }
+    };
+    const removeBlocked = async (id) => {
+        try { await EvacuationService.deleteBlockedRoad(id); refreshAll(); } catch (e) { setError(e.response?.data?.message || e.message); }
+    };
+    const testRoute = async ({ lat, lng }) => {
+        setTestResult({ loading: true, from: [lat, lng] });
+        setTab('tools');
+        try { setTestResult({ ...(await EvacuationService.route(lat, lng, travelMode)), from: [lat, lng] }); } catch (e) { setTestResult({ error: e.message, from: [lat, lng] }); }
+    };
+    const rebuildPacks = async () => {
+        setPacksMsg('Rebuilding…');
+        try { setPacksMsg(`Built ${(await EvacuationService.rebuildPacks()).built} offline route packs`); } catch (e) { setPacksMsg(e.response?.data?.message || e.message); }
+    };
+    const loadReplay = useCallback(async () => { setReplayFrames(await CommandCenterService.replay(60)); }, []);
+
+    const testLine = testResult?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
+    const personLine = personRoute?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
     const spaceLeft = Math.max(0, Number(sm.capacity || 0) - Number(sm.occupancy || 0));
+    const flyTarget = selectedSos ? [Number(selectedSos.lat), Number(selectedSos.lng)]
+        : selectedPerson ? [selectedPerson.lat, selectedPerson.lng] : null;
 
     return (
         <div className="flex h-full flex-col gap-3">
-            {/* One compact row: title, live state, key numbers, broadcast */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border bg-card px-4 py-2">
+            {/* Title, live state, key numbers, actions */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border bg-card px-4 py-2">
                 <div className="flex items-center gap-2">
                     <h1 className="text-base font-semibold">Evacuation</h1>
-                    <Badge variant={isLive ? 'default' : 'secondary'} className={isLive ? 'bg-success text-white' : ''}>
-                        <span className={`size-1.5 rounded-full ${isLive ? 'bg-white' : 'bg-muted-foreground'}`} />
-                        {isLive ? 'Live' : 'Connecting…'}
+                    <Badge className={live ? 'bg-[#15803D] text-white' : ''} variant={live ? 'default' : 'secondary'}>
+                        <span className={`size-1.5 rounded-full ${live ? 'bg-white' : 'bg-muted-foreground'}`} />
+                        {replayFrame ? 'Replay' : live ? 'Live' : 'Connecting…'}
                     </Badge>
                 </div>
                 <Stat label="zones active" value={zones.length} alert={zones.length > 0} />
-                <Stat label="people in danger" value={sm.peopleInDanger ?? '–'} alert={sm.peopleInDanger > 0} />
-                <Stat label="sharing location" value={sm.peopleSharing ?? '–'} />
-                <Stat label="reached shelters" value={sm.arrivedAtShelters ?? '–'} />
+                <Stat label="in danger" value={sm.peopleInDanger ?? '–'} alert={sm.peopleInDanger > 0} />
+                <Stat label="on the way" value={people.filter((p) => p.state === 'moving').length} />
+                <Stat label="safe" value={sm.arrivedAtShelters ?? '–'} />
                 <Stat label="SOS open" value={sm.sosOpen ?? '–'} alert={sm.sosOpen > 0} />
                 <Stat label="shelter places left" value={sm.capacity != null ? spaceLeft : '–'} />
-                <div className="ml-auto"><BroadcastDialog dams={dams} /></div>
+                <div className="ml-auto flex items-center gap-2">
+                    <Button asChild size="sm" variant="outline"><Link to="/admin/evacuation/report"><FileText /> Incident report</Link></Button>
+                    <BroadcastDialog dams={dams} />
+                </div>
             </div>
 
             {error && (
                 <div role="alert" className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                    {error}
-                    <Button variant="ghost" size="sm" onClick={() => setError('')}>Dismiss</Button>
+                    {error}<Button variant="ghost" size="sm" onClick={() => setError('')}>Dismiss</Button>
                 </div>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_380px]">
                 <Card className="flex min-h-[480px] flex-col gap-0 overflow-hidden py-0">
                     <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
                         <Button size="sm" variant={testMode ? 'default' : 'outline'} onClick={() => setTestMode((v) => !v)}>
@@ -216,7 +259,7 @@ export default function EvacuationPage() {
                                     aria-pressed={travelMode === m} onClick={() => setTravelMode(m)}>{m}</Button>
                             ))}
                         </div>
-                        <span className="text-xs text-muted-foreground">Draw a shape with the tools on the map to block a road</span>
+                        <span className="text-xs text-muted-foreground">Click a person or SOS for details · draw a shape to block a road</span>
                     </div>
                     <MapContainer {...MAP_OPTIONS} center={SRI_LANKA_CENTER} zoom={8} className="min-h-0 flex-1" style={{ borderRadius: 0 }}>
                         <TileLayer {...TILE_PROPS} />
@@ -225,24 +268,22 @@ export default function EvacuationPage() {
                         <BlockedRoadDrawer onDrawn={onDrawn} />
                         <RouteTester enabled={testMode} onPick={testRoute} />
                         <LayerToggles layers={layers} onChange={setLayers} />
-                        <FlyTo target={selectedSos ? [Number(selectedSos.lat), Number(selectedSos.lng)] : null} />
+                        <FlyTo target={flyTarget} />
 
+                        {layers.river && <RiverFloodLayer rivers={cc?.rivers || []} />}
                         {layers.zones && zones.map((z) => {
                             const geo = parseGeo(z.boundaryGeojson);
+                            const t = zoneTiming.get(z.id);
                             return geo && (
-                                <GeoJSON
-                                    key={`zone-${z.id}-${z.devicesInside}`}
-                                    data={geo}
-                                    style={{ color: z.color || '#dc2626', weight: 2, fillOpacity: 0.3 }}
-                                >
+                                <GeoJSON key={`zone-${z.id}-${t?.flooded}-${t?.floodInMin <= 10}`} data={geo} style={zoneStyle(z, t)}>
                                     <Tooltip sticky>
                                         {z.damName} · {z.name} (level {z.hazardLevel})<br />
-                                        Flood in ~{z.floodEtaMin ?? '?'} min · {z.devicesInside} phones inside
+                                        {t?.flooded ? 'Flooded' : t?.floodInMin != null ? `Water arrives in ~${t.floodInMin} min` : `Flood in ~${z.floodEtaMin ?? '?'} min`}
+                                        {t ? ` · ${t.clearedPct}% evacuated, ${t.peopleInside} inside` : ''}
                                     </Tooltip>
                                 </GeoJSON>
                             );
                         })}
-
                         {layers.blocked && blocked.map((b) => {
                             const geo = parseGeo(b.boundaryGeojson);
                             return geo && (
@@ -251,134 +292,117 @@ export default function EvacuationPage() {
                                 </GeoJSON>
                             );
                         })}
-
+                        {layers.bottlenecks && <BottleneckLayer bottlenecks={analytics?.bottlenecks || []} />}
                         {layers.services && <ServicesLayer services={services} />}
-                        {layers.people && <PeopleLayer cells={cc?.peopleCells || []} />}
-                        {layers.sos && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTab('sos'); }} />}
+                        {layers.shelters && <ShelterLayer shelters={shelters} forecast={analytics?.shelters} />}
+                        <MovingPeopleLayer people={mapPeople} shelters={shelters} selectedId={selectedPersonId}
+                            onSelect={selectPerson} showTrails={layers.trails && !replayFrame} showFlows={layers.flows && !replayFrame} />
+                        {layers.sos && !replayFrame && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTab('sos'); }} />}
 
-                        {layers.shelters && shelters.map((s) => (
-                            <CircleMarker
-                                key={`shelter-${s.id}`}
-                                center={[s.lat, s.lng]}
-                                radius={8}
-                                pathOptions={{ color: '#fff', weight: 2, fillColor: shelterColor(s), fillOpacity: 1 }}
-                            >
-                                <Popup>
-                                    <strong>{s.name}</strong><br />
-                                    {s.capacity ? `${s.occupancy ?? 0} / ${s.capacity} people` : 'Capacity unknown'}<br />
-                                    {s.inDangerZone ? 'Inside a danger zone — not used' : `Status: ${s.status}`}
-                                </Popup>
-                            </CircleMarker>
-                        ))}
-
-                        {testResult?.from && (
-                            <CircleMarker center={testResult.from} radius={6} pathOptions={{ color: '#2563eb', fillOpacity: 1 }} />
-                        )}
-                        {routeLine && <Polyline positions={routeLine} pathOptions={{ color: '#2563eb', weight: 5 }} />}
+                        {personLine && <Polyline positions={personLine} pathOptions={{ color: '#7C3AED', weight: 5, opacity: 0.85, className: 'ddas-flow' }} />}
+                        {testResult?.from && <CircleMarker center={testResult.from} radius={6} pathOptions={{ color: '#1D4ED8', fillOpacity: 1 }} />}
+                        {testLine && <Polyline positions={testLine} pathOptions={{ color: '#1D4ED8', weight: 5 }} />}
                     </MapContainer>
-                    <div className="flex flex-wrap items-center gap-4 border-t px-3 py-1.5 text-xs text-muted-foreground" aria-label="Map legend">
-                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-red-500/60" /> Danger zone</span>
-                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-green-600" /> Shelter open</span>
-                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-amber-500" /> Nearly full</span>
-                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-red-600" /> Full</span>
-                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-gray-500" /> Closed / in zone</span>
-                        <span className="flex items-center gap-1"><span className="h-0.5 w-3 bg-gray-900" /> Blocked road</span>
-                        <span className="flex items-center gap-1"><span className="h-1 w-3 rounded bg-blue-600" /> Route</span>
-                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-blue-600/75" /> People (count per area)</span>
-                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-red-600/75" /> People in a zone</span>
-                        <span className="flex items-center gap-1"><span className="ddas-sos-legend">!</span> SOS</span>
-                        <span className="flex items-center gap-1"><b className="text-[#1E40AF]">P</b>/<b className="text-[#DC2626]">H</b>/<b className="text-[#EA580C]">F</b> Police · hospital · fire</span>
+                    <ReplayBar frames={replayFrames} onLoad={loadReplay} onFrame={setReplayFrame} />
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-3 py-1.5 text-xs text-muted-foreground" aria-label="Map legend">
+                        <Legend colour="#1D4ED8" label="On the way" />
+                        <Legend colour="#B91C1C" label="In danger zone" />
+                        <Legend colour="#15803D" label="Safe" />
+                        <Legend colour="#C2410C" label="SOS" />
+                        <Legend colour="#991B1B" round={false} label="Flooded zone" />
+                        <Legend colour="linear-gradient(90deg,#B91C1C,#EA580C,#EAB308)" round={false} label="River flood path (red = water first)" />
+                        <Legend colour="#16A34A" label="Shelter (ring = how full)" />
+                        <Legend colour="#EF4444" label="Crowded road" />
+                        <span>Shield / cross = police / hospital (map only)</span>
                     </div>
                 </Card>
 
-                <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-col gap-2">
-                    <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="sos">SOS{sm.sosOpen ? ` (${sm.sosOpen})` : ''}</TabsTrigger>
-                        <TabsTrigger value="shelters">Shelters</TabsTrigger>
-                        <TabsTrigger value="timeline">Timeline</TabsTrigger>
-                        <TabsTrigger value="tools">Tools</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="sos" className="min-h-0 overflow-y-auto text-sm">
-                        <SosQueue sos={sos} services={services} selectedId={selectedSos?.id} onSelect={setSelectedSos} onChanged={refresh} />
-                    </TabsContent>
-                    <TabsContent value="shelters" className="min-h-0 overflow-y-auto text-sm">
-                        <ShelterList shelters={shelters} />
-                    </TabsContent>
-                    <TabsContent value="timeline" className="min-h-0 overflow-y-auto text-sm">
-                        <Timeline items={cc?.timeline || []} />
-                    </TabsContent>
-                    <TabsContent value="tools" className="min-h-0 space-y-3 overflow-y-auto">
-                    {draft && (
-                        <Panel title="New blocked road">
-                            <div className="space-y-1"><Label htmlFor="br-name">Name</Label>
-                                <Input id="br-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
-                            <div className="space-y-1"><Label htmlFor="br-reason">Reason</Label>
-                                <Input id="br-reason" value={draft.reason} onChange={(e) => setDraft({ ...draft, reason: e.target.value })} /></div>
-                            <div className="space-y-1"><Label htmlFor="br-exp">Expires (optional)</Label>
-                                <Input id="br-exp" type="datetime-local" value={draft.expiresAt} onChange={(e) => setDraft({ ...draft, expiresAt: e.target.value })} /></div>
-                            <div className="flex gap-2 pt-1">
-                                <Button size="sm" disabled={!draft.name.trim()} onClick={saveDraft}>Save</Button>
-                                <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
-                            </div>
-                        </Panel>
+                <div className="flex min-h-0 flex-col gap-2">
+                    {selectedPerson && (
+                        <PersonCard person={selectedPerson} straggler={stragglers.find((s) => s.id === selectedPerson.id)} route={personRoute}
+                            onRoute={() => { setFollowRoute(true); loadRoute(selectedPerson); }}
+                            onClose={() => { setSelectedPersonId(null); setPersonRoute(null); setFollowRoute(false); }} />
                     )}
-
-                    {testResult && (
-                        <Panel title="Route test">
-                            {testResult.loading && <p>Finding route…</p>}
-                            {testResult.error && <p className="text-destructive">{testResult.error}</p>}
-                            {testResult.shelter && (
-                                <>
-                                    {testResult.inDangerZone && (
-                                        <p className="font-medium text-destructive">In danger zone: {testResult.zone?.name} (flood in ~{testResult.floodEtaMin} min)</p>
-                                    )}
-                                    <p>Go to <strong>{testResult.shelter.name}</strong></p>
-                                    <p className="text-muted-foreground">{testResult.distanceKm} km · ~{testResult.etaMin} min</p>
-                                    {!testResult.safe && <p className="text-destructive">Slower than the flood: leave now</p>}
-                                    {!testResult.routingAvailable && <p className="text-warning">Routing unavailable: straight-line estimate</p>}
-                                    {testResult.alternatives?.length > 0 && (
-                                        <p className="text-muted-foreground">Other shelters: {testResult.alternatives.map((a) => `${a.shelter.name} (${a.etaMin} min)`).join(', ')}</p>
-                                    )}
-                                </>
-                            )}
-                        </Panel>
-                    )}
-
-                    <Panel title={`Blocked roads (${blocked.length})`}>
-                        {blocked.length === 0 && <p className="text-muted-foreground">None</p>}
-                        <ul className="space-y-2">
-                            {blocked.map((b) => (
-                                <li key={b.id} className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                        <p className="truncate font-medium">{b.name}</p>
-                                        {b.reason && <p className="text-muted-foreground">{b.reason}</p>}
-                                        {b.expiresAt && <p className="text-xs text-muted-foreground">Until {new Date(b.expiresAt).toLocaleString()}</p>}
+                    <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-2">
+                        <TabsList className="grid w-full grid-cols-6">
+                            <TabsTrigger value="sos" className="px-1 text-xs">SOS{sm.sosOpen ? ` ${sm.sosOpen}` : ''}</TabsTrigger>
+                            <TabsTrigger value="people" className="px-1 text-xs">People</TabsTrigger>
+                            <TabsTrigger value="zones" className="px-1 text-xs">Zones</TabsTrigger>
+                            <TabsTrigger value="shelters" className="px-1 text-xs">Shelters</TabsTrigger>
+                            <TabsTrigger value="log" className="px-1 text-xs">Log</TabsTrigger>
+                            <TabsTrigger value="tools" className="px-1 text-xs">Tools</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="sos" className="min-h-0 overflow-y-auto text-sm">
+                            <SosQueue sos={sos} services={services} selectedId={selectedSos?.id}
+                                onSelect={(x) => { setSelectedSos(x); setSelectedPersonId(null); }} onChanged={refreshAll} />
+                        </TabsContent>
+                        <TabsContent value="people" className="min-h-0 overflow-y-auto">
+                            <PeoplePanel people={people} shown={shown} filter={filter} onFilter={setFilter} zones={zones}
+                                stragglers={stragglers} selectedId={selectedPersonId}
+                                onSelect={(id) => { selectPerson(id); setSelectedSos(null); }} />
+                        </TabsContent>
+                        <TabsContent value="zones" className="min-h-0 overflow-y-auto">
+                            <ZonesPanel zones={analytics?.zones || []} progress={analytics?.progress} />
+                        </TabsContent>
+                        <TabsContent value="shelters" className="min-h-0 overflow-y-auto">
+                            <ShelterForecast shelters={analytics?.shelters || []} />
+                        </TabsContent>
+                        <TabsContent value="log" className="min-h-0 overflow-y-auto text-sm">
+                            <Timeline items={cc?.timeline || []} />
+                        </TabsContent>
+                        <TabsContent value="tools" className="min-h-0 space-y-3 overflow-y-auto">
+                            {draft && (
+                                <Panel title="New blocked road">
+                                    <div className="space-y-1"><Label htmlFor="br-name">Name</Label>
+                                        <Input id="br-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
+                                    <div className="space-y-1"><Label htmlFor="br-reason">Reason</Label>
+                                        <Input id="br-reason" value={draft.reason} onChange={(e) => setDraft({ ...draft, reason: e.target.value })} /></div>
+                                    <div className="space-y-1"><Label htmlFor="br-exp">Expires (optional)</Label>
+                                        <Input id="br-exp" type="datetime-local" value={draft.expiresAt} onChange={(e) => setDraft({ ...draft, expiresAt: e.target.value })} /></div>
+                                    <div className="flex gap-2 pt-1">
+                                        <Button size="sm" disabled={!draft.name.trim()} onClick={saveDraft}>Save</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
                                     </div>
-                                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeBlocked(b.id)}>Remove</Button>
-                                </li>
-                            ))}
-                        </ul>
-                    </Panel>
-
-                    <Panel title="Offline route packs">
-                        <p className="text-muted-foreground">Rebuilt every 6 hours. Rebuild after changing blocked roads or shelters.</p>
-                        <Button variant="outline" size="sm" onClick={rebuildPacks}>Rebuild now</Button>
-                        {packsMsg && <p>{packsMsg}</p>}
-                    </Panel>
-                    </TabsContent>
-                </Tabs>
+                                </Panel>
+                            )}
+                            {testResult && (
+                                <Panel title="Route test">
+                                    {testResult.loading && <p>Finding route…</p>}
+                                    {testResult.error && <p className="text-destructive">{testResult.error}</p>}
+                                    {testResult.shelter && (
+                                        <>
+                                            {testResult.inDangerZone && <p className="font-medium text-destructive">In danger zone: {testResult.zone?.name} (water in ~{testResult.floodEtaMin} min)</p>}
+                                            <p>Go to <strong>{testResult.shelter.name}</strong></p>
+                                            <p className="text-muted-foreground">{testResult.distanceKm} km · ~{testResult.etaMin} min</p>
+                                            {!testResult.safe && <p className="text-destructive">Slower than the flood: leave now</p>}
+                                            {!testResult.routingAvailable && <p className="text-warning">Routing unavailable: straight-line estimate</p>}
+                                        </>
+                                    )}
+                                </Panel>
+                            )}
+                            <Panel title={`Blocked roads (${blocked.length})`}>
+                                {blocked.length === 0 && <p className="text-muted-foreground">None</p>}
+                                <ul className="space-y-2">
+                                    {blocked.map((b) => (
+                                        <li key={b.id} className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="truncate font-medium">{b.name}</p>
+                                                {b.reason && <p className="text-muted-foreground">{b.reason}</p>}
+                                            </div>
+                                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeBlocked(b.id)}>Remove</Button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Panel>
+                            <Panel title="Offline route packs">
+                                <p className="text-muted-foreground">Rebuilt every 6 hours. Rebuild after changing blocked roads or shelters.</p>
+                                <Button variant="outline" size="sm" onClick={rebuildPacks}>Rebuild now</Button>
+                                {packsMsg && <p>{packsMsg}</p>}
+                            </Panel>
+                        </TabsContent>
+                    </Tabs>
+                </div>
             </div>
         </div>
     );
-}
-
-/** Pan to a selected SOS so the operator sees where it is. */
-function FlyTo({ target }) {
-    const map = useMap();
-    const lat = target?.[0];
-    const lng = target?.[1];
-    useEffect(() => {
-        if (lat != null && lng != null) map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
-    }, [map, lat, lng]);
-    return null;
 }

@@ -140,6 +140,19 @@ body {
 .ddas-sos-legend { width: 14px; height: 14px; font-size: 9px; background: #DC2626; border-width: 1px; }
 .ddas-sos-new { animation: ddas-sos-pulse 1.4s ease-out infinite; }
 @keyframes ddas-sos-pulse { 0% { box-shadow: 0 0 0 0 rgba(220,38,38,.6); } 100% { box-shadow: 0 0 0 14px rgba(220,38,38,0); } }
+.ddas-person, .ddas-beacon, .ddas-shelter, .ddas-service { background: none; border: 0; }
+.ddas-beacon-new svg { animation: ddas-beacon 1.2s ease-in-out infinite; transform-origin: center; }
+@keyframes ddas-beacon { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+/* Lines that "march" in their direction: flows to shelters, live routes, river flood path */
+.ddas-flow, .ddas-river-flow { animation: ddas-march 1s linear infinite; }
+.ddas-river-flow { stroke-dasharray: 10 8; animation-duration: 1.6s; }
+@keyframes ddas-march { to { stroke-dashoffset: -20; } }
+.ddas-zone-warn { animation: ddas-zone 1.4s ease-in-out infinite; }
+@keyframes ddas-zone { 50% { stroke-opacity: .25; } }
+.ddas-bottleneck { animation: ddas-zone 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ddas-flow, .ddas-river-flow, .ddas-zone-warn, .ddas-bottleneck, .ddas-beacon-new svg { animation: none; }
+}
 
 @media (max-width: 599px) {
   .md-page .grid.grid-cols-2, .md-page .grid.grid-cols-3, .md-dialog .grid.grid-cols-2, .md-dialog .grid.grid-cols-3 { grid-template-columns: minmax(0, 1fr); }

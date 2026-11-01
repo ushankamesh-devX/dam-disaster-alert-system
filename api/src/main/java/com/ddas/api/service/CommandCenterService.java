@@ -93,6 +93,12 @@ public class CommandCenterService {
         out.put("sos", sos);
         out.put("services", services);
         out.put("timeline", timeline());
+        // Downstream rivers (OpenStreetMap lines) for the flood-path layer; active = dam not safe
+        out.put("rivers", jdbc.queryForList(
+                "SELECT d.id damId, d.name damName, d.downstream_river_geojson geojson, " +
+                "COALESCE(s.hazard_status, 'safe') <> 'safe' active, s.last_hazard_assessment_at activeSince " +
+                "FROM dams d LEFT JOIN dam_current_status s ON s.dam_id = d.id " +
+                "WHERE d.status <> 'decommissioned' AND d.downstream_river_geojson IS NOT NULL"));
         return out;
     }
 

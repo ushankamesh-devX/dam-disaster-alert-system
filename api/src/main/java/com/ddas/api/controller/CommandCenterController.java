@@ -66,6 +66,12 @@ public class CommandCenterController {
     }
 
     /** Body: { damId, title, message } — raises an Evacuation Order for that dam's zones. */
+    /** Tools: clear the real phones (mobile app) from the map. */
+    @PostMapping("/phones/reset")
+    public ResponseEntity<Map<String, Integer>> resetPhones(@AuthenticationPrincipal UserPrincipal me) {
+        return ResponseEntity.ok(service.resetPhones(me.getUser().getId()));
+    }
+
     @PostMapping("/broadcast")
     public ResponseEntity<AlertResponseDTO> broadcast(@RequestBody Map<String, Object> body) {
         Long damId = body.get("damId") == null ? null : Long.valueOf(String.valueOf(body.get("damId")));

@@ -160,6 +160,22 @@ public class CommandCenterService {
                 userId, notes == null || notes.isBlank() ? "Resolved by operator" : notes, sosId);
     }
 
+    /**
+     * Clear the real phones (mobile app users) from the map: end their sharing and close their open SOS.
+     * Sessions are dated back past the 30-minute window so they drop off at once. Scenario people are untouched.
+     */
+    @Transactional
+    public Map<String, Integer> resetPhones(Long userId) {
+        String phones = "SELECT id FROM users WHERE email NOT LIKE '%@scenario.ddas.local'";
+        int sos = jdbc.update("UPDATE sos_events SET status = 'resolved', resolved_at = NOW(), resolved_by = ?, " +
+                "resolution_notes = 'Reset by operator' WHERE status IN ('triggered','acknowledged','responding') " +
+                "AND user_id IN (" + phones + ")", userId);
+        int sessions = jdbc.update("UPDATE location_sharing_sessions SET status = 'ended', " +
+                "ended_at = NOW() - INTERVAL 31 MINUTE WHERE user_id IN (" + phones + ") " +
+                "AND (status = 'active' OR ended_at > NOW() - INTERVAL 31 MINUTE)");
+        return Map.of("sessions", sessions, "sos", sos);
+    }
+
     private void update(Long sosId, String sql, Object... params) {
         if (jdbc.update(sql, params) == 0) {
             throw new BadRequestException("SOS " + sosId + " not found or already closed");

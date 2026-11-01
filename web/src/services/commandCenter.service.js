@@ -14,6 +14,8 @@ const CommandCenterService = {
     acknowledge: (id) => apiClient.post(`${BASE}/sos/${id}/acknowledge`),
     assign: (id, providerId) => apiClient.post(`${BASE}/sos/${id}/assign`, { providerId }),
     resolve: (id, notes) => apiClient.post(`${BASE}/sos/${id}/resolve`, { notes }),
+    /** End the real phones' sharing and SOS: { sessions, sos } */
+    resetPhones: async () => (await apiClient.post(`${BASE}/phones/reset`)).data,
     /** Evacuation Order for a dam's zones; SMS only if the admin SMS switch is on. */
     broadcast: async (damId, title, message) => (await apiClient.post(`${BASE}/broadcast`, { damId, title, message })).data,
 };

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, GeoJSON, CircleMarker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { FileText, Route } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -209,6 +210,16 @@ export default function EvacuationPage() {
         setPacksMsg('Rebuilding…');
         try { setPacksMsg(`Built ${(await EvacuationService.rebuildPacks()).built} offline route packs`); } catch (e) { setPacksMsg(e.response?.data?.message || e.message); }
     };
+    const resetPhones = async () => {
+        try {
+            const r = await CommandCenterService.resetPhones();
+            toast.success(`Live phones cleared: ${r.sessions} session${r.sessions === 1 ? '' : 's'}, ${r.sos} SOS`);
+            refreshAll();
+            refreshPeople();
+        } catch (e) {
+            toast.error(e.response?.data?.message || 'Could not reset');
+        }
+    };
     const loadReplay = useCallback(async () => { setReplayFrames(await CommandCenterService.replay(60)); }, []);
 
     const testLine = testResult?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
@@ -346,6 +357,10 @@ export default function EvacuationPage() {
                         <TabsContent value="tools" className="min-h-0 space-y-3 overflow-y-auto">
                             <Panel title="Demo scenario">
                                 <ScenarioPanel />
+                            </Panel>
+                            <Panel title="Live phones">
+                                <p className="text-muted-foreground">Clear the mobile app users (e.g. Niduk) from the map: ends their sharing and closes their SOS.</p>
+                                <Button variant="outline" size="sm" className="text-destructive" onClick={resetPhones}>Reset live phones</Button>
                             </Panel>
                             {draft && (
                                 <Panel title="New blocked road">

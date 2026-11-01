@@ -52,12 +52,12 @@ spec:
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: SMS_PROVIDER, optional: true } }
             - name: SMS_ENABLED
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: SMS_ENABLED, optional: true } }
-            - name: TWILIO_ACCOUNT_SID
-              valueFrom: { secretKeyRef: { name: ddas-secrets, key: TWILIO_ACCOUNT_SID, optional: true } }
-            - name: TWILIO_AUTH_TOKEN
-              valueFrom: { secretKeyRef: { name: ddas-secrets, key: TWILIO_AUTH_TOKEN, optional: true } }
-            - name: TWILIO_FROM_NUMBER
-              valueFrom: { secretKeyRef: { name: ddas-secrets, key: TWILIO_FROM_NUMBER, optional: true } }
+            - name: NOTIFY_USER_ID
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: NOTIFY_USER_ID, optional: true } }
+            - name: NOTIFY_API_KEY
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: NOTIFY_API_KEY, optional: true } }
+            - name: NOTIFY_SENDER_ID
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: NOTIFY_SENDER_ID, optional: true } }
             - { name: DDAS_AI_BACKEND_URL, value: "http://ai:8000" }
             - { name: DDAS_ROUTING_VALHALLA_URL, value: "http://valhalla:8002" }
             - name: DDAS_AI_INCOMING_SERVICE_TOKEN

@@ -20,8 +20,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Every 15 s: refreshes the live dashboard when the evacuation picture changes, and warns
- * phones that are inside a danger zone (Expo push, plus SMS when a phone number was given).
+ * Every 15 s: refreshes the live dashboard when the evacuation picture changes, and (when
+ * ddas.evacuation.warnings.enabled) warns phones inside a danger zone by Expo push and SMS.
  */
 @Slf4j
 @Component
@@ -35,10 +35,13 @@ public class EvacuationMonitor {
     private final EvacuationRouteService routeService;
     private final EvacuationDeviceRepository deviceRepository;
     private final ExpoPushClient expoPushClient;
-    private final TwilioSmsGateway smsGateway;
+    private final NotifyLkSmsGateway smsGateway;
 
     @Value("${sms.enabled:false}")
     private boolean smsEnabled;
+
+    @Value("${ddas.evacuation.warnings.enabled:false}")
+    private boolean warningsEnabled;
 
     private String lastSignature = "";
 
@@ -55,7 +58,9 @@ public class EvacuationMonitor {
             } else {
                 liveService.heartbeat();
             }
-            warnDevices(changed);
+            if (warningsEnabled) {
+                warnDevices(changed);
+            }
         } catch (Exception e) {
             log.error("Evacuation monitor tick failed: {}", e.getMessage(), e);
         }

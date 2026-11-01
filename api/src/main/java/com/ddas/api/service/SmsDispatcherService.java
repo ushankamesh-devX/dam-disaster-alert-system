@@ -18,26 +18,23 @@ import java.util.List;
  *
  * @Scheduled task-ය ශ්‍රී ලංකා වේලාවට සෑම තත්පර 10 කට වරක් ක්‍රියාත්මක වේ.
  * alert_user_deliveries table-ෙ 'pending' status records fetch කර,
- * Twilio (හෝ Dialog/Mobitel) SMS API හරහා real SMS yawayī.
+ * Notify.lk SMS API හරහා real SMS yawayī.
  *
  * ── Flow ─────────────────────────────────────────────────────────────────
  *  @Scheduled (10s)
  *    → findPendingDeliveries() [max 100 per batch]
- *    → sendViaTwilio(phoneNumber, message)
+ *    → notifyLkGateway.send(phoneNumber, message)
  *    → update status = 'sent' / 'failed'
  *    → log result
  *
- * ── Configuration (application.properties) ───────────────────────────────
- *  sms.provider=twilio         (twilio | dialog | mock)
- *  sms.enabled=true
- *  twilio.account-sid=ACxxxx
- *  twilio.auth-token=xxxx
- *  twilio.from-number=+94xxxxxxxxxx
+ * ── Configuration (secrets → application.properties) ─────────────────────
+ *  SMS_ENABLED=true            → sms.enabled
+ *  SMS_PROVIDER=notifylk       → sms.provider (notifylk | mock)
+ *  NOTIFY_USER_ID, NOTIFY_API_KEY, NOTIFY_SENDER_ID → notify.*
  *
  * ── SMS Provider Support ──────────────────────────────────────────────────
- *  1. Twilio (default)      — Global, reliable, easy test with trial account
- *  2. Dialog SLT            — Local SL carrier (SMPP / HTTP API)
- *  3. Mock (dev/test mode)  — Logs SMS to console without sending
+ *  1. Notify.lk             — Sri Lankan SMS gateway
+ *  2. Mock (dev/test mode)  — Logs SMS to console without sending
  */
 @Slf4j
 @Service
@@ -46,7 +43,7 @@ public class SmsDispatcherService {
 
     // ── Dependencies ───────────────────────────────────────────────────────────
     private final AlertUserDeliveryRepository deliveryRepository;
-    private final TwilioSmsGateway            twilioGateway;      // SMS gateway implementation
+    private final NotifyLkSmsGateway          notifyLkGateway;    // SMS gateway implementation
 
     // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -109,7 +106,7 @@ public class SmsDispatcherService {
      */
     private String sendSms(String to, String message) {
         return switch (smsProvider.toLowerCase()) {
-            case "twilio"   -> twilioGateway.send(to, message);
+            case "notifylk", "notify" -> notifyLkGateway.send(to, message);
             case "mock", "dev" -> sendMockSms(to, message);
             default -> {
                 log.warn("[SMS] Unknown provider '{}' — using mock", smsProvider);

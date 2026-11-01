@@ -91,11 +91,14 @@ export default function ReportScreen() {
           refreshing={false}
         />
 
-        {/* Floating Action Button */}
+        {/* Keep the report action opposite the global assistant button. */}
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('submit_report')}
           onPress={() => setModalVisible(true)}
-          className="absolute bottom-6 right-6 w-16 h-16 bg-[#455A64] rounded-full items-center justify-center shadow-lg"
+          className="absolute left-0 w-14 h-14 bg-[#455A64] rounded-full items-center justify-center shadow-lg"
           style={{
+            bottom: 16,
             elevation: 8,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },

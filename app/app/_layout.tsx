@@ -8,6 +8,7 @@ import '../i18n/i18n'; // Initialize i18n
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { FloatingAssistant } from '@/components/ai/FloatingAssistant';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -35,6 +36,7 @@ function RootNavigator() {
           <Stack.Screen name="onboarding" />
         </Stack.Protected>
       </Stack>
+      <FloatingAssistant key={`assistant:${user?.id ?? 'guest'}:${user?.preferredDamId ?? 'general'}`} />
       <StatusBar style="auto" />
     </ThemeProvider>
   );

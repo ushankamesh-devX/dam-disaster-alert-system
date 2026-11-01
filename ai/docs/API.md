@@ -37,7 +37,8 @@ Prefix: `/api/v1/internal/ml`. All require `fastapi-service` + `ml.data.read`.
 | `GET /dams/{id}/status` | Latest stored status. |
 | `GET /dams/{id}/status-history` | Timestamped status/gate snapshots; `from`, `to`, `cursor`. |
 | `GET /dams/{id}/overflow-config` | Verified threshold/definition, effective time, version. |
-| `GET /dams/{id}/forecasts` | Latest or paginated saved history (`from`, `to`, `cursor`); publication state, versions. |
+| `GET /dams/{id}/forecasts` | Paginated saved history (`from`, `to`, `cursor`); publication state, versions. |
+| `GET /dams/{id}/forecasts/latest` | Latest published run only, ordered by horizon; list under `data`. Used by RAG, not historical export pagination. |
 | `GET /dams/{id}/weather` | Stored weather/archived forecasts; `from`, `to`, `asOf`, `cursor`. |
 
 - FastAPI/worker use these APIs; no direct MySQL connection or device ingestion.
@@ -60,3 +61,12 @@ Prefix: `/api/v1`. JWT for viewing; explicit permissions for management.
 
 Spring checks permissions, schedules/polls jobs, saves forecasts, and proxies RAG inquiries; MLflow owns run/model metadata.
 Reuse existing `/api/v1/auth/login`, dam/status/sensor views, device ingestion, and operator alert creation.
+
+### RAG forecast grounding (implemented)
+
+- Tool, prompt context and chat `forecasts` use the latest published run.
+- Median: `levelP50`; lower/upper bounds: `levelP10` / `levelP90`; zero stays zero.
+- Preserve issue/target/input-reading times, freshness, demo mode and overflow-probability reason. Unknown values stay unknown.
+- Empty published results differ from retrieval errors; no fallback to old history rows or invented predictions.
+- Forecast questions can return stored data without matching documents or an LLM client.
+- Verified locally: 13 RAG tests and 11 forecast/API tests passed. Service-authenticated latest read and public AI chat matched the current empty published run; populated runs were checked with fixtures. Normal user JWTs cannot access the internal latest endpoint.

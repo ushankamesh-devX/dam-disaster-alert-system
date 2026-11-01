@@ -55,4 +55,8 @@ docker run --rm --env-file .env -p 127.0.0.1:8000:8000 ddas-ai
 ```
 
 Use Spring hostname `api` on its Compose network, or `host.docker.internal` for a host API.
-Existing Compose integration is pending.
+## Local RAG code updates
+
+- The host development overlay mounts `ai/app` read-only into the AI container.
+- Restart the AI container after Python edits; dependencies remain in its image.
+- Rebuild the image when dependencies change. Production uses the normal image build.

@@ -69,7 +69,9 @@ public class ValhallaClient {
                     .build();
             HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
-                log.debug("Valhalla returned {}: {}", response.statusCode(), response.body());
+                String err = response.body();
+                log.warn("Valhalla returned {}: {}", response.statusCode(),
+                        err.length() > 300 ? err.substring(0, 300) : err);
                 return Optional.empty();
             }
 

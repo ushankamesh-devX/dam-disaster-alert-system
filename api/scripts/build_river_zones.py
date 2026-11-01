@@ -43,8 +43,9 @@ LEVELS = [
     (5, 25, 35, 12, 10, 3500, 163, '#22C55E', '#15803D', 0.2, 'Watch'),
 ]
 CELL_M = 200
-RIVERSIDE_M = 300   # always in the zone: the riverbanks and riverside roads, whatever the terrain data says
+RIVERSIDE_M = 500   # --strip: always in the zone (riverbanks, riverside roads), whatever the terrain data says
 RISE_SCALE = 1.0    # --rise: multiplies every level's water rise
+WIDTH_SCALE = 1.5   # --width: multiplies every level's maximum width
 CODES = {'KOT-01': 'KOT', 'VIC-01': 'VIC', 'RAN-01': 'RAN', 'DEMO-001': 'KOT', 'DEMO-002': 'VIC', 'DEMO-003': 'RAN'}
 ELEVATION_URL = 'https://api.opentopodata.org/v1/srtm30m'
 ELEVATION_CACHE = Path.home() / '.ddas-elevation.json'
@@ -193,7 +194,7 @@ def elevations(points):
 
 def terrain_zones(river, total, lat0, reservoirs_xy):
     """Cells that flood per level, from ground height and connection to the river."""
-    max_w = max(lv[5] for lv in LEVELS)
+    max_w = max(lv[5] for lv in LEVELS) * WIDTH_SCALE
     bed = [p for p in river if p[2] <= min(total, LEVELS[-1][2] * 1000)]
     # Candidate cells: within the widest band around the river
     cells = {}
@@ -201,7 +202,7 @@ def terrain_zones(river, total, lat0, reservoirs_xy):
         lv = level_at(d)
         if not lv:
             continue
-        r = int(lv[5] // CELL_M) + 1
+        r = int(lv[5] * WIDTH_SCALE // CELL_M) + 1
         ci, cj = int(x // CELL_M), int(y // CELL_M)
         for i in range(ci - r, ci + r + 1):
             for j in range(cj - r, cj + r + 1):
@@ -238,7 +239,7 @@ def terrain_zones(river, total, lat0, reservoirs_xy):
         base = bed_height.get(river_d)
         if lv is None or ground is None or base is None:
             return False
-        if math.hypot(p[0] - (c[0] + .5) * CELL_M, p[1] - (c[1] + .5) * CELL_M) > lv[5]:
+        if math.hypot(p[0] - (c[0] + .5) * CELL_M, p[1] - (c[1] + .5) * CELL_M) > lv[5] * WIDTH_SCALE:
             return False
         f = (p[2] - lv[1] * 1000) / max(1, (lv[2] - lv[1]) * 1000)
         rise = (lv[3] + (lv[4] - lv[3]) * f) * RISE_SCALE
@@ -287,14 +288,16 @@ def band_zones(river, total):
 
 
 def main():
+    global RISE_SCALE, WIDTH_SCALE, RIVERSIDE_M
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--kubectl', nargs='?', const='ddas-db-0', metavar='POD')
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--no-terrain', action='store_true', help='Simple widening bands, no elevation download')
-    parser.add_argument('--rise', type=float, default=1.0, help='Scale every water rise, e.g. 1.5 for bigger zones')
+    parser.add_argument('--rise', type=float, default=1.0, help='Scale every water rise, e.g. 2 for bigger zones')
+    parser.add_argument('--width', type=float, default=WIDTH_SCALE, help='Scale every maximum width (default 1.5)')
+    parser.add_argument('--strip', type=float, default=RIVERSIDE_M, help='Metres each side of the river always included (default 500)')
     args = parser.parse_args()
-    global RISE_SCALE
-    RISE_SCALE = args.rise
+    RISE_SCALE, WIDTH_SCALE, RIVERSIDE_M = args.rise, args.width, args.strip
     if args.kubectl:
         os.environ['DDAS_DB_POD'] = args.kubectl
 

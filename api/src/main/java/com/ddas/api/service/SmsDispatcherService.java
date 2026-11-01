@@ -44,6 +44,7 @@ public class SmsDispatcherService {
     // ── Dependencies ───────────────────────────────────────────────────────────
     private final AlertUserDeliveryRepository deliveryRepository;
     private final NotifyLkSmsGateway          notifyLkGateway;    // SMS gateway implementation
+    private final SmsControlService           smsControlService;  // admin on/off switch
 
     // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -69,6 +70,10 @@ public class SmsDispatcherService {
     public void dispatchPendingSms() {
         if (!smsEnabled) {
             log.debug("[SMS] SMS disabled (sms.enabled=false). Skipping dispatch.");
+            return;
+        }
+        if (!smsControlService.isSendingAllowed()) {
+            log.debug("[SMS] Sending switched off by admin. Skipping dispatch.");
             return;
         }
 

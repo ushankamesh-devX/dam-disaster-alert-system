@@ -39,6 +39,7 @@ public class HazardAssessmentService {
     private final AlertTypeRepository           alertTypeRepository;
     private final AlertUserDeliveryRepository   alertUserDeliveryRepository;
     private final UserRepository                userRepository;
+    private final SmsControlService             smsControlService;
 
     // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -46,7 +47,8 @@ public class HazardAssessmentService {
      * "HIGH_WATER_LEVEL" alert type code — alert_types table-ට seed කරා insert.
      * Code එක නොතිබිය හොත් auto-fallback to id=1.
      */
-    private static final String ALERT_TYPE_CODE_HIGH_WATER = "HIGH_WATER_LEVEL";
+    private static final String ALERT_TYPE_CODE_HIGH_WATER = "EVACUATION_ORDER";
+    private static final String ALERT_TYPE_CODE_LEGACY = "HIGH_WATER_LEVEL";
 
     /** Sensor type code — water level sensors පමණක් check කෙරේ */
     private static final String SENSOR_TYPE_WATER_LEVEL = "WATER_LEVEL";
@@ -133,6 +135,7 @@ public class HazardAssessmentService {
                                         BigDecimal dangerLevel, DamCurrentStatus damStatus) {
         // alert_types table-ෙ HIGH_WATER_LEVEL type fetch — නොතිබිය හොත් id=1
         AlertType alertType = alertTypeRepository.findByCode(ALERT_TYPE_CODE_HIGH_WATER)
+                .or(() -> alertTypeRepository.findByCode(ALERT_TYPE_CODE_LEGACY))
                 .orElseGet(() -> alertTypeRepository.findAll().stream().findFirst()
                         .orElseThrow(() -> new IllegalStateException(
                                 "[HAZARD] No alert types found in database. Please seed alert_types table.")));
@@ -177,6 +180,26 @@ public class HazardAssessmentService {
      */
     @Transactional
     public void queueSmsDeliveries(Alert alert, Long damId) {
+        // SMS credits are limited: nothing is queued until an admin turns sending on
+        if (!smsControlService.isSendingAllowed()) {
+            log.info("[SMS] Sending is switched off by admin — alert id={} not queued", alert.getId());
+            return;
+        }
+        queueSmsDeliveriesNow(alert);
+    }
+
+    /** Admin "Send SMS" on one alert: queue it for every registered user with a phone number. */
+    @Transactional
+    public int queueSmsForAlert(Long alertId) {
+        if (!smsControlService.isSendingAllowed()) {
+            throw new com.ddas.api.exception.BadRequestException("SMS sending is switched off. Turn it on first.");
+        }
+        Alert alert = alertRepository.findById(alertId)
+                .orElseThrow(() -> new com.ddas.api.exception.ResourceNotFoundException("Alert not found with id: " + alertId));
+        return queueSmsDeliveriesNow(alert);
+    }
+
+    private int queueSmsDeliveriesNow(Alert alert) {
         List<User> usersToNotify;
 
         if (alert.getRegionId() != null) {
@@ -223,6 +246,7 @@ public class HazardAssessmentService {
         }
 
         log.info("[HAZARD] SMS delivery queue: {} records created for alert id={}", queued, alert.getId());
+        return queued;
     }
 
     // ── Dam Status Update ──────────────────────────────────────────────────────

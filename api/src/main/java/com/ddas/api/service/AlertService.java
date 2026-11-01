@@ -45,7 +45,7 @@ public class AlertService {
                 boolean urgent = alert.getSeverity() == AlertType.AlertSeverity.critical
                                 || alert.getSeverity() == AlertType.AlertSeverity.emergency;
                 if (urgent && alert.getStatus() == Alert.AlertStatus.active
-                                && !Boolean.TRUE.equals(alert.getSimulationMode())) {
+                                && !alert.isSimulationMode()) {
                         hazardAssessmentService.queueSmsDeliveries(alert, alert.getDamId());
                 }
         }

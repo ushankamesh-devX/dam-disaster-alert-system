@@ -53,7 +53,6 @@ export function EvacuationFlow() {
   const posRef = useRef<LngLat | null>(null);
   const speedRef = useRef(0);
   const path = useRef<{ coords: LngLat[]; step: number }>({ coords: [], step: 0 });
-  const seenAlert = useRef<number | null>(null);
 
   const place = useCallback((p: LngLat, speed = 0) => {
     posRef.current = p;
@@ -85,15 +84,10 @@ export function EvacuationFlow() {
     return () => clearInterval(id);
   }, [load, place]);
 
-  // New alert: vibrate (Expo Go has no remote push, so the app checks every 15 s)
+  // Newest alert for the banner (the alert watcher in the tabs layout pops up and vibrates)
   const latestAlert = useMemo(
     () => [...alerts].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0],
     [alerts]);
-  useEffect(() => {
-    if (!latestAlert) return;
-    if (seenAlert.current !== null && seenAlert.current !== latestAlert.id) Vibration.vibrate([0, 600, 300, 600, 300, 600]);
-    seenAlert.current = latestAlert.id;
-  }, [latestAlert]);
 
   // ── Location: real GPS, or a demo point placed by long-pressing the map ─────
   useEffect(() => {

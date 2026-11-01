@@ -2,8 +2,10 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme'; // Assuming this exists, otherwise I'll fallback to hardcoded colors
+import { useAlerts } from '@/components/alerts/AlertsContext';
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const { unseen } = useAlerts();
   return (
     <View style={styles.container}>
       {state.routes.map((route, index) => {
@@ -83,7 +85,12 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             onLongPress={onLongPress}
             style={styles.tabItem}
           >
-            <MaterialCommunityIcons name={iconName} size={28} color={color} />
+            <View>
+              <MaterialCommunityIcons name={iconName} size={28} color={color} />
+              {route.name === 'alerts' && unseen > 0 && (
+                <View style={styles.badge}><Text style={styles.badgeText}>{unseen > 9 ? '9+' : unseen}</Text></View>
+              )}
+            </View>
             <Text style={{ color: color, fontSize: 12, marginTop: 4 }}>
               {label as string}
             </Text>
@@ -145,6 +152,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  badge: {
+      position: 'absolute', top: -4, right: -8, minWidth: 18, height: 18, borderRadius: 9,
+      backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+      borderWidth: 2, borderColor: 'white',
+  },
+  badgeText: { color: 'white', fontSize: 10, fontWeight: '800' },
   emergencyText: {
       fontSize: 10,
       color: '#374151',

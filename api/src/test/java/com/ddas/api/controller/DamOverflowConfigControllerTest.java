@@ -56,6 +56,25 @@ class DamOverflowConfigControllerTest {
     }
 
     @Test
+    void latestForecastIncludesMobileFreshnessAndUncertaintyFields() throws Exception {
+        var forecast = com.ddas.api.entity.DamForecast.builder()
+                .id(7L).dam(com.ddas.api.entity.Dam.builder().id(1L).build())
+                .horizonHours(6).freshness("stale").demoMode(true).isPublished(true)
+                .levelP10(new BigDecimal("10.0")).levelP50(new BigDecimal("11.0"))
+                .levelP90(new BigDecimal("12.0")).overflowProbability(new BigDecimal("0.25"))
+                .build();
+        when(damForecastService.getLatestForecasts(1L)).thenReturn(java.util.List.of(forecast));
+        mockMvc.perform(get("/api/v1/dams/1/forecasts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].damId").value(1))
+                .andExpect(jsonPath("$.data[0].freshness").value("stale"))
+                .andExpect(jsonPath("$.data[0].demoMode").value(true))
+                .andExpect(jsonPath("$.data[0].levelP10").value(10.0))
+                .andExpect(jsonPath("$.data[0].levelP90").value(12.0))
+                .andExpect(jsonPath("$.data[0].overflowProbability").value(0.25));
+    }
+
+    @Test
     void getOverflowConfigReturnsActiveConfig() throws Exception {
         MlOverflowConfigResponse config = MlOverflowConfigResponse.builder()
                 .damId(1L)

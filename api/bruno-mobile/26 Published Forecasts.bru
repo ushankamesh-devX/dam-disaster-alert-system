@@ -1,0 +1,19 @@
+meta {
+  name: Published Forecasts
+  type: http
+  seq: 26
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/{{damId}}/forecasts
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("Forecast array, including empty when no release is published", function () { expect(res.getBody().data).to.be.an("array"); });
+}

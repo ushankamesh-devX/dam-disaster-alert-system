@@ -1,0 +1,23 @@
+meta {
+  name: Dam Sensors
+  type: http
+  seq: 17
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/sensors/dam/{{damId}}
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  if (res.status === 200 && Array.isArray(res.body) && res.body.length) bru.setVar("sensorId", res.body[0].id);
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

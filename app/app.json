@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "app",
+    "name": "DDAS",
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,6 +16,7 @@
       }
     },
     "android": {
+      "package": "lk.ddas.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -54,7 +55,8 @@
       ],
       "expo-status-bar",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

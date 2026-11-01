@@ -1,4 +1,38 @@
-# Expo Go preview of local DDAS
+# DDAS mobile development
+
+## Connected Android development build
+
+Start host Spring Boot with `api/scripts/start-local.ps1`; supporting services stay in Docker.
+Connect an Android phone with USB debugging authorized, then from `app/`:
+
+```powershell
+# First install, or after changing native dependencies/configuration:
+npm.cmd run mobile:build
+
+# Normal daily development after installation:
+npm.cmd run mobile:usb
+```
+
+- App label: DDAS; Android package: `lk.ddas.mobile`.
+- The USB launcher forwards phone ports 8080 (API) and 8082 (Metro) to the computer.
+- `.env.local` uses the local API directly in USB mode; no Wi-Fi or Expo tunnel is required.
+- Metro listens on IPv4 and advertises `127.0.0.1` for USB forwarding. The launcher uses Expo's LAN listener for this; a shared Wi-Fi network is still unnecessary.
+- Keep the USB cable, Spring Boot, Docker dependencies and Metro running. JavaScript edits reload through Metro; native changes require `mobile:build` again.
+- Native builds use a single Gradle worker and a smaller Java heap to fit this machine's available memory. The local MLflow overlay also uses one worker.
+- For multiple phones, call `scripts/start-tunnel.ps1 -Usb -DeviceId <adb-serial>` and add `-Build` for installation.
+- If a custom Android debugging server is needed, pass `-AdbPort <port>` or save the port in ignored `.expo/adb-port`. The normal server uses 5037.
+- Switching to `mobile:tunnel` rewrites the local preview settings for Expo Go. Restart Metro after changing modes.
+- The app now opens personal login/registration. Tokens use native secure storage; the launcher does not create or bundle a shared demo account.
+
+Validated on 1 November 2026: arm64 Android development APK built and installed
+on the connected Vivo V2419. The dashboard rendered on the phone, Metro served
+the app on 8082, and an API health request executed inside the phone app returned
+`success: true`, `status: UP` through USB port 8080. Initial development-client
+onboarding showed an Expo startup error; a fresh launch cleared it.
+
+The updated authentication build is also installed. See [AUTH-ONBOARDING.md](AUTH-ONBOARDING.md) for completed checks and the manual login/registration/dam-selection checklist.
+
+## Expo Go tunnel preview
 
 Keep Docker Desktop and the local DDAS containers running. From PowerShell:
 
@@ -7,8 +41,7 @@ cd D:\Git\dam-disaster-alert-system\app
 npm.cmd run mobile:tunnel
 ```
 
-This creates a local regular demo viewer account if needed, writes preview
-settings into ignored `.env.local`, checks backend health, and starts Expo Go
+This writes API preview settings into ignored `.env.local`, checks backend health, and starts Expo Go
 tunneling on port 8082. Port 8081 stays available for phpMyAdmin. Metro forwards
 `/api/v1/` requests to the local backend on port 8080; the mobile client derives
 the API host from Expo's host URI. One tunnel carries both app and API traffic.
@@ -18,10 +51,9 @@ the Camera app. Both devices need internet; they do not need the same Wi-Fi.
 Keep the preview terminal running. The project targets Expo SDK 57: use an Expo Go
 version supporting SDK 57 (https://expo.dev/go).
 
-The existing app automatically signs in using its viewer settings. Local
-credentials are saved in ignored `.expo/mobile-demo-auth.json`; the administrator
-account is not bundled. Expo bundles contain demo viewer credentials, so this
-workflow is for temporary local previews.
+Sign in or register in the app, then select a dam manually during onboarding.
+The old shared demo sign-in and automatic viewer fallback have been removed.
+GPS/location setup is not part of this onboarding version.
 
 Stop the preview tunnel with Ctrl+C in the Expo terminal.
 

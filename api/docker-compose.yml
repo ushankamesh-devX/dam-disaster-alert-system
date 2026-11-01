@@ -71,6 +71,10 @@ services:
       DDAS_ADMIN_EMAIL: ${DDAS_ADMIN_EMAIL:-}
       DDAS_ADMIN_PASSWORD: ${DDAS_ADMIN_PASSWORD:-}
       DDAS_ADMIN_NAME: ${DDAS_ADMIN_NAME:-DDAS Administrator}
+      # Containers reach the AI service by its Compose service name.
+      DDAS_AI_BACKEND_URL: http://ai:8000
+      DDAS_AI_INCOMING_SERVICE_TOKEN: ${DDAS_AI_INCOMING_SERVICE_TOKEN:-}
+      DDAS_AI_SPRING_SERVICE_TOKEN: ${DDAS_AI_SPRING_SERVICE_TOKEN:-}
       # MQTT Broker connection (Eclipse Mosquitto)
       MQTT_BROKER_HOST: mosquitto
       MQTT_BROKER_PORT: 1883

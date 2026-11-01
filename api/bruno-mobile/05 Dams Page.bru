@@ -1,0 +1,19 @@
+meta {
+  name: Dams Page
+  type: http
+  seq: 5
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams?page=0&size=20
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

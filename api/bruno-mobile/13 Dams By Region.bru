@@ -1,0 +1,19 @@
+meta {
+  name: Dams By Region
+  type: http
+  seq: 13
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/region/{{regionId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

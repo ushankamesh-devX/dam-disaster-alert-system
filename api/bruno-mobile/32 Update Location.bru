@@ -1,0 +1,29 @@
+meta {
+  name: Update Location
+  type: http
+  seq: 32
+  tags: [
+    manual
+  ]
+}
+
+put {
+  url: {{baseUrl}}/users/me/location
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+body:json {
+  {
+    "latitude": 7.2417,
+    "longitude": 80.7855
+  }
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

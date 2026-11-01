@@ -17,6 +17,7 @@ import { damStatusService } from '@/services/dams/dam-status.service';
 import { Colors } from '@/constants/theme';
 import { mockGuidelines } from '@/data/mock-guidelines';
 import { pickDisplayedDam } from '@/services/dams/display-dam';
+import { useAuth } from '@/contexts/AuthContext';
 import { DamDetailsCard } from '@/components/dams/DamDetailsCard';
 
 const EMERGENCY_NUMBER = '117';
@@ -30,6 +31,8 @@ const DEFAULT_LEVELS: HazardLevelItem[] = [
 ];
 
 export default function HazardMapScreen() {
+  const { user } = useAuth();
+  const preferredDamId = user?.preferredDamId;
   const router = useRouter();
   const { t } = useTranslation();
   const [showFakeCall, setShowFakeCall] = useState(false);
@@ -64,7 +67,8 @@ export default function HazardMapScreen() {
         ? damsRes.data : (damsRes.data?.data ?? []);
       if (dams.length === 0) return;
 
-      const selectedDam = pickDisplayedDam(dams)!;
+      const selectedDam = pickDisplayedDam(dams, preferredDamId);
+      if (!selectedDam) return;
       const damId = String(selectedDam.id ?? selectedDam.damId ?? '');
       if (!damId) return;
       setFocusDamId(damId);
@@ -135,7 +139,7 @@ export default function HazardMapScreen() {
         }
       }
     } catch { /* keep defaults */ }
-  }, []);
+  }, [preferredDamId]);
 
   useEffect(() => {
     const initialFetch = setTimeout(fetchLiveData, 0);
@@ -199,7 +203,7 @@ export default function HazardMapScreen() {
         <DamDetailsCard />
 
         {/* Full Map View with Gauge and Legend */}
-        <View className="flex-1 mb-4 mt-4" style={{ minHeight: 500 }}>
+        <View className="mb-4 mt-4">
           <FullMapView
             focusDamId={focusDamId}
             level={gaugeLevel}
@@ -222,6 +226,16 @@ export default function HazardMapScreen() {
           onEmergencyContact={handleEmergencyContact}
         />
 
+      {/* Keep the test action below the map instead of covering it. */}
+      <TouchableOpacity
+        style={styles.testButton}
+        onPress={triggerTestCall}
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons name="phone-alert" size={24} color="#fff" />
+        <Text style={styles.testButtonText}>{t('test_call')}</Text>
+      </TouchableOpacity>
+
         {/* Bottom spacing */}
         <View className="h-6" />
       </ScrollView>
@@ -243,24 +257,14 @@ export default function HazardMapScreen() {
         title={t('guidelines')}
       />
 
-      {/* Test Trigger Button - Floating */}
-      <TouchableOpacity
-        style={styles.testButton}
-        onPress={triggerTestCall}
-        activeOpacity={0.8}
-      >
-        <MaterialCommunityIcons name="phone-alert" size={24} color="#fff" />
-        <Text style={styles.testButtonText}>{t('test_call')}</Text>
-      </TouchableOpacity>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
   testButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
+    alignSelf: 'flex-start',
+    marginTop: 12,
     backgroundColor: '#ff3b30',
     flexDirection: 'row',
     alignItems: 'center',

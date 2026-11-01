@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter, usePathname } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 
 interface ScreenLayoutProps {
   title: string;
@@ -14,7 +13,6 @@ interface ScreenLayoutProps {
 export function ScreenLayout({ title, subtitle, children }: ScreenLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { t } = useTranslation();
 
   const handleSettingsPress = () => {
     router.push('/settings');
@@ -28,7 +26,7 @@ export function ScreenLayout({ title, subtitle, children }: ScreenLayoutProps) {
         {/* Settings Icon Row - Hide on settings page */}
         {pathname !== '/settings' && (
           <View className="flex-row justify-end items-center mb-">
-            <TouchableOpacity onPress={handleSettingsPress}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open settings" onPress={handleSettingsPress}>
               <MaterialCommunityIcons name="cog-outline" size={28} color="white" />
             </TouchableOpacity>
           </View>

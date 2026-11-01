@@ -1,0 +1,19 @@
+meta {
+  name: High Risk Dams
+  type: http
+  seq: 9
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/statuses/high-risk
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

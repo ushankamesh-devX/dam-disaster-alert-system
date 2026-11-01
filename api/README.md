@@ -7,13 +7,37 @@ Spring Boot backend API for the Dam Disaster Alert System.
 ## 🚀 Quick Start
 
 ### Local Development
-```bash
-# Run the application
-.\mvnw.cmd spring-boot:run
+Spring Boot runs on the host. MySQL, MQTT, AI, Qdrant, MinIO and MLflow run in Docker.
+Configure `.env` from `.env.example`, then from `api/`:
+
+```powershell
+.\scripts\start-local.ps1
 
 # Build the project
 .\mvnw.cmd clean package
 ```
+
+The launcher stops the old API/web containers to release port 8080 and starts
+dependencies using `docker-compose.host.yml`. Existing database volumes are preserved.
+After dependencies are running, use `.\scripts\start-local.ps1 -SkipDocker`, or
+run `.\mvnw.cmd spring-boot:run` directly from `api/`. Spring loads `api/.env`,
+uses MySQL at `localhost:3306`, MQTT at `localhost:1883`, and AI at `localhost:8000`.
+Schema validation is enabled; startup does not create or alter tables.
+
+For an existing local database, apply the mobile account preference fields once:
+`python scripts/migrate_mobile_onboarding.py`. This backs up the database, adds
+the user dam preference/onboarding columns and their foreign key, and leaves
+unrelated schema differences unchanged.
+
+The AI container reaches Spring through `host.docker.internal:8080`. Configure
+two distinct AI service tokens of at least 32 characters in `.env`. Windows
+must allow that Docker-to-host connection. API/web containers remain available
+through the original `docker-compose.yml` for the full container workflow.
+The optional `ai/.env` supplies AI provider settings; service tokens and network
+addresses are overridden by the local Compose configuration.
+
+Open [bruno-mobile](bruno-mobile/README.md) in Bruno for the 33-request mobile
+collection. The older [bruno](bruno/README.md) collection covers general/admin APIs.
 
 ### Access Locally
 - API: http://localhost:8080
@@ -24,11 +48,11 @@ Spring Boot backend API for the Dam Disaster Alert System.
 With `api/.env` configured and Docker running, execute from `api`:
 
 ```powershell
-python scripts/setup_demo.py
+python scripts/setup_demo.py --database-only
 ```
 
-This starts MySQL, migrates its schema, seeds the demo data, then starts API/web.
-Use `--database-only` to migrate and seed without starting API/web. The API uses
+This starts MySQL, migrates its schema and seeds demo data. Start host Spring Boot
+with `scripts/start-local.ps1` afterward. Omitting `--database-only` selects the older full-container API/web workflow. The API uses
 Hibernate schema validation, so run setup before its first startup.
 Repeat runs preserve existing records and prevent duplicates. Check without
 changing database records using `python scripts/seed_demo.py --validate-only`.

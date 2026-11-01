@@ -141,10 +141,12 @@ public class HazardAssessmentService {
                                 "[HAZARD] No alert types found in database. Please seed alert_types table.")));
 
         String title = String.format("⚠️ High Water Level Alert — %s", dam.getName());
+        String time = java.time.LocalTime.now(java.time.ZoneId.of("Asia/Colombo"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
         String message = String.format(
-                "URGENT: Water level at %s dam has reached %.2f meters, exceeding the danger level of %.2f meters. " +
+                "URGENT (%s): Water level at %s dam has reached %.2f meters, exceeding the danger level of %.2f meters. " +
                 "Immediate action required. Please follow evacuation procedures if you are in a hazard zone.",
-                dam.getName(), currentLevel, dangerLevel
+                time, dam.getName(), currentLevel, dangerLevel
         );
 
         Alert alert = Alert.builder()

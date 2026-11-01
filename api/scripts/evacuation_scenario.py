@@ -213,8 +213,8 @@ def run(args):
         dz = [z for z in zones if z['dam_id'] == d['id']]
         log(f'{d["name"]}: hazard status {d["hazard_status"]} -> high; {len(dz)} evacuation zones active')
         sql(f"UPDATE dam_current_status SET hazard_status = 'high', last_hazard_assessment_at = NOW() WHERE dam_id = {d['id']}")
-        aid = raise_drill_alert(api, 'EVACUATION_ORDER', 'critical', d, f'Evacuation Order: {d["name"]} downstream zones',
-                                f'Water released from {d["name"]}. Leave zones L1–L3 now and go to the nearest high ground.')
+        title, message = alert_text(d, dz, 'order')
+        aid = raise_drill_alert(api, 'EVACUATION_ORDER', 'critical', d, title, message)
         if aid:
             state['alert_ids'].append(aid)
             save_state(state)
@@ -394,8 +394,8 @@ def run(args):
             continue
         log(f'{d["name"]}: hazard status back to {d["hazard_status"]}')
         sql(f"UPDATE dam_current_status SET hazard_status = {quote(d['hazard_status'])} WHERE dam_id = {d['id']}")
-        aid = raise_drill_alert(api, 'ALL_CLEAR', 'info', d, f'All Clear: {d["name"]}',
-                                'Water levels are back to normal. You can return home safely.')
+        title, message = alert_text(d, [], 'clear')
+        aid = raise_drill_alert(api, 'ALL_CLEAR', 'info', d, title, message)
         if aid:
             state['alert_ids'].append(aid)
     for aid in evacuation_orders:
@@ -405,6 +405,30 @@ def run(args):
     times = [s['response_seconds'] for s in sos_log if s.get('response_seconds')]
     log(f'Summary: {arrivals}/{len(residents)} reached shelters, {len(sos_log)} SOS'
         + (f', average response {sum(times) / len(times):.0f} s' if times else '') + f'. Remove with: {Path(__file__).name} --reset')
+
+
+def alert_text(dam, dam_zones, kind):
+    """Title and message like a real dam warning: time, reservoir level, danger level, release, water arrival."""
+    s = records('SELECT water_level_meters lvl, water_level_percentage pct, danger_level_meters danger, outflow_cumecs outflow '
+                f'FROM dam_current_status WHERE dam_id = {dam["id"]}')
+    s = s[0] if s else {}
+    num = lambda k: float(s[k]) if s.get(k) not in (None, '', 'NULL') else None
+    lvl, pct, danger, outflow = num('lvl'), num('pct'), num('danger'), num('outflow')
+    now = datetime.now().strftime('%H:%M')
+    level = f'{lvl:.1f} m' + (f' ({pct:.0f} % full)' if pct is not None else '') if lvl is not None else 'a high level'
+    if kind == 'clear':
+        below = f', below the danger level of {danger:.1f} m' if danger is not None else ''
+        return (f'ALL CLEAR · {dam["name"]} · {now}',
+                f'Reservoir back to {level}{below}. Spillway releases have stopped. The danger zones are safe again; '
+                'you can return home. Take care on damaged roads. Helpline 117.')
+    above = f', above the danger level of {danger:.1f} m' if danger is not None and lvl is not None and lvl >= danger else ''
+    release = f' Spillway releasing {outflow:,.0f} m³/s.' if outflow else ''
+    zone_label = lambda n: n.split(' · ')[0].split()[-1] + (' (' + n.rsplit('(', 1)[1] if '(' in n else '')
+    arrivals = ' · '.join(f'{zone_label(z["zone_name"])} in ~{int(float(z["eta"]))} min'
+                          for z in dam_zones if z.get('eta'))
+    return (f'EVACUATION ORDER · {dam["name"]} · {now}',
+            f'Reservoir at {level}{above}.{release}' + (f' Water expected downstream: {arrivals}.' if arrivals else '')
+            + ' Leave zones L1–L3 now and go to the nearest high ground. Do not cross flooded roads. Helpline 117.')
 
 
 def raise_drill_alert(api, type_code, severity, dam, title, message):

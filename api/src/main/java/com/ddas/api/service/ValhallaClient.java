@@ -41,6 +41,43 @@ public class ValhallaClient {
     @Value("${ddas.routing.valhalla.url:http://localhost:8002}")
     private String valhallaUrl;
 
+    /** Valhalla's service_limits.max_exclude_polygons vertex limit (default 100, all rings combined). */
+    @Value("${ddas.routing.valhalla.max-exclude-vertices:100}")
+    private int maxExcludeVertices;
+
+    private static final int MIN_RING_VERTICES = 8;
+
+    /**
+     * Thins rings so their vertices fit Valhalla's limit. Nearest rings to the start come first;
+     * if there are too many to give each one MIN_RING_VERTICES, the farthest are dropped.
+     */
+    List<List<double[]>> fitVertexBudget(List<List<double[]>> rings, double lat, double lng) {
+        List<List<double[]>> nearestFirst = rings.stream()
+                .filter(r -> r.size() >= 3)
+                .sorted(java.util.Comparator.comparingDouble(r -> r.stream()
+                        .mapToDouble(p -> GeoPolygons.distanceKm(lat, lng, p[1], p[0])).min().orElse(0)))
+                .toList();
+        int keep = Math.min(nearestFirst.size(), Math.max(1, maxExcludeVertices / MIN_RING_VERTICES));
+        int perRing = maxExcludeVertices / Math.max(1, keep);
+
+        List<List<double[]>> result = new ArrayList<>();
+        for (List<double[]> ring : nearestFirst.subList(0, keep)) {
+            if (ring.size() <= perRing) {
+                result.add(ring);
+                continue;
+            }
+            // Keep evenly spaced points, then close the ring again
+            List<double[]> thin = new ArrayList<>();
+            double step = (double) (ring.size() - 1) / (perRing - 1);
+            for (int i = 0; i < perRing - 1; i++) {
+                thin.add(ring.get((int) Math.round(i * step)));
+            }
+            thin.add(thin.get(0));
+            result.add(thin);
+        }
+        return result;
+    }
+
     /**
      * @param costing "pedestrian" or "auto"
      * @param avoid   rings of [lng, lat] points the route must not cross
@@ -56,7 +93,7 @@ public class ValhallaClient {
         body.putObject("directions_options").put("units", "kilometers");
         if (!avoid.isEmpty()) {
             ArrayNode polygons = body.putArray("exclude_polygons");
-            for (List<double[]> ring : avoid) {
+            for (List<double[]> ring : fitVertexBudget(avoid, fromLat, fromLng)) {
                 ArrayNode r = polygons.addArray();
                 ring.forEach(p -> r.addArray().add(p[0]).add(p[1]));
             }

@@ -5,6 +5,16 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { getAllRoles } from '../../services/user.service';
 import { getUsersByRole } from '../../services/user.service';
+import { Users, Waves, RadioTower, Bell, Globe, KeyRound, ClipboardList, Settings, Wrench, FileText, Search, Check, Minus } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton as UiSkeleton } from '@/components/ui/skeleton';
+import {
+    Table as UiTable, TableBody as UiTableBody, TableCell as UiTableCell, TableHead as UiTableHead,
+    TableHeader as UiTableHeader, TableRow as UiTableRow,
+} from '@/components/ui/table';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,8 +56,8 @@ function RoleDrawer({ role, onClose }) {
     const [users, setUsers] = useState([]);
     const [loadingUsers, setLoadingUsers] = useState(true);
 
+    // The drawer mounts fresh for each role, so loadingUsers already starts as true
     useEffect(() => {
-        setLoadingUsers(true);
         getUsersByRole(role.id, 0, 10)
             .then(page => {
                 setUserCount(page?.totalElements ?? 0);
@@ -178,78 +188,64 @@ function RoleDrawer({ role, onClose }) {
 }
 
 // ─── Role Card ────────────────────────────────────────────────────────────────
+const MODULE_LUCIDE = { users: Users, dams: Waves, sensors: RadioTower, alerts: Bell, regions: Globe, roles: KeyRound, reports: ClipboardList, settings: Settings, system: Wrench };
+
+/** { module: ['view', 'create', ...] } so a card can say what each permission covers. */
+function permissionsByModule(role) {
+    const map = {};
+    (role.permissions || []).forEach((p) => {
+        const mod = (p.module || 'general').toLowerCase();
+        (map[mod] ||= []).push((p.action || p.code || '').replaceAll('_', ' '));
+    });
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+}
+
 function RoleCard({ role, onClick }) {
     const permsCount = (role.permissions || []).length;
-    const modulesSet = new Set((role.permissions || []).map(p => (p.module || 'general').toLowerCase()));
-    const accentColor = role.color || '#6366f1';
+    const modules = permissionsByModule(role);
 
     return (
-        <AppButton variant="outlined" onClick={onClick}
-            className="w-full hover:-translate-y-0.5 duration-200 overflow-hidden group">
-            {/* Accent strip */}
-            <div className="h-1.5 w-full" style={{ background: accentColor }} />
-
-            <div className="p-5">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2 mb-3">
-                    <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <Typography component="h3" variant="h3" className="text-sm font-bold text-gray-900">{role.name}</Typography>
-                            {role.isDefault && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">Default</span>
-                            )}
-                            {role.isSystemRole && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold">System</span>
-                            )}
-                        </div>
-                        <p className="text-[11px] font-mono text-gray-400 mt-0.5">{role.code}</p>
+        <Card className="gap-0 overflow-hidden py-0 transition-shadow hover:shadow-md">
+            <button type="button" onClick={onClick} className="flex h-full flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="h-1 w-full" style={{ background: role.color || 'var(--primary)' }} />
+                <CardHeader className="gap-1 px-5 pt-4 pb-3">
+                    <div className="flex items-start justify-between gap-3">
+                        <CardTitle className="text-base">{role.name}</CardTitle>
+                        <Badge variant="outline" className="shrink-0 tabular-nums" title={PRIORITY_LABELS[role.priorityLevel] ? `${PRIORITY_LABELS[role.priorityLevel]} priority` : 'Priority'}>
+                            P{role.priorityLevel}
+                        </Badge>
                     </div>
-                    <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${PRIORITY_COLORS[role.priorityLevel] || 'bg-gray-100 text-gray-500'}`}>
-                        P{role.priorityLevel}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <code className="text-xs text-muted-foreground">{role.code}</code>
+                        {role.isDefault && <Badge variant="secondary">Default</Badge>}
+                        {role.isSystemRole && <Badge variant="secondary">System</Badge>}
+                    </div>
+                    {role.description && <CardDescription className="line-clamp-2">{role.description}</CardDescription>}
+                </CardHeader>
+
+                <CardContent className="flex-1 space-y-1.5 px-5 pb-4">
+                    {modules.length === 0 && <p className="text-sm text-muted-foreground">No permissions</p>}
+                    {modules.map(([mod, actions]) => {
+                        const Icon = MODULE_LUCIDE[mod] || FileText;
+                        return (
+                            <div key={mod} className="flex items-start gap-2 text-sm">
+                                <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                                <span className="w-16 shrink-0 font-medium capitalize">{mod}</span>
+                                <span className="text-muted-foreground">{actions.join(', ')}</span>
+                            </div>
+                        );
+                    })}
+                </CardContent>
+
+                <CardFooter className="justify-between border-t px-5 py-2.5 text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className={`size-2 rounded-full ${role.isActive ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        {role.isActive ? 'Active' : 'Inactive'} · {permsCount} permissions
                     </span>
-                </div>
-
-                {/* Description */}
-                {role.description && (
-                    <p className="text-xs text-gray-500 mb-4 line-clamp-2">{role.description}</p>
-                )}
-
-                {/* Stats row */}
-                <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
-                    <span><strong className="text-gray-900">{permsCount}</strong> permissions</span>
-                    <span><strong className="text-gray-900">{modulesSet.size}</strong> modules</span>
-                </div>
-
-                {/* Module icons */}
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                    {[...modulesSet].sort().map(mod => (
-                        <span key={mod} title={mod}
-                            className="w-7 h-7 text-sm rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center">
-                            {MODULE_ICONS[mod] || <SymbolIcon name="report" />}
-                        </span>
-                    ))}
-                    {modulesSet.size === 0 && <span className="text-[11px] text-gray-300 italic">No permissions</span>}
-                </div>
-
-                {/* Permissions preview pills */}
-                <div className="flex flex-wrap gap-1">
-                    {(role.permissions || []).slice(0, 5).map(p => (
-                        <span key={p.id} className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${actionColor(p.action)}`}>{p.action || p.code}</span>
-                    ))}
-                    {permsCount > 5 && (
-                        <span className="text-[10px] text-gray-400 px-1.5 py-0.5">+{permsCount - 5} more</span>
-                    )}
-                </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-5 py-2.5 border-t border-gray-50 bg-gray-50/50 flex items-center justify-between">
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${role.isActive ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 bg-gray-100'}`}>
-                    {role.isActive ? 'Active' : 'Inactive'}
-                </span>
-                <span className="text-[11px] text-blue-600 group-hover:underline font-medium">View details →</span>
-            </div>
-        </AppButton>
+                    <span className="font-medium text-primary">View details →</span>
+                </CardFooter>
+            </button>
+        </Card>
     );
 }
 
@@ -262,7 +258,6 @@ export default function RolesPage() {
     const [search, setSearch] = useState('');
 
     useEffect(() => {
-        setLoading(true);
         getAllRoles()
             .then(list => setRoles(list || []))
             .catch(() => toast.error('Failed to load roles'))
@@ -285,144 +280,105 @@ export default function RolesPage() {
         return matchSearch && matchModule;
     }).sort((a, b) => (a.priorityLevel || 99) - (b.priorityLevel || 99));
 
-    // Summary stats
-    const totalPerms = roles.reduce((acc, r) => acc + (r.permissions?.length || 0), 0);
+
+    const sortedRoles = [...roles].sort((a, b) => (a.priorityLevel || 99) - (b.priorityLevel || 99));
+    const allPerms = Object.values(Object.fromEntries(roles.flatMap((r) => (r.permissions || []).map((p) => [p.code, p]))))
+        .sort((a, b) => `${a.module}:${a.action}`.localeCompare(`${b.module}:${b.action}`));
 
     return (
         <div className="space-y-5">
             {/* Header */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">Roles & Permissions</Typography>
-                    <p className="text-sm text-gray-400">
-                        {loading ? '…' : `${roles.length} roles · ${totalPerms} permissions across ${allModules.length} modules`}
-                    </p>
-                </div>
+            <div>
+                <h1 className="text-xl font-semibold">Roles & Permissions</h1>
+                <p className="text-sm text-muted-foreground">
+                    {loading ? 'Loading…' : `${roles.length} roles · ${roles.filter((r) => r.isActive).length} active · ${allPerms.length} permissions across ${allModules.length} modules`}
+                </p>
             </div>
 
-            {/* Summary stat strip */}
-            {!loading && roles.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[
-                        { label: 'Total Roles', value: roles.length, color: 'bg-violet-500' },
-                        { label: 'Active Roles', value: roles.filter(r => r.isActive).length, color: 'bg-emerald-500' },
-                        { label: 'Total Permissions', value: totalPerms, color: 'bg-blue-500' },
-                        { label: 'System Roles', value: roles.filter(r => r.isSystemRole).length, color: 'bg-amber-500' },
-                    ].map(({ label, value, color }) => (
-                        <Paper variant="outlined" key={label} className="bg-white border border-gray-200  p-4">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className={`w-2 h-2 rounded-full ${color}`} />
-                                <span className="text-xs text-gray-500">{label}</span>
-                            </div>
-                            <p className="text-2xl font-bold text-gray-900">{value}</p>
-                        </Paper>
-                    ))}
-                </div>
-            )}
-
             {/* Search + Module filter */}
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"><SymbolIcon name="search" /></span>
-                    <AppInput aria-label="Search roles by name, code, or description…" value={search} onChange={e => setSearch(e.target.value)}
-                        placeholder="Search roles by name, code, or description…"
-                        className="w-full" />
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                <div className="relative md:w-80">
+                    <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                    <Input aria-label="Search roles" value={search} onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search roles…" className="pl-8" />
                 </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                    <AppButton onClick={() => setFilterModule('')}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${!filterModule ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                        All Modules
-                    </AppButton>
-                    {allModules.map(mod => (
-                        <AppButton key={mod} onClick={() => setFilterModule(m => m === mod ? '' : mod)}
-                            className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border transition capitalize
-                                ${filterModule === mod ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                            {MODULE_ICONS[mod] || <SymbolIcon name="report" />} {mod}
-                        </AppButton>
-                    ))}
+                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by module">
+                    <Button size="sm" variant={!filterModule ? 'default' : 'outline'} onClick={() => setFilterModule('')}>All modules</Button>
+                    {allModules.map((mod) => {
+                        const Icon = MODULE_LUCIDE[mod] || FileText;
+                        return (
+                            <Button key={mod} size="sm" variant={filterModule === mod ? 'default' : 'outline'} className="capitalize"
+                                aria-pressed={filterModule === mod} onClick={() => setFilterModule((m) => (m === mod ? '' : mod))}>
+                                <Icon /> {mod}
+                            </Button>
+                        );
+                    })}
                 </div>
             </div>
 
             {/* Cards grid */}
             {loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 w-full" />)}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({ length: 3 }).map((_, i) => <UiSkeleton key={i} className="h-64 w-full rounded-xl" />)}
                 </div>
             ) : visible.length === 0 ? (
-                <div className="py-20 text-center">
-                    <p className="text-4xl mb-3"><SymbolIcon name="key" /></p>
-                    <p className="text-sm text-gray-400">No roles match your search</p>
+                <div className="rounded-xl border border-dashed py-16 text-center">
+                    <KeyRound className="mx-auto mb-2 size-8 text-muted-foreground" aria-hidden />
+                    <p className="text-sm text-muted-foreground">No roles match your search</p>
                     {(search || filterModule) && (
-                        <AppButton onClick={() => { setSearch(''); setFilterModule(''); }} className="mt-2 underline">Clear filters</AppButton>
+                        <Button variant="link" onClick={() => { setSearch(''); setFilterModule(''); }}>Clear filters</Button>
                     )}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {visible.map(role => (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {visible.map((role) => (
                         <RoleCard key={role.id} role={role} onClick={() => setSelectedRole(role)} />
                     ))}
                 </div>
             )}
 
-            {/* Permissions matrix table */}
+            {/* Permissions matrix */}
             {!loading && roles.length > 0 && (
-                <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
-                    <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-                        <Typography component="h2" variant="h2" className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Permission Matrix</Typography>
-                        <p className="text-[11px] text-gray-400 mt-0.5">All permissions by role (sorted by priority)</p>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <Table className="w-full text-xs">
-                            <TableHead>
-                                <TableRow className="border-b border-gray-100">
-                                    <TableCell component="th" className="px-4 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 bg-white z-10 min-w-[180px]">Permission</TableCell>
-                                    {[...roles].sort((a, b) => (a.priorityLevel || 99) - (b.priorityLevel || 99)).map(r => (
-                                        <TableCell component="th" key={r.id} className="px-3 py-3 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                                            <div style={{ color: r.color || '#6366f1' }}>{r.name}</div>
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody className="divide-y divide-gray-50">
-                                {/* Collect all unique permissions across all roles */}
-                                {(() => {
-                                    const allPermsMap = {};
-                                    roles.forEach(r => {
-                                        (r.permissions || []).forEach(p => {
-                                            allPermsMap[p.code] = p;
-                                        });
-                                    });
-                                    const sortedRoles = [...roles].sort((a, b) => (a.priorityLevel || 99) - (b.priorityLevel || 99));
-                                    return Object.values(allPermsMap)
-                                        .sort((a, b) => `${a.module}:${a.action}`.localeCompare(`${b.module}:${b.action}`))
-                                        .map(perm => (
-                                            <TableRow key={perm.code} className="hover:bg-gray-50/50">
-                                                <TableCell className="px-4 py-2.5 sticky left-0 bg-white">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm">{MODULE_ICONS[(perm.module || '').toLowerCase()] || <SymbolIcon name="report" />}</span>
-                                                        <div>
-                                                            <p className="font-medium text-gray-800">{perm.action || perm.code}</p>
-                                                            <p className="text-[10px] text-gray-400 capitalize">{perm.module}</p>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                {sortedRoles.map(r => {
-                                                    const has = (r.permissions || []).some(p => p.code === perm.code);
-                                                    return (
-                                                        <TableCell key={r.id} className="px-3 py-2.5 text-center">
-                                                            {has
-                                                                ? <span className="text-emerald-500 text-base"><SymbolIcon name="check" /></span>
-                                                                : <span className="text-gray-200 text-base"><SymbolIcon name="close" /></span>}
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                            </TableRow>
-                                        ));
-                                })()}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </Paper>
+                <Card className="gap-0 py-0">
+                    <CardHeader className="border-b px-5 py-3">
+                        <CardTitle className="text-sm">Permission matrix</CardTitle>
+                        <CardDescription>Which role has which permission, highest priority first</CardDescription>
+                    </CardHeader>
+                    <UiTable>
+                        <UiTableHeader>
+                            <UiTableRow>
+                                <UiTableHead className="sticky left-0 z-10 min-w-48 bg-card">Permission</UiTableHead>
+                                {sortedRoles.map((r) => <UiTableHead key={r.id} className="text-center">{r.name}</UiTableHead>)}
+                            </UiTableRow>
+                        </UiTableHeader>
+                        <UiTableBody>
+                            {allPerms.map((perm) => {
+                                const Icon = MODULE_LUCIDE[(perm.module || '').toLowerCase()] || FileText;
+                                return (
+                                    <UiTableRow key={perm.code}>
+                                        <UiTableCell className="sticky left-0 bg-card">
+                                            <div className="flex items-center gap-2">
+                                                <Icon className="size-4 text-muted-foreground" aria-hidden />
+                                                <span className="capitalize">{perm.module}</span>
+                                                <span className="text-muted-foreground">· {(perm.action || perm.code).replaceAll('_', ' ')}</span>
+                                            </div>
+                                        </UiTableCell>
+                                        {sortedRoles.map((r) => {
+                                            const has = (r.permissions || []).some((p) => p.code === perm.code);
+                                            return (
+                                                <UiTableCell key={r.id} className="text-center">
+                                                    {has
+                                                        ? <Check className="mx-auto size-4 text-success" aria-label="Yes" />
+                                                        : <Minus className="mx-auto size-4 text-border" aria-label="No" />}
+                                                </UiTableCell>
+                                            );
+                                        })}
+                                    </UiTableRow>
+                                );
+                            })}
+                        </UiTableBody>
+                    </UiTable>
+                </Card>
             )}
 
             {/* Detail Drawer */}

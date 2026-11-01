@@ -838,15 +838,15 @@ export default function MapFuncPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-6">
+        <div className="flex flex-col h-full gap-3">
             <div className="flex justify-between items-center shrink-0">
                 <div>
-                    <Typography component="h1" variant="h1" className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
-                        Map Functionality Test
+                    <Typography component="h1" variant="h1" className="text-xl font-semibold text-gray-900">
+                        Map editor
                     </Typography>
-                    <p className="text-sm text-gray-500 mt-1 pl-4 flex items-center gap-2">
+                    <p className="text-sm text-gray-600 flex items-center gap-2">
                         <Cpu className="w-4 h-4" />
-                        Testing dynamic map editing (Draw, Edit, Drag, Delete GeoJSON)
+                        Draw and edit zones, gates and sensors for a dam
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -879,9 +879,9 @@ export default function MapFuncPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-3 flex-1 min-h-0">
                 {/* Map Section */}
-                <Paper variant="outlined" className="lg:col-span-2 bg-white   border border-gray-200 p-4 flex flex-col min-h-[500px]">
+                <Paper variant="outlined" className="bg-white border border-gray-200 p-2 flex flex-col min-h-[480px]">
                     <div className="flex justify-between items-center mb-4">
                         <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800">Interactive Map</Typography>
                         {isLoadingData && (

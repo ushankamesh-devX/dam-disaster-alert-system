@@ -1,5 +1,11 @@
 @layer theme, base, mui, components, utilities;
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+/* Light theme only. Kept so shadcn's dark: classes never follow the OS dark setting. */
+@custom-variant dark (&:is(.dark *));
 
 /* Existing layouts use utilities; their colours now resolve to the shared M3 roles. */
 @theme inline {
@@ -42,25 +48,67 @@
   --color-orange-50: var(--md-danger-container);
   --color-orange-600: var(--md-danger);
   --color-orange-700: var(--md-danger);
-}
-
-body, .md-dotted-background {
-  background-color: var(--md-surface);
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--md-on-surface-variant) 22%, transparent) 0.75px, transparent 0.75px);
-  background-size: 22px 22px;
-  background-position: 11px 11px;
+  --font-heading: var(--font-sans);
+  --font-sans: 'Geist Variable', sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--background);
+  font-family: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 .md-page { max-width: 1920px; margin-inline: auto; }
 .md-page > div { min-width: 0; }
-.md-page .MuiPaper-root { border-radius: 20px; }
+.md-page .MuiPaper-root { border-radius: var(--radius-xl); }
+
+/* Map pages fill the screen under the 56px top bar (AdminLayout FULL_SCREEN). */
+.ddas-full-map { height: calc(100dvh - 3.5rem); display: flex; flex-direction: column; }
+.ddas-full-map > * { flex: 1; min-height: 0; }
+.ddas-map-fill { height: 100%; min-height: 420px; }
 .md-input { min-width: 0; background: transparent; padding: 0; border: 0; box-shadow: none; }
 .md-input .MuiOutlinedInput-root { background: var(--md-surface-container-lowest); }
 .md-input .MuiInputBase-input { font-size: 14px; min-height: 24px; }
@@ -79,7 +127,8 @@ body {
 .md-skip-link:focus { top: 8px; }
 /* Hover previews must stay below MUI's dialog/drawer layers (1200/1300). */
 .md-map-preview { z-index: 1100; }
-.leaflet-container { font-family: inherit; border-radius: 20px; }
+/* isolation: Leaflet's z-indexes (400–1000) stay inside the map, under menus and the top bar */
+.leaflet-container { font-family: inherit; border-radius: var(--radius-lg); isolation: isolate; }
 .leaflet-bar { border: 1px solid var(--md-outline-variant) !important; border-radius: 12px !important; box-shadow: none !important; overflow: hidden; }
 .leaflet-bar a { background: var(--md-surface-container-lowest) !important; color: var(--md-on-surface-variant) !important; }
 .leaflet-bar a:hover { background: var(--md-secondary-container) !important; }
@@ -159,4 +208,58 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* DDAS light theme only (no dark mode): white surfaces, slate text, navy accent.
+   Red, amber and green are reserved for status. */
+:root {
+  --background: oklch(0.984 0.003 247.858);      /* slate-50 page */
+  --foreground: oklch(0.208 0.042 265.755);      /* slate-900 */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.208 0.042 265.755);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.208 0.042 265.755);
+  --primary: oklch(0.379 0.146 265.522);         /* navy */
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.968 0.007 247.896);       /* slate-100 */
+  --secondary-foreground: oklch(0.279 0.041 260.031);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.446 0.043 257.281); /* slate-600: readable on white */
+  --accent: oklch(0.932 0.032 255.585);          /* blue-100 */
+  --accent-foreground: oklch(0.379 0.146 265.522);
+  --destructive: oklch(0.577 0.245 27.325);
+  --warning: oklch(0.666 0.179 58.318);           /* amber-600 */
+  --success: oklch(0.527 0.154 150.069);          /* green-700 */
+  --border: oklch(0.929 0.013 255.508);           /* slate-200 */
+  --input: oklch(0.869 0.022 252.894);            /* slate-300 */
+  --ring: oklch(0.546 0.245 262.881);             /* blue-600 */
+  --chart-1: oklch(0.546 0.245 262.881);          /* blue */
+  --chart-2: oklch(0.6 0.118 184.704);            /* teal */
+  --chart-3: oklch(0.666 0.179 58.318);           /* amber */
+  --chart-4: oklch(0.577 0.245 27.325);           /* red */
+  --chart-5: oklch(0.541 0.281 293.009);          /* violet */
+  --radius: 0.625rem;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.279 0.041 260.031);
+  --sidebar-primary: oklch(0.379 0.146 265.522);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.932 0.032 255.585);
+  --sidebar-accent-foreground: oklch(0.379 0.146 265.522);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: oklch(0.546 0.245 262.881);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
 }

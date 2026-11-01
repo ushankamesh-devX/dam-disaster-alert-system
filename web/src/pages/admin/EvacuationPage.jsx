@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, GeoJSON, CircleMarker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet';
-import { Paper, Typography, Chip, Button, TextField, ToggleButton, ToggleButtonGroup, Alert } from '@mui/material';
+import { Route } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import 'leaflet/dist/leaflet.css';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
@@ -58,12 +63,21 @@ function RouteTester({ enabled, onPick }) {
     return null;
 }
 
-function Stat({ label, value, tone }) {
+function Stat({ label, value, alert }) {
     return (
-        <Paper variant="outlined" className="px-4 py-3 flex-1 min-w-[140px]">
-            <p className="text-xs text-gray-500">{label}</p>
-            <p className={`text-2xl font-semibold ${tone || 'text-gray-900'}`}>{value}</p>
-        </Paper>
+        <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+            <span className={`text-lg font-semibold tabular-nums ${alert ? 'text-destructive' : 'text-foreground'}`}>{value}</span>
+            <span className="text-xs text-muted-foreground">{label}</span>
+        </div>
+    );
+}
+
+function Panel({ title, children, className = '' }) {
+    return (
+        <Card className={`gap-2 py-3 ${className}`}>
+            <CardHeader className="px-4"><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
+            <CardContent className="px-4 space-y-2 text-sm">{children}</CardContent>
+        </Card>
     );
 }
 
@@ -130,42 +144,45 @@ export default function EvacuationPage() {
     const routeLine = testResult?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
 
     return (
-        <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                    <Typography variant="h5" component="h1" className="font-semibold">Evacuation</Typography>
-                    <p className="text-sm text-gray-500">Live danger zones, shelters and blocked roads</p>
+        <div className="flex h-full flex-col gap-3">
+            {/* One compact row: title, live state, key numbers */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border bg-card px-4 py-2">
+                <div className="flex items-center gap-2">
+                    <h1 className="text-base font-semibold">Evacuation</h1>
+                    <Badge variant={live ? 'default' : 'secondary'} className={live ? 'bg-success text-white' : ''}>
+                        <span className={`size-1.5 rounded-full ${live ? 'bg-white' : 'bg-muted-foreground'}`} />
+                        {live ? 'Live' : 'Reconnecting…'}
+                    </Badge>
                 </div>
-                <Chip
-                    size="small"
-                    color={live ? 'success' : 'default'}
-                    label={live ? 'Live' : 'Reconnecting…'}
-                />
+                <Stat label="danger zones" value={zones.length} alert={zones.length > 0} />
+                <Stat label="phones in danger" value={status?.devicesInDanger ?? '–'} alert={status?.devicesInDanger > 0} />
+                <Stat label="active phones" value={status?.activeDevices ?? '–'} />
+                <Stat label="open shelters" value={`${openShelters}/${shelters.length}`} />
+                <Stat label="blocked roads" value={blocked.length} />
             </div>
 
-            {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+            {error && (
+                <div role="alert" className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                    {error}
+                    <Button variant="ghost" size="sm" onClick={() => setError('')}>Dismiss</Button>
+                </div>
+            )}
 
-            <div className="flex flex-wrap gap-3">
-                <Stat label="Danger zones" value={zones.length} tone={zones.length ? 'text-red-600' : undefined} />
-                <Stat label="Phones in danger" value={status?.devicesInDanger ?? '–'} tone={status?.devicesInDanger ? 'text-red-600' : undefined} />
-                <Stat label="Active phones (6 h)" value={status?.activeDevices ?? '–'} />
-                <Stat label="Open shelters" value={`${openShelters} / ${shelters.length}`} />
-                <Stat label="Blocked roads" value={blocked.length} />
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
-                <Paper variant="outlined" className="overflow-hidden">
-                    <div className="flex flex-wrap items-center gap-2 p-2 border-b">
-                        <Button size="small" variant={testMode ? 'contained' : 'outlined'} onClick={() => setTestMode((v) => !v)}>
-                            {testMode ? 'Click the map to test a route' : 'Test a route'}
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <Card className="flex min-h-[480px] flex-col gap-0 overflow-hidden py-0">
+                    <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+                        <Button size="sm" variant={testMode ? 'default' : 'outline'} onClick={() => setTestMode((v) => !v)}>
+                            <Route /> {testMode ? 'Click the map…' : 'Test a route'}
                         </Button>
-                        <ToggleButtonGroup size="small" exclusive value={travelMode} onChange={(_, v) => v && setTravelMode(v)}>
-                            <ToggleButton value="walk">Walk</ToggleButton>
-                            <ToggleButton value="drive">Drive</ToggleButton>
-                        </ToggleButtonGroup>
-                        <span className="text-xs text-gray-500">Draw a polygon (top-left tools) to block a road</span>
+                        <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label="Travel mode">
+                            {['walk', 'drive'].map((m) => (
+                                <Button key={m} size="sm" variant={travelMode === m ? 'secondary' : 'ghost'} className="h-7 capitalize"
+                                    aria-pressed={travelMode === m} onClick={() => setTravelMode(m)}>{m}</Button>
+                            ))}
+                        </div>
+                        <span className="text-xs text-muted-foreground">Draw a shape with the tools on the map to block a road</span>
                     </div>
-                    <MapContainer {...MAP_OPTIONS} center={SRI_LANKA_CENTER} zoom={8} style={{ height: 'min(72vh, 760px)', minHeight: 480 }}>
+                    <MapContainer {...MAP_OPTIONS} center={SRI_LANKA_CENTER} zoom={8} className="min-h-0 flex-1" style={{ borderRadius: 0 }}>
                         <TileLayer {...TILE_PROPS} />
                         <MapBehavior fitDams />
                         <DamJumpControl />
@@ -217,71 +234,75 @@ export default function EvacuationPage() {
                         )}
                         {routeLine && <Polyline positions={routeLine} pathOptions={{ color: '#2563eb', weight: 5 }} />}
                     </MapContainer>
-                </Paper>
+                    <div className="flex flex-wrap items-center gap-4 border-t px-3 py-1.5 text-xs text-muted-foreground" aria-label="Map legend">
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-red-500/60" /> Danger zone</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-green-600" /> Shelter open</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-amber-500" /> Nearly full</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-red-600" /> Full</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-gray-500" /> Closed / in zone</span>
+                        <span className="flex items-center gap-1"><span className="h-0.5 w-3 bg-gray-900" /> Blocked road</span>
+                        <span className="flex items-center gap-1"><span className="h-1 w-3 rounded bg-blue-600" /> Route</span>
+                    </div>
+                </Card>
 
-                <div className="space-y-4">
+                <div className="min-h-0 space-y-3 overflow-y-auto">
                     {draft && (
-                        <Paper variant="outlined" className="p-4 space-y-3">
-                            <Typography variant="subtitle1" className="font-semibold">New blocked road</Typography>
-                            <TextField size="small" fullWidth label="Name" value={draft.name}
-                                onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-                            <TextField size="small" fullWidth label="Reason" value={draft.reason}
-                                onChange={(e) => setDraft({ ...draft, reason: e.target.value })} />
-                            <TextField size="small" fullWidth type="datetime-local" label="Expires (optional)"
-                                slotProps={{ inputLabel: { shrink: true } }} value={draft.expiresAt}
-                                onChange={(e) => setDraft({ ...draft, expiresAt: e.target.value })} />
-                            <div className="flex gap-2">
-                                <Button variant="contained" disabled={!draft.name.trim()} onClick={saveDraft}>Save</Button>
-                                <Button onClick={() => setDraft(null)}>Cancel</Button>
+                        <Panel title="New blocked road">
+                            <div className="space-y-1"><Label htmlFor="br-name">Name</Label>
+                                <Input id="br-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
+                            <div className="space-y-1"><Label htmlFor="br-reason">Reason</Label>
+                                <Input id="br-reason" value={draft.reason} onChange={(e) => setDraft({ ...draft, reason: e.target.value })} /></div>
+                            <div className="space-y-1"><Label htmlFor="br-exp">Expires (optional)</Label>
+                                <Input id="br-exp" type="datetime-local" value={draft.expiresAt} onChange={(e) => setDraft({ ...draft, expiresAt: e.target.value })} /></div>
+                            <div className="flex gap-2 pt-1">
+                                <Button size="sm" disabled={!draft.name.trim()} onClick={saveDraft}>Save</Button>
+                                <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
                             </div>
-                        </Paper>
+                        </Panel>
                     )}
 
                     {testResult && (
-                        <Paper variant="outlined" className="p-4 space-y-1 text-sm">
-                            <Typography variant="subtitle1" className="font-semibold">Route test</Typography>
+                        <Panel title="Route test">
                             {testResult.loading && <p>Finding route…</p>}
-                            {testResult.error && <p className="text-red-600">{testResult.error}</p>}
+                            {testResult.error && <p className="text-destructive">{testResult.error}</p>}
                             {testResult.shelter && (
                                 <>
                                     {testResult.inDangerZone && (
-                                        <p className="text-red-600 font-medium">In danger zone: {testResult.zone?.name} (flood ~{testResult.floodEtaMin} min)</p>
+                                        <p className="font-medium text-destructive">In danger zone: {testResult.zone?.name} (flood in ~{testResult.floodEtaMin} min)</p>
                                     )}
                                     <p>Go to <strong>{testResult.shelter.name}</strong></p>
-                                    <p>{testResult.distanceKm} km · ~{testResult.etaMin} min</p>
-                                    {!testResult.safe && <p className="text-red-600">Route is slower than the flood ETA</p>}
-                                    {!testResult.routingAvailable && <p className="text-amber-600">Routing engine unavailable — straight-line estimate</p>}
+                                    <p className="text-muted-foreground">{testResult.distanceKm} km · ~{testResult.etaMin} min</p>
+                                    {!testResult.safe && <p className="text-destructive">Slower than the flood: leave now</p>}
+                                    {!testResult.routingAvailable && <p className="text-warning">Routing unavailable: straight-line estimate</p>}
                                     {testResult.alternatives?.length > 0 && (
-                                        <p className="text-gray-500">Alternatives: {testResult.alternatives.map((a) => `${a.shelter.name} (${a.etaMin} min)`).join(', ')}</p>
+                                        <p className="text-muted-foreground">Other shelters: {testResult.alternatives.map((a) => `${a.shelter.name} (${a.etaMin} min)`).join(', ')}</p>
                                     )}
                                 </>
                             )}
-                        </Paper>
+                        </Panel>
                     )}
 
-                    <Paper variant="outlined" className="p-4">
-                        <Typography variant="subtitle1" className="font-semibold mb-2">Blocked roads</Typography>
-                        {blocked.length === 0 && <p className="text-sm text-gray-500">None</p>}
+                    <Panel title={`Blocked roads (${blocked.length})`}>
+                        {blocked.length === 0 && <p className="text-muted-foreground">None</p>}
                         <ul className="space-y-2">
                             {blocked.map((b) => (
-                                <li key={b.id} className="flex items-start justify-between gap-2 text-sm">
-                                    <div>
-                                        <p className="font-medium">{b.name}</p>
-                                        {b.reason && <p className="text-gray-500">{b.reason}</p>}
-                                        {b.expiresAt && <p className="text-xs text-gray-400">Until {new Date(b.expiresAt).toLocaleString()}</p>}
+                                <li key={b.id} className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate font-medium">{b.name}</p>
+                                        {b.reason && <p className="text-muted-foreground">{b.reason}</p>}
+                                        {b.expiresAt && <p className="text-xs text-muted-foreground">Until {new Date(b.expiresAt).toLocaleString()}</p>}
                                     </div>
-                                    <Button size="small" color="error" onClick={() => removeBlocked(b.id)}>Remove</Button>
+                                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeBlocked(b.id)}>Remove</Button>
                                 </li>
                             ))}
                         </ul>
-                    </Paper>
+                    </Panel>
 
-                    <Paper variant="outlined" className="p-4 space-y-2">
-                        <Typography variant="subtitle1" className="font-semibold">Offline route packs</Typography>
-                        <p className="text-sm text-gray-500">Rebuilt every 6 hours. Rebuild now after changing blocked roads or shelters.</p>
-                        <Button variant="outlined" size="small" onClick={rebuildPacks}>Rebuild now</Button>
-                        {packsMsg && <p className="text-sm">{packsMsg}</p>}
-                    </Paper>
+                    <Panel title="Offline route packs">
+                        <p className="text-muted-foreground">Rebuilt every 6 hours. Rebuild after changing blocked roads or shelters.</p>
+                        <Button variant="outline" size="sm" onClick={rebuildPacks}>Rebuild now</Button>
+                        {packsMsg && <p>{packsMsg}</p>}
+                    </Panel>
                 </div>
             </div>
         </div>

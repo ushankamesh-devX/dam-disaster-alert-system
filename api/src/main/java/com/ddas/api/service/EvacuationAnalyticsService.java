@@ -51,7 +51,9 @@ public class EvacuationAnalyticsService {
                 "TIMESTAMPDIFF(SECOND, s.last_update_at, NOW()) age, " +
                 "EXISTS (SELECT 1 FROM sos_events e WHERE e.user_id = s.user_id AND e.status IN ('triggered','acknowledged','responding')) sos " +
                 "FROM location_sharing_sessions s JOIN users u ON u.id = s.user_id " +
-                "WHERE s.share_with_authorities = 1 AND s.last_latitude IS NOT NULL AND (" +
+                "WHERE s.share_with_authorities = 1 AND s.last_latitude IS NOT NULL " +
+                // one entry per person: their latest session (a phone can stop and start again)
+                "AND s.id = (SELECT MAX(s2.id) FROM location_sharing_sessions s2 WHERE s2.user_id = s.user_id) AND (" +
                 " (s.status = 'active' AND s.last_update_at > NOW() - INTERVAL 30 MINUTE)" +
                 " OR (s.status = 'ended' AND s.ended_at > NOW() - INTERVAL 30 MINUTE))");
         if (sessions.isEmpty()) return List.of();

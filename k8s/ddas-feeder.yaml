@@ -1,0 +1,45 @@
+# Always-on simulated ESP32 nodes for the Kotmale/Victoria/Randenigala demo (synthetic readings).
+# Scripts are mounted from a ConfigMap, so no image build is needed (see api/scripts/CASCADE-DEMO.md):
+#   kubectl -n ddas create configmap ddas-feeder --from-file=api/scripts/ddas_feeder.py \
+#     --from-file=api/scripts/ddas_demo.py --from-file=api/scripts/cascade_model.py \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl apply -f k8s/ddas-feeder.yaml
+# Two-minute demo storm:
+#   kubectl -n ddas exec deploy/ddas-feeder -- python3 /app/scripts/ddas_demo.py flood --dam victoria
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddas-feeder
+  namespace: ddas
+spec:
+  replicas: 1          # one feeder only: two copies would double every reading
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ddas-feeder
+  template:
+    metadata:
+      labels:
+        app: ddas-feeder
+    spec:
+      containers:
+        - name: ddas-feeder
+          image: python:3.12.7-alpine
+          workingDir: /app/scripts
+          command: ["python3", "/app/scripts/ddas_feeder.py"]
+          env:
+            - { name: DDAS_API_URL, value: "http://api:8080" }
+            - { name: DDAS_SIM_INTERVAL, value: "60" }
+            - name: DDAS_ADMIN_EMAIL
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: DDAS_ADMIN_EMAIL } }
+            - name: DDAS_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: DDAS_ADMIN_PASSWORD } }
+          volumeMounts:
+            - { name: scripts, mountPath: /app/scripts, readOnly: true }
+          resources:
+            requests: { cpu: 10m, memory: 48Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+      volumes:
+        - name: scripts
+          configMap: { name: ddas-feeder }

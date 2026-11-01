@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, Building2, CheckCircle2, CircleDot, MapPin, Phone, RefreshCw, ShieldCheck, Siren, Waves } from 'lucide-react';
 import { getPublicActiveAlerts, getPublicAlertSummary, getSeverityConfig } from '../services/publicAlert.service';
 
 // ── Severity Badge ────────────────────────────────────────────────────────────
@@ -102,10 +103,10 @@ function AlertCard({ alert, isNew }) {
                     fontSize: '12px', color: 'rgba(255,255,255,0.5)',
                 }}>
                     {alert.damName && (
-                        <span>🏗️ {alert.damName}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Building2 size={14} aria-hidden="true" />{alert.damName}</span>
                     )}
                     {alert.regionName && (
-                        <span>📍 {alert.regionName}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={14} aria-hidden="true" />{alert.regionName}</span>
                     )}
                 </div>
             )}
@@ -147,7 +148,7 @@ function StatCard({ label, value, icon, color, sublabel }) {
             gap: 4,
             backdropFilter: 'blur(8px)',
         }}>
-            <div style={{ fontSize: '28px' }}>{icon}</div>
+            <div style={{ display: 'flex', color: color || 'white' }} aria-hidden="true">{icon}</div>
             <div style={{
                 fontSize: '36px', fontWeight: 800,
                 color: color || 'white',
@@ -171,7 +172,7 @@ function EmptyState() {
             border: '1px solid rgba(34,197,94,0.15)',
             borderRadius: '20px',
         }}>
-            <div style={{ fontSize: '64px', marginBottom: '16px' }}>✅</div>
+            <CheckCircle2 size={64} color="#4ade80" aria-hidden="true" style={{ marginBottom: 16 }} />
             <h3 style={{ margin: '0 0 8px', color: '#4ade80', fontSize: '20px', fontWeight: 700 }}>
                 All Clear — No Active Alerts
             </h3>
@@ -338,7 +339,8 @@ export default function PublicAlertsPage() {
                     borderBottom: '1px solid rgba(220,38,38,0.3)',
                     color: '#fca5a5',
                 }}>
-                    🚨 EMERGENCY ALERT ACTIVE — FOLLOW EVACUATION INSTRUCTIONS IMMEDIATELY
+                    <Siren size={18} aria-hidden="true" style={{ verticalAlign: 'text-bottom', marginRight: 8 }} />
+                    EMERGENCY ALERT ACTIVE — FOLLOW EVACUATION INSTRUCTIONS IMMEDIATELY
                 </div>
             )}
 
@@ -357,7 +359,7 @@ export default function PublicAlertsPage() {
             }}>
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: '24px' }}>🌊</span>
+                        <Waves size={24} color="#60a5fa" aria-hidden="true" />
                         <div>
                             <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em' }}>
                                 Dam Disaster Alert System
@@ -372,7 +374,7 @@ export default function PublicAlertsPage() {
                     {loading && !lastUpdated ? (
                         <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#60a5fa', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                     ) : (
-                        <span>🔄</span>
+                        <RefreshCw size={14} aria-hidden="true" />
                     )}
                     {lastUpdated && (
                         <span>Updated {getTimeAgo(lastUpdated?.toISOString())}</span>
@@ -400,26 +402,26 @@ export default function PublicAlertsPage() {
                         marginBottom: 32,
                     }}>
                         <StatCard
-                            icon={hasCritical ? '🚨' : '✅'}
+                            icon={hasCritical ? <Siren size={28} /> : <CheckCircle2 size={28} />}
                             value={summary.totalActiveAlerts || 0}
                             label="Active Alerts"
                             color={summary.totalActiveAlerts > 0 ? '#ef4444' : '#4ade80'}
                             sublabel="Right now"
                         />
                         <StatCard
-                            icon="🏗️"
+                            icon={<Building2 size={28} />}
                             value={summary.escalatedAlerts || 0}
                             label="Escalated"
                             color={summary.escalatedAlerts > 0 ? '#f97316' : 'white'}
                         />
                         <StatCard
-                            icon={summary.hasActiveEmergency ? '🔴' : '🟢'}
+                            icon={<CircleDot size={28} />}
                             value={summary.hasActiveEmergency ? 'EMERGENCY' : 'NORMAL'}
                             label="System Status"
                             color={summary.hasActiveEmergency ? '#ef4444' : '#4ade80'}
                         />
                         <StatCard
-                            icon="📞"
+                            icon={<Phone size={28} />}
                             value="1990"
                             label="Emergency Helpline"
                             sublabel="24/7 Active"
@@ -471,7 +473,7 @@ export default function PublicAlertsPage() {
                             color: '#fca5a5', marginBottom: 16,
                             display: 'flex', alignItems: 'center', gap: 8,
                         }}>
-                            <span>⚠️</span>
+                            <AlertTriangle size={16} aria-hidden="true" />
                             <span>Unable to load alerts: {error}. Retrying...</span>
                             <button
                                 onClick={() => fetchData(true)}
@@ -543,7 +545,8 @@ export default function PublicAlertsPage() {
                     borderRadius: '20px',
                 }}>
                     <h2 style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
-                        🛡️ Safety Guidelines / ආරක්ෂක මාර්ගෝපදේශ
+                        <ShieldCheck size={18} aria-hidden="true" style={{ verticalAlign: 'text-bottom', marginRight: 8 }} />
+                        Safety Guidelines / ආරක්ෂක මාර්ගෝපදේශ
                     </h2>
                     <div style={{
                         display: 'grid',

@@ -33,15 +33,16 @@ public class DamService {
     
     // ============== DAM CRUD OPERATIONS ==============
     
+    // Decommissioned dams are hidden from general listings; filter by status to see them.
     @Transactional(readOnly = true)
     public Page<DamListResponse> getAllDams(Pageable pageable) {
-        return damRepository.findAll(pageable)
+        return damRepository.findByStatusNot(Dam.DamStatus.decommissioned, pageable)
                 .map(damMapper::toDamListResponse);
     }
-    
+
     @Transactional(readOnly = true)
     public List<DamListResponse> getAllDamsList() {
-        return damMapper.toDamListResponseList(damRepository.findAll());
+        return damMapper.toDamListResponseList(damRepository.findByStatusNot(Dam.DamStatus.decommissioned));
     }
     
     @Transactional(readOnly = true)
@@ -90,6 +91,8 @@ public class DamService {
         
         if (status != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
+        } else {
+            spec = spec.and((root, query, cb) -> cb.notEqual(root.get("status"), Dam.DamStatus.decommissioned));
         }
         if (regionId != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("region").get("id"), regionId));

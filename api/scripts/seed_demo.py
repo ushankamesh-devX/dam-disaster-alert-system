@@ -39,7 +39,11 @@ def compose_command():
 
 def docker(command, data=None):
     command = command.replace('$MYSQL_DATABASE', DATABASE)
-    p = subprocess.run(compose_command()+['exec', '-T', 'mysql', 'sh', '-c', command],
+    # DDAS_DB_POD (e.g. ddas-db-0) runs the same command in the k3s MySQL pod instead of Compose.
+    pod = os.environ.get('DDAS_DB_POD')
+    prefix = (['kubectl', '-n', os.environ.get('DDAS_DB_NAMESPACE', 'ddas'), 'exec', '-i', pod, '-c', 'mysql', '--']
+              if pod else compose_command()+['exec', '-T', 'mysql'])
+    p = subprocess.run(prefix+['sh', '-c', command],
                        cwd=ROOT, input=data, capture_output=True)
     if p.returncode:
         raise RuntimeError(p.stderr.decode('utf8', errors='replace'))

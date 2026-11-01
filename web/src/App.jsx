@@ -8,6 +8,7 @@ import { tokens } from './theme/tokens';
 import { Suspense } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster as SonnerToaster } from '@/components/ui/sonner';
 
 export default function App() {
   return (
@@ -33,6 +34,8 @@ export default function App() {
           error: { iconTheme: { primary: tokens.error, secondary: tokens.surfaceContainerLowest } },
         }}
       />
+      {/* shadcn pages use sonner; older pages still use react-hot-toast above */}
+      <SonnerToaster position="top-right" richColors />
     </AuthProvider>
     </TooltipProvider>
     </DesignProvider>

@@ -12,6 +12,11 @@ import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import EvacuationService from '../../services/evacuation.service';
 import { MAP_OPTIONS, TILE_PROPS, SRI_LANKA_CENTER } from '../../components/map/mapDefaults';
 import { MapBehavior, DamJumpControl } from '../../components/map/MapControls';
+import { loadMapDams } from '../../components/map/mapDefaults';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import CommandCenterService from '../../services/commandCenter.service';
+import { LayerToggles, PeopleLayer, ServicesLayer, SosLayer } from '../../components/evacuation/LiveLayers';
+import { BroadcastDialog, ShelterList, SosQueue, Timeline } from '../../components/evacuation/LivePanels';
 
 function parseGeo(text) {
     try {
@@ -90,13 +95,37 @@ export default function EvacuationPage() {
     const [travelMode, setTravelMode] = useState('walk');
     const [testResult, setTestResult] = useState(null);
     const [packsMsg, setPacksMsg] = useState('');
+    const [live2, setLive2] = useState(false);          // command-center poll succeeding
+    const [cc, setCc] = useState(null);                 // { summary, peopleCells, sos, services, timeline }
+    const [layers, setLayers] = useState({ zones: true, people: true, sos: true, shelters: true, services: true, blocked: true });
+    const [selectedSos, setSelectedSos] = useState(null);
+    const [tab, setTab] = useState('sos');
+    const [dams, setDams] = useState([]);
 
     useEffect(() => {
         EvacuationService.status().then(setStatus).catch((e) => setError(e.message));
         return EvacuationService.subscribe(setStatus, setLive);
     }, []);
 
-    const onDrawn = useCallback((geometry) => setDraft({ geometry, name: '', reason: '', expiresAt: '' }), []);
+    // Command center: poll every 5 s (also refreshes zones/shelters in case the live stream is blocked)
+    const refresh = useCallback(async () => {
+        try {
+            const [snap, st] = await Promise.all([CommandCenterService.snapshot(), EvacuationService.status()]);
+            setCc(snap);
+            setStatus(st);
+            setLive2(true);
+        } catch {
+            setLive2(false);
+        }
+    }, []);
+    useEffect(() => {
+        const first = setTimeout(refresh, 0);
+        const timer = setInterval(refresh, 5000);
+        loadMapDams().then(setDams);
+        return () => { clearTimeout(first); clearInterval(timer); };
+    }, [refresh]);
+
+    const onDrawn = useCallback((geometry) => { setDraft({ geometry, name: '', reason: '', expiresAt: '' }); setTab('tools'); }, []);
 
     const saveDraft = async () => {
         try {
@@ -119,6 +148,7 @@ export default function EvacuationPage() {
 
     const testRoute = async ({ lat, lng }) => {
         setTestResult({ loading: true, from: [lat, lng] });
+        setTab('tools');
         try {
             const r = await EvacuationService.route(lat, lng, travelMode);
             setTestResult({ ...r, from: [lat, lng] });
@@ -140,25 +170,31 @@ export default function EvacuationPage() {
     const zones = status?.dangerZones || [];
     const shelters = status?.shelters || [];
     const blocked = status?.blockedRoads || [];
-    const openShelters = shelters.filter((s) => shelterColor(s) !== '#6b7280').length;
     const routeLine = testResult?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
+    const sm = cc?.summary || {};
+    const sos = cc?.sos || [];
+    const services = cc?.services || [];
+    const isLive = live || live2;
+    const spaceLeft = Math.max(0, Number(sm.capacity || 0) - Number(sm.occupancy || 0));
 
     return (
         <div className="flex h-full flex-col gap-3">
-            {/* One compact row: title, live state, key numbers */}
+            {/* One compact row: title, live state, key numbers, broadcast */}
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border bg-card px-4 py-2">
                 <div className="flex items-center gap-2">
                     <h1 className="text-base font-semibold">Evacuation</h1>
-                    <Badge variant={live ? 'default' : 'secondary'} className={live ? 'bg-success text-white' : ''}>
-                        <span className={`size-1.5 rounded-full ${live ? 'bg-white' : 'bg-muted-foreground'}`} />
-                        {live ? 'Live' : 'Reconnecting…'}
+                    <Badge variant={isLive ? 'default' : 'secondary'} className={isLive ? 'bg-success text-white' : ''}>
+                        <span className={`size-1.5 rounded-full ${isLive ? 'bg-white' : 'bg-muted-foreground'}`} />
+                        {isLive ? 'Live' : 'Connecting…'}
                     </Badge>
                 </div>
-                <Stat label="danger zones" value={zones.length} alert={zones.length > 0} />
-                <Stat label="phones in danger" value={status?.devicesInDanger ?? '–'} alert={status?.devicesInDanger > 0} />
-                <Stat label="active phones" value={status?.activeDevices ?? '–'} />
-                <Stat label="open shelters" value={`${openShelters}/${shelters.length}`} />
-                <Stat label="blocked roads" value={blocked.length} />
+                <Stat label="zones active" value={zones.length} alert={zones.length > 0} />
+                <Stat label="people in danger" value={sm.peopleInDanger ?? '–'} alert={sm.peopleInDanger > 0} />
+                <Stat label="sharing location" value={sm.peopleSharing ?? '–'} />
+                <Stat label="reached shelters" value={sm.arrivedAtShelters ?? '–'} />
+                <Stat label="SOS open" value={sm.sosOpen ?? '–'} alert={sm.sosOpen > 0} />
+                <Stat label="shelter places left" value={sm.capacity != null ? spaceLeft : '–'} />
+                <div className="ml-auto"><BroadcastDialog dams={dams} /></div>
             </div>
 
             {error && (
@@ -188,8 +224,10 @@ export default function EvacuationPage() {
                         <DamJumpControl />
                         <BlockedRoadDrawer onDrawn={onDrawn} />
                         <RouteTester enabled={testMode} onPick={testRoute} />
+                        <LayerToggles layers={layers} onChange={setLayers} />
+                        <FlyTo target={selectedSos ? [Number(selectedSos.lat), Number(selectedSos.lng)] : null} />
 
-                        {zones.map((z) => {
+                        {layers.zones && zones.map((z) => {
                             const geo = parseGeo(z.boundaryGeojson);
                             return geo && (
                                 <GeoJSON
@@ -205,7 +243,7 @@ export default function EvacuationPage() {
                             );
                         })}
 
-                        {blocked.map((b) => {
+                        {layers.blocked && blocked.map((b) => {
                             const geo = parseGeo(b.boundaryGeojson);
                             return geo && (
                                 <GeoJSON key={`blocked-${b.id}`} data={geo} style={{ color: '#111827', dashArray: '6 4', weight: 2, fillOpacity: 0.25 }}>
@@ -214,7 +252,11 @@ export default function EvacuationPage() {
                             );
                         })}
 
-                        {shelters.map((s) => (
+                        {layers.services && <ServicesLayer services={services} />}
+                        {layers.people && <PeopleLayer cells={cc?.peopleCells || []} />}
+                        {layers.sos && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTab('sos'); }} />}
+
+                        {layers.shelters && shelters.map((s) => (
                             <CircleMarker
                                 key={`shelter-${s.id}`}
                                 center={[s.lat, s.lng]}
@@ -242,10 +284,30 @@ export default function EvacuationPage() {
                         <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-gray-500" /> Closed / in zone</span>
                         <span className="flex items-center gap-1"><span className="h-0.5 w-3 bg-gray-900" /> Blocked road</span>
                         <span className="flex items-center gap-1"><span className="h-1 w-3 rounded bg-blue-600" /> Route</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-blue-600/75" /> People (count per area)</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-red-600/75" /> People in a zone</span>
+                        <span className="flex items-center gap-1"><span className="ddas-sos-legend">!</span> SOS</span>
+                        <span className="flex items-center gap-1"><b className="text-[#1E40AF]">P</b>/<b className="text-[#DC2626]">H</b>/<b className="text-[#EA580C]">F</b> Police · hospital · fire</span>
                     </div>
                 </Card>
 
-                <div className="min-h-0 space-y-3 overflow-y-auto">
+                <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-col gap-2">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="sos">SOS{sm.sosOpen ? ` (${sm.sosOpen})` : ''}</TabsTrigger>
+                        <TabsTrigger value="shelters">Shelters</TabsTrigger>
+                        <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                        <TabsTrigger value="tools">Tools</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="sos" className="min-h-0 overflow-y-auto text-sm">
+                        <SosQueue sos={sos} services={services} selectedId={selectedSos?.id} onSelect={setSelectedSos} onChanged={refresh} />
+                    </TabsContent>
+                    <TabsContent value="shelters" className="min-h-0 overflow-y-auto text-sm">
+                        <ShelterList shelters={shelters} />
+                    </TabsContent>
+                    <TabsContent value="timeline" className="min-h-0 overflow-y-auto text-sm">
+                        <Timeline items={cc?.timeline || []} />
+                    </TabsContent>
+                    <TabsContent value="tools" className="min-h-0 space-y-3 overflow-y-auto">
                     {draft && (
                         <Panel title="New blocked road">
                             <div className="space-y-1"><Label htmlFor="br-name">Name</Label>
@@ -303,8 +365,20 @@ export default function EvacuationPage() {
                         <Button variant="outline" size="sm" onClick={rebuildPacks}>Rebuild now</Button>
                         {packsMsg && <p>{packsMsg}</p>}
                     </Panel>
-                </div>
+                    </TabsContent>
+                </Tabs>
             </div>
         </div>
     );
+}
+
+/** Pan to a selected SOS so the operator sees where it is. */
+function FlyTo({ target }) {
+    const map = useMap();
+    const lat = target?.[0];
+    const lng = target?.[1];
+    useEffect(() => {
+        if (lat != null && lng != null) map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+    }, [map, lat, lng]);
+    return null;
 }

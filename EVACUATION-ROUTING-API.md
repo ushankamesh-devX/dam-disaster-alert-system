@@ -138,7 +138,28 @@ were in danger. Rebuilt every 6 hours.
 `POST /route` fails (no internet), find which zone the person is in (point-in-polygon on the zone
 boundaries, or the zone from the last push) and show that zone's pack.
 
-## 5. Live dashboard feed
+## 5. Safety: share location, SOS, "I'm safe" (mobile, signed in)
+
+These feed the evacuation command center. All need the normal `Authorization: Bearer <token>`.
+
+| Method | Path | Body | Use |
+|---|---|---|---|
+| `GET` | `/api/v1/safety/sos-types` | | List for the SOS screen: `[{ code, name, nameSi, defaultMessage }]` |
+| `POST` | `/api/v1/safety/location` | `{ lat, lng, speedMps?, battery? }` | During an alert, every ~30 s. The first call starts sharing |
+| `POST` | `/api/v1/safety/location/stop` | | The person turns sharing off |
+| `POST` | `/api/v1/safety/sos` | `{ type, message?, lat, lng, battery? }` | Big red SOS button. `type` is a `code` from `sos-types`, e.g. `flood_trapped`, `injured`, `medical`, `stranded_vehicle` |
+| `GET` | `/api/v1/safety/sos` | | The person's own SOS calls with `status` (`triggered` → `acknowledged` → `responding` → `resolved`) and `responseNotes` (e.g. "Assigned to Kandy Police") |
+| `POST` | `/api/v1/safety/safe` | | "I'm safe" button: ends sharing; the command center counts them as safe |
+
+**Privacy:** operators see people only as counts per ~450 m area. An exact position is shown only for an SOS.
+Share location only while an alert is active for the person's area, and show a clear "Sharing your location
+with authorities" banner with a stop button.
+
+**Suggested app flow during an Evacuation Order:** show the route (`POST /route`) → start `safety/location`
+every 30 s → on arrival show "I'm safe" → `safety/safe`. The SOS button stays visible the whole time; after
+sending, poll `GET safety/sos` every 15 s and show the status.
+
+## 6. Live dashboard feed
 
 - `GET /api/public/evacuation/status`: snapshot of danger zones (with phones inside each), shelters with occupancy, blocked roads, phone counts.
 - `GET /api/public/evacuation/stream`: Server-Sent Events. A `status` event with the same JSON is sent on connect and whenever anything changes. In a browser: `new EventSource(url).addEventListener('status', ...)`.

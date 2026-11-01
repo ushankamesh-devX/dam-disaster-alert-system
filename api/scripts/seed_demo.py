@@ -290,7 +290,8 @@ def initialize_rbac():
     for statement in source.split(';'):
         if statement.strip().startswith('INSERT INTO'):
             table=re.search(r'INSERT INTO (\w+)',statement).group(1)
-            statements.append(statement+f' ON DUPLICATE KEY UPDATE {table}.id={table}.id;')
+            col='role_id' if table=='role_permissions' else 'id'
+            statements.append(statement+f' ON DUPLICATE KEY UPDATE {table}.{col}={table}.{col};')
     sql('START TRANSACTION;'+''.join(statements)+'COMMIT;')
 
 

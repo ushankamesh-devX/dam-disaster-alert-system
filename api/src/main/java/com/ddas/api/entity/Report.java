@@ -79,7 +79,7 @@ public class Report {
     private String descriptionSi;
 
     @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "ENUM('pending','reviewing','in_progress','resolved','rejected','duplicate') DEFAULT 'pending'")
+    @Column(nullable = false, columnDefinition = "ENUM('pending','reviewing','in_progress','resolved','rejected','duplicate') DEFAULT 'pending'")
     @Builder.Default
     private ReportStatus status = ReportStatus.pending;
 

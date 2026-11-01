@@ -34,7 +34,7 @@ export default function ZonesLayer({ zones, watchZones, timing, showLabels = tru
         const flooded = t?.flooded;
         const soon = !flooded && t?.floodInMin != null && t.floodInMin <= 10;
         const style = flooded
-            ? { color: FLOODED.stroke, weight: 2, fillColor: FLOODED.fill, fillOpacity: FLOODED.opacity, dashArray: '8 4' }
+            ? { color: FLOODED.stroke, weight: 1.5, fillColor: FLOODED.fill, fillOpacity: FLOODED.opacity, className: 'ddas-zone-flooding' }
             : { color: lv.stroke, weight: soon ? 3 : 1.5, fillColor: lv.fill, fillOpacity: lv.opacity, dashArray: lv.dash, className: soon ? 'ddas-zone-warn' : '' };
         const when = flooded ? 'flooded' : t?.floodInMin != null ? `water in ${t.floodInMin} min` : `water ~${z.floodEtaMin ?? '?'} min`;
         const pos = centre(geo);

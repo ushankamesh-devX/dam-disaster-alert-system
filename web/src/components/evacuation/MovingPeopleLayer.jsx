@@ -7,11 +7,11 @@ const GLIDE_MS = 4500;   // a little under the 5 s poll, so people glide instead
 
 /**
  * Individual (simulated) people as Leaflet markers managed directly, so they can glide between
- * updates. Optional fading trails and animated "flow" lines to each person's likely shelter.
+ * updates. Optional fading trails.
  */
-export default function MovingPeopleLayer({ people, shelters, selectedId, onSelect, showTrails, showFlows }) {
+export default function MovingPeopleLayer({ people, selectedId, onSelect, showTrails }) {
     const map = useMap();
-    const items = useRef(new Map());   // id -> { marker, trail, flow, from, to, start }
+    const items = useRef(new Map());   // id -> { marker, trail, from, to, start }
     const onSelectRef = useRef(onSelect);
     useEffect(() => { onSelectRef.current = onSelect; });
 
@@ -24,10 +24,6 @@ export default function MovingPeopleLayer({ people, shelters, selectedId, onSele
                 const lat = it.from[0] + (it.to[0] - it.from[0]) * t;
                 const lng = it.from[1] + (it.to[1] - it.from[1]) * t;
                 it.marker.setLatLng([lat, lng]);
-                if (it.flow) {
-                    const pts = it.flow.getLatLngs();
-                    if (pts.length === 2) it.flow.setLatLngs([[lat, lng], pts[1]]);
-                }
             });
             frame = requestAnimationFrame(tick);
         };
@@ -35,7 +31,7 @@ export default function MovingPeopleLayer({ people, shelters, selectedId, onSele
         const all = items.current;
         return () => {
             cancelAnimationFrame(frame);
-            all.forEach((it) => { it.marker.remove(); it.trail?.remove(); it.flow?.remove(); });
+            all.forEach((it) => { it.marker.remove(); it.trail?.remove(); });
             all.clear();
         };
     }, [map]);
@@ -43,7 +39,6 @@ export default function MovingPeopleLayer({ people, shelters, selectedId, onSele
     // Sync markers with the latest people list
     useEffect(() => {
         const seen = new Set();
-        const shelterById = new Map((shelters || []).map((s) => [s.id, s]));
         const now = performance.now();
         for (const p of people) {
             seen.add(p.id);
@@ -72,18 +67,12 @@ export default function MovingPeopleLayer({ people, shelters, selectedId, onSele
                 else it.trail = L.polyline(pts, { color, weight: 2.5, opacity: 0.45, className: 'ddas-trail', interactive: false }).addTo(map);
             } else if (it.trail) { it.trail.remove(); it.trail = null; }
 
-            const shelter = shelterById.get(p.shelterId);
-            if ((showFlows || selected) && shelter && p.state !== 'safe') {
-                const pts = [[p.lat, p.lng], [shelter.lat, shelter.lng]];
-                if (it.flow) it.flow.setLatLngs(pts);
-                else it.flow = L.polyline(pts, { color, weight: 1.5, opacity: 0.7, dashArray: '4 6', className: 'ddas-flow', interactive: false }).addTo(map);
-            } else if (it.flow) { it.flow.remove(); it.flow = null; }
         }
         // Remove people no longer in the (filtered) list
         items.current.forEach((it, id) => {
-            if (!seen.has(id)) { it.marker.remove(); it.trail?.remove(); it.flow?.remove(); items.current.delete(id); }
+            if (!seen.has(id)) { it.marker.remove(); it.trail?.remove(); items.current.delete(id); }
         });
-    }, [map, people, shelters, selectedId, showTrails, showFlows]);
+    }, [map, people, selectedId, showTrails]);
 
     return null;
 }

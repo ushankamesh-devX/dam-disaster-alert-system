@@ -150,8 +150,17 @@ body {
 .ddas-zone-warn { animation: ddas-zone 1.4s ease-in-out infinite; }
 @keyframes ddas-zone { 50% { stroke-opacity: .25; } }
 .ddas-bottleneck { animation: ddas-zone 1.8s ease-in-out infinite; }
+/* Released water: ripples moving downstream, a pulsing front, zones filling with water */
+.ddas-water-flow { stroke-dasharray: 2 10; stroke-linecap: round; animation: ddas-march 0.8s linear infinite; }
+.ddas-water-front { position: relative; transform: translate(-7px, -7px); }
+.ddas-water-front span { position: absolute; width: 14px; height: 14px; border-radius: 9999px; background: #1D4ED8; border: 2px solid #fff; box-shadow: 0 0 0 0 rgba(37,99,235,.6); animation: ddas-front 1.6s ease-out infinite; }
+.ddas-water-front b { position: absolute; left: 20px; top: -3px; white-space: nowrap; background: #1E3A8A; color: #fff; font: 600 11px/18px system-ui; padding: 0 8px; border-radius: 9999px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+@keyframes ddas-front { 100% { box-shadow: 0 0 0 16px rgba(37,99,235,0); } }
+.ddas-zone-flooding { animation: ddas-fill 2.5s ease-out; }
+@keyframes ddas-fill { from { fill-opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .ddas-flow, .ddas-river-flow, .ddas-zone-warn, .ddas-bottleneck, .ddas-beacon-new svg { animation: none; }
+  .ddas-flow, .ddas-river-flow, .ddas-zone-warn, .ddas-bottleneck, .ddas-beacon-new svg,
+  .ddas-water-flow, .ddas-water-front span, .ddas-zone-flooding { animation: none; }
 }
 
 @media (max-width: 599px) {

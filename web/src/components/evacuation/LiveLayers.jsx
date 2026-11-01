@@ -59,8 +59,8 @@ export function BottleneckLayer({ bottlenecks }) {
 }
 
 const LAYERS = [
-    ['zones', 'Danger zones'], ['river', 'River flood path'], ['people', 'People'], ['trails', 'Movement trails'],
-    ['flows', 'Lines to shelters'], ['sos', 'SOS'], ['shelters', 'Shelters'], ['services', 'Police & hospitals'],
+    ['zones', 'Danger zones'], ['water', 'Water flow'], ['river', 'River timing labels'], ['people', 'People'],
+    ['trails', 'Movement trails'], ['sos', 'SOS'], ['shelters', 'Shelters'], ['services', 'Police & hospitals'],
     ['bottlenecks', 'Crowded roads'], ['blocked', 'Blocked roads'],
 ];
 

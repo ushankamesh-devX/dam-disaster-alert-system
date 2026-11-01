@@ -22,6 +22,7 @@ import { EMPTY_FILTER, filterPeople } from '../../components/evacuation/peopleFi
 import MovingPeopleLayer from '../../components/evacuation/MovingPeopleLayer';
 import RiverFloodLayer from '../../components/evacuation/RiverFloodLayer';
 import ZonesLayer from '../../components/evacuation/ZonesLayer';
+import WaterFlowLayer from '../../components/evacuation/WaterFlowLayer';
 import { FLOODED_STYLE, LEVEL_STYLE } from '../../components/evacuation/zoneStyles';
 
 function parseGeo(text) {
@@ -110,7 +111,7 @@ export default function EvacuationPage() {
     const [live, setLive] = useState(false);
     const [error, setError] = useState('');
     const [layers, setLayers] = useState({
-        zones: true, river: false, people: true, trails: false, flows: false, sos: true, shelters: true,
+        zones: true, water: true, river: false, people: true, trails: false, sos: true, shelters: true,
         services: true, bottlenecks: true, blocked: true,
     });
     const [tab, setTab] = useState('sos');
@@ -263,6 +264,7 @@ export default function EvacuationPage() {
                         <LayerToggles layers={layers} onChange={setLayers} />
                         <FlyTo target={flyTarget} />
 
+                        {layers.water && <WaterFlowLayer rivers={cc?.rivers || []} dams={dams} />}
                         {layers.river && <RiverFloodLayer rivers={cc?.rivers || []} />}
                         {layers.zones && <ZonesLayer zones={zones} watchZones={status?.watchZones} timing={zoneTiming} />}
                         {layers.blocked && blocked.map((b) => {
@@ -276,8 +278,8 @@ export default function EvacuationPage() {
                         {layers.bottlenecks && <BottleneckLayer bottlenecks={analytics?.bottlenecks || []} />}
                         {layers.services && <ServicesLayer services={services} />}
                         {layers.shelters && <ShelterLayer shelters={shelters} forecast={analytics?.shelters} />}
-                        <MovingPeopleLayer people={mapPeople} shelters={shelters} selectedId={selectedPersonId}
-                            onSelect={selectPerson} showTrails={layers.trails && !replayFrame} showFlows={layers.flows && !replayFrame} />
+                        <MovingPeopleLayer people={mapPeople} selectedId={selectedPersonId}
+                            onSelect={selectPerson} showTrails={layers.trails && !replayFrame} />
                         {layers.sos && !replayFrame && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTab('sos'); }} />}
 
                         {personLine && <Polyline positions={personLine} pathOptions={{ color: '#7C3AED', weight: 5, opacity: 0.85, className: 'ddas-flow' }} />}
@@ -291,7 +293,8 @@ export default function EvacuationPage() {
                         <Legend colour="#15803D" label="Safe" />
                         <Legend colour="#C2410C" label="SOS" />
                         {Object.values(LEVEL_STYLE).map((lv) => <Legend key={lv.label} colour={lv.fill} round={false} label={lv.label} />)}
-                        <Legend colour={FLOODED_STYLE.fill} round={false} label="Flooded" />
+                        <Legend colour={FLOODED_STYLE.fill} round={false} label="Water arrived" />
+                        <Legend colour="#1D4ED8" label="Water front" />
                         <Legend colour="#16A34A" label="Shelter (ring = how full)" />
                         <Legend colour="#EF4444" label="Crowded road" />
                         <span>Shield / cross = police / hospital (map only)</span>

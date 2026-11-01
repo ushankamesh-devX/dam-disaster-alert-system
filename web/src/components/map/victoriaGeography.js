@@ -7,7 +7,7 @@ export const victoriaReference = dam => isVictoriaDemo(dam) ? geography : null;
 // Equipment and zone records are deliberately placed demo points for Victoria.
 export function referenceMapFeatures(dam, features) {
     if (!isVictoriaDemo(dam)) return features;
-    const placed = features.filter(feature => feature.properties?.zoneCode?.startsWith('VICTORIA-DEMO-L')
+    const placed = features.filter(feature => (feature.properties?.zoneCode?.startsWith('VICTORIA-DEMO-L') || feature.properties?.zoneCode?.includes('-RIVER-L'))
         || ['sensorCircle', 'gateCircle'].includes(feature.properties?.type));
     return [...placed, {
         type: 'Feature',

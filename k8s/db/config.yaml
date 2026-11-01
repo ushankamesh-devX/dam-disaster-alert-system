@@ -12,3 +12,5 @@ data:
     performance_schema=OFF
     max_connections=50
     table_open_cache=256
+    # MLflow creates triggers as the app user; binary logging is on by default
+    log_bin_trust_function_creators=ON

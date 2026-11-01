@@ -104,6 +104,7 @@ def contract():
         result[table]=columns
     mapped=entities()
     for table,columns in mapped.items():
+        result.setdefault(table,{})
         for col,spec in columns.items():
             # Retain baseline defaults and FK delete policies unless JPA supplies one.
             result[table][col]={**result[table].get(col,{}),**spec}

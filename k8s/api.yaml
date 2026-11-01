@@ -1,4 +1,4 @@
-# Spring Boot API. Writes go to router :6446 (primary), readOnly transactions to :6447 (replicas).
+# Spring Boot API. Connects straight to the single MySQL server (ddas-db:3306).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,9 +24,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: SPRING_DATASOURCE_URL
-              value: jdbc:mysql://ddas-db-router:6446/dam_disaster_db?useSSL=false&allowPublicKeyRetrieval=true
-            - name: DDAS_DATASOURCE_READER_URL
-              value: jdbc:mysql://ddas-db-router:6447/dam_disaster_db?useSSL=false&allowPublicKeyRetrieval=true
+              value: jdbc:mysql://ddas-db:3306/dam_disaster_db?useSSL=false&allowPublicKeyRetrieval=true
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: DB_APP_USER } }
             - name: SPRING_DATASOURCE_PASSWORD

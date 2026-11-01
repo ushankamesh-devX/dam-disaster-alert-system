@@ -211,7 +211,9 @@ and [Victoria Dam demo geography](api/scripts/VICTORIA-DEMO.md).
 | `api/` | Spring Boot API, Docker Compose, database migrations and seed scripts |
 | `web/` | React/Vite management dashboard with a shared Material theme |
 | `app/` | Expo/React Native mobile application |
+| `ai/` | FastAPI AI service managed with uv, with service authentication and a Spring Boot data client |
 
 Further documentation: [API guide](api/README.md),
 [API request collection](api/bruno/README.md), and
-[web UI guide](web/MATERIAL-UI.md).
+[web UI guide](web/MATERIAL-UI.md), and
+[AI backend setup](ai/README.md).

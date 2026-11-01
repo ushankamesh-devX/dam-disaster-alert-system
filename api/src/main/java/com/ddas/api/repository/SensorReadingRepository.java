@@ -45,4 +45,16 @@ public interface SensorReadingRepository extends JpaRepository<SensorReading, Lo
 
     @Query("SELECT COUNT(r) FROM SensorReading r WHERE r.sensor.id = :sensorId AND r.recordedAt >= :since")
     long countReadingsBySensorIdSince(@Param("sensorId") Long sensorId, @Param("since") LocalDateTime since);
+
+    @Query("SELECT r FROM SensorReading r JOIN FETCH r.sensor s JOIN FETCH s.sensorType " +
+           "WHERE r.dam.id = :damId AND r.recordedAt >= :from AND r.recordedAt <= :to " +
+           "AND (:cursorId IS NULL OR r.id > :cursorId) " +
+           "ORDER BY r.id ASC")
+    List<SensorReading> findReadingsForExport(
+            @Param("damId") Long damId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("cursorId") Long cursorId,
+            Pageable pageable
+    );
 }

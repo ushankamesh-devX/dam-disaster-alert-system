@@ -1,4 +1,4 @@
-# MySQL settings shared by all 3 cluster members, tuned for an 8 GB m7i-flex.large.
+# MySQL settings for a single server on an 8 GB m7i-flex.large.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,12 +7,8 @@ metadata:
 data:
   ddas.cnf: |
     [mysqld]
-    innodb_buffer_pool_size=128M
-    # InnoDB Cluster requires performance_schema; small max_connections keeps it light
-    performance_schema=ON
-    max_connections=30
+    innodb_buffer_pool_size=256M
+    # performance_schema off saves ~200 MB; small max_connections keeps it light
+    performance_schema=OFF
+    max_connections=50
     table_open_cache=256
-    gtid_mode=ON
-    enforce_gtid_consistency=ON
-    # Group Replication message cache: 128M is the minimum (default 1G)
-    loose-group_replication_message_cache_size=134217728

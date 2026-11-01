@@ -3,6 +3,7 @@ package com.ddas.api.config;
 import com.ddas.api.security.DeviceApiKeyAuthFilter;
 import com.ddas.api.security.JwtAuthenticationEntryPoint;
 import com.ddas.api.security.JwtAuthenticationFilter;
+import com.ddas.api.security.MlServiceAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +34,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final DeviceApiKeyAuthFilter deviceApiKeyAuthFilter;
+    private final MlServiceAuthFilter mlServiceAuthFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final UserDetailsService userDetailsService;
 
@@ -51,12 +53,16 @@ public class SecurityConfig {
                                 "/actuator/**",
                                 "/error")
                         .permitAll()
+                        // Dedicated internal ML endpoints
+                        .requestMatchers("/api/v1/internal/ml/**")
+                        .hasAuthority("ml.data.read")
                         // All other endpoints require authentication
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(deviceApiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(mlServiceAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint));

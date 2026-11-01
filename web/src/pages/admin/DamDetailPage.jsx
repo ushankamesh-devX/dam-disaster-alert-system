@@ -11,6 +11,7 @@ import {
 import { getSensorsByDam } from '../../services/sensor.service';
 import { getAllRegionsList } from '../../services/region.service';
 import DamSensorChart from '../../components/dams/DamSensorChart';
+import DamForecastWidget from '../../components/dams/DamForecastWidget';
 import GeomanMap from '../../components/map/GeomanMap';
 import VictoriaReferenceNotice from '../../components/map/VictoriaReference';
 import { referenceMapFeatures, victoriaReference, isVictoriaDemo } from '../../components/map/victoriaGeography';
@@ -364,7 +365,7 @@ export default function DamDetailPage() {
 
     if (!dam) return null;
 
-    const TABS = ['overview', 'status', 'gates', 'charts'];
+    const TABS = ['overview', 'status', 'gates', 'charts', 'forecasts'];
 
     return (
         <div className="space-y-5">
@@ -450,7 +451,7 @@ export default function DamDetailPage() {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`px-5 py-3 text-sm font-medium capitalize transition ${activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
-                        >{tab === 'charts' ? 'Charts' : tab}</AppButton>
+                        >{tab === 'charts' ? 'Charts' : tab === 'forecasts' ? 'AI Forecasts' : tab}</AppButton>
                     ))}
                 </div>
 
@@ -582,6 +583,13 @@ export default function DamDetailPage() {
                 {/* ── Charts Tab ───────────────────────────────────────────── */}
                 {activeTab === 'charts' && (
                     <DamSensorChart damId={Number(id)} />
+                )}
+
+                {/* ── AI Forecasts Tab ─────────────────────────────────────── */}
+                {activeTab === 'forecasts' && (
+                    <div className="p-6">
+                        <DamForecastWidget damId={Number(id)} dam={dam} />
+                    </div>
                 )}
             </Paper>
 

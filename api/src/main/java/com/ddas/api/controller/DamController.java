@@ -1,9 +1,20 @@
 package com.ddas.api.controller;
 
+import com.ddas.api.service.DamForecastService;
+import com.ddas.api.service.MlInternalDataService;
+import com.ddas.api.dto.response.ml.MlForecastResponse;
+import com.ddas.api.dto.response.ml.MlCursorPageResponse;
+import com.ddas.api.entity.DamForecast;
+
 import com.ddas.api.dto.request.*;
 import com.ddas.api.dto.response.*;
 import com.ddas.api.entity.Dam;
 import com.ddas.api.service.DamService;
+import com.ddas.api.service.DamOverflowConfigService;
+import com.ddas.api.dto.request.CreateOverflowConfigRequest;
+import com.ddas.api.dto.response.ml.MlOverflowConfigResponse;
+import com.ddas.api.security.UserPrincipal;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,6 +35,9 @@ import java.util.Map;
 public class DamController {
     
     private final DamService damService;
+    private final DamOverflowConfigService damOverflowConfigService;
+    private final DamForecastService damForecastService;
+    private final MlInternalDataService mlInternalDataService;
     
     // ============== DAM CRUD ENDPOINTS ==============
     
@@ -221,5 +235,69 @@ public class DamController {
         stats.put("regionId", regionId);
         stats.put("damCount", damService.getDamCountByRegion(regionId));
         return ResponseEntity.ok(stats);
+    }
+
+    // ============== OVERFLOW CONFIG ENDPOINTS ==============
+
+    @GetMapping("/{id}/overflow-config")
+    public ResponseEntity<ApiResponse<MlOverflowConfigResponse>> getOverflowConfig(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(damOverflowConfigService.getActiveConfig(id)));
+    }
+
+    @PutMapping("/{id}/overflow-config")
+    @PreAuthorize("hasAuthority('dams.edit')")
+    public ResponseEntity<ApiResponse<MlOverflowConfigResponse>> updateOverflowConfig(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateOverflowConfigRequest request,
+            Authentication authentication
+    ) {
+        Long userId = (authentication != null && authentication.getPrincipal() instanceof UserPrincipal up)
+                ? up.getUser().getId()
+                : null;
+        return ResponseEntity.ok(ApiResponse.success(damOverflowConfigService.createConfig(id, request, userId)));
+    }
+
+    // ============== FORECAST ENDPOINTS ==============
+
+    @GetMapping("/{id}/forecasts")
+    public ResponseEntity<ApiResponse<List<MlForecastResponse>>> getDamForecasts(@PathVariable Long id) {
+        List<DamForecast> forecasts = damForecastService.getLatestForecasts(id);
+        List<MlForecastResponse> dtoList = forecasts.stream()
+                .map(f -> MlForecastResponse.builder()
+                        .id(f.getId())
+                        .damId(f.getDam().getId())
+                        .issuedAt(f.getIssuedAt())
+                        .asOf(f.getAsOf())
+                        .latestReadingAt(f.getLatestReadingAt())
+                        .freshness(f.getFreshness())
+                        .demoMode(f.getDemoMode())
+                        .releaseId(f.getReleaseId())
+                        .overflowThresholdMeters(f.getOverflowThresholdMeters())
+                        .overflowConfigVersion(f.getOverflowConfigVersion())
+                        .horizonHours(f.getHorizonHours())
+                        .targetTime(f.getTargetTime())
+                        .levelP10(f.getLevelP10())
+                        .levelP50(f.getLevelP50())
+                        .levelP90(f.getLevelP90())
+                        .overflowProbability(f.getOverflowProbability())
+                        .overflowProbabilityReason(f.getOverflowProbabilityReason())
+                        .isPublished(f.getIsPublished())
+                        .createdAt(f.getCreatedAt())
+                        .build())
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(dtoList));
+    }
+
+    @GetMapping("/{id}/forecast-history")
+    public ResponseEntity<ApiResponse<MlCursorPageResponse<MlForecastResponse>>> getDamForecastHistory(
+            @PathVariable Long id,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to,
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(value = "limit", required = false) Integer limit
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                mlInternalDataService.getDamForecasts(id, from, to, cursor, limit)
+        ));
     }
 }

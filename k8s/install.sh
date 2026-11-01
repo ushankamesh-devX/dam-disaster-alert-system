@@ -18,23 +18,13 @@ kubectl -n ddas create configmap mosquitto-config \
   --from-file=mosquitto.conf=mosquitto/mosquitto.conf --from-file=passwd="$PASSWD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-step "MySQL: starting 3 servers"
+step "MySQL"
 kubectl apply -f db/
-kubectl -n ddas rollout status statefulset/ddas-db --timeout=15m
+kubectl -n ddas rollout status statefulset/ddas-db --timeout=10m
 
-step "MySQL: creating the cluster (5-10 min)"
-kubectl apply -f db-setup-job.yaml
-kubectl -n ddas wait --for=condition=complete job/db-cluster-setup --timeout=20m
-kubectl -n ddas logs job/db-cluster-setup | tail -n 40
-
-step "MySQL Router"
-kubectl apply -f db-router.yaml
-kubectl -n ddas rollout status deploy/ddas-db-router --timeout=10m
-
-step "Importing demo data through the primary"
-ROOT_PW=$(kubectl -n ddas get secret ddas-secrets -o jsonpath='{.data.MYSQL_ROOT_PASSWORD}' | base64 -d)
-kubectl -n ddas run sql-import --rm -i --restart=Never --image=mysql:8.4 --env="MYSQL_PWD=$ROOT_PW" -- \
-  mysql -h ddas-db-router -P 6446 -uroot < "$DUMP"
+step "Importing demo data"
+kubectl -n ddas exec -i ddas-db-0 -c mysql -- \
+  bash -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" dam_disaster_db' < "$DUMP"
 
 step "MQTT broker, API, web"
 kubectl apply -f mosquitto.yaml -f api.yaml -f web.yaml

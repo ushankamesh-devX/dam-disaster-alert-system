@@ -1,0 +1,41 @@
+[project]
+name = "ddas-ai"
+version = "0.1.0"
+description = "DDAS FastAPI service for forecasting and future RAG integration"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "boto3>=1.35.0",
+    "catboost>=1.2.10",
+    "fastapi>=0.143.0",
+    "google-genai>=2.33.0",
+    "httpx>=0.28.1",
+    "minio>=7.2.20",
+    "mlflow>=3.17.2",
+    "numpy>=2.5.4",
+    "pandas>=3.1.0",
+    "pydantic-settings>=2.15.0",
+    "pymysql>=1.1.0",
+    "pypdf>=6.21.2",
+    "python-multipart>=0.0.32",
+    "qdrant-client>=1.20.0",
+    "scikit-learn>=1.9.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]

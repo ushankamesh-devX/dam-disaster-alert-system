@@ -88,6 +88,18 @@ public class Sensor {
     private Integer readingIntervalSeconds = 300;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "sensor_role", length = 50)
+    @Builder.Default
+    private SensorRole sensorRole = SensorRole.general;
+
+    @Column(name = "reference_level_meters", precision = 8, scale = 2)
+    private BigDecimal referenceLevelMeters;
+
+    @Column(name = "is_ml_feature")
+    @Builder.Default
+    private Boolean isMlFeature = true;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private SensorStatus status = SensorStatus.active;
@@ -111,5 +123,9 @@ public class Sensor {
 
     public enum SensorStatus {
         active, inactive, maintenance, faulty, offline
+    }
+
+    public enum SensorRole {
+        reservoir_level, tailrace_level, catchment_rainfall, inflow, outflow, temperature, soil_moisture, general
     }
 }

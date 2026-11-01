@@ -1,5 +1,4 @@
-# Headless Service: gives each member a stable DNS name (ddas-db-0.ddas-db, ...).
-# publishNotReadyAddresses lets members find each other while they are still starting.
+# Headless Service: the API connects to ddas-db:3306.
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,11 +6,8 @@ metadata:
   namespace: ddas
 spec:
   clusterIP: None
-  publishNotReadyAddresses: true
   selector:
     app: ddas-db
   ports:
     - name: mysql
       port: 3306
-    - name: gr
-      port: 33061

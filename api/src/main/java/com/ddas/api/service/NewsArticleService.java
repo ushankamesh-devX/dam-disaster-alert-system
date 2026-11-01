@@ -40,6 +40,7 @@ public class NewsArticleService {
     private final UserRepository userRepository;
     private final NewsUserInteractionRepository interactionRepository;
     private final NewsMapper newsMapper;
+    private final NewsImageStorageService newsImageStorageService;
 
     // ===================== READ =====================
 
@@ -87,6 +88,10 @@ public class NewsArticleService {
 
     @Transactional
     public NewsArticleResponse createArticle(CreateNewsArticleRequest request) {
+        if (request.getFile() != null && !request.getFile().isEmpty()) {
+            String uploadedUrl = newsImageStorageService.uploadImage(request.getFile());
+            request.setImageUrl(uploadedUrl);
+        }
         NewsCategory category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
@@ -114,6 +119,10 @@ public class NewsArticleService {
 
     @Transactional
     public NewsArticleResponse updateArticle(Long id, UpdateNewsArticleRequest request) {
+        if (request.getFile() != null && !request.getFile().isEmpty()) {
+            String uploadedUrl = newsImageStorageService.uploadImage(request.getFile());
+            request.setImageUrl(uploadedUrl);
+        }
         NewsArticle article = articleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("News Article not found with id: " + id));
 

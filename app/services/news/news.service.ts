@@ -29,11 +29,29 @@ export const newsService = {
   getUserSubscriptions: (userId: string) =>
     axiosInstance.get(ENDPOINTS.NEWS.USER_SUBSCRIPTIONS(userId)),
 
-  create: (data: Record<string, unknown>) =>
-    axiosInstance.post(ENDPOINTS.NEWS.BASE, data),
+  create: (data: Record<string, unknown> | FormData) => {
+    const isFormData = data instanceof FormData;
+    return axiosInstance.post(ENDPOINTS.NEWS.BASE, data, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+  },
 
-  update: (id: string, data: Record<string, unknown>) =>
-    axiosInstance.put(ENDPOINTS.NEWS.BY_ID(id), data),
+  update: (id: string, data: Record<string, unknown> | FormData) => {
+    const isFormData = data instanceof FormData;
+    return axiosInstance.put(ENDPOINTS.NEWS.BY_ID(id), data, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+  },
+
+  uploadImage: (file: { uri: string; name?: string; type?: string } | FormData) => {
+    const formData = file instanceof FormData ? file : new FormData();
+    if (!(file instanceof FormData)) {
+      formData.append("file", file as unknown as Blob);
+    }
+    return axiosInstance.post("/news-articles/upload-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 
   publish: (id: string) => axiosInstance.patch(ENDPOINTS.NEWS.PUBLISH(id)),
 

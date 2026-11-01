@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import {
     getNewsCategories, createNewsCategory, updateNewsCategory, deleteNewsCategory,
     getNewsArticles, searchNewsArticles, createNewsArticle, updateNewsArticle,
-    publishNewsArticle, archiveNewsArticle, deleteNewsArticle, getArticlesByCategory,
+    publishNewsArticle, archiveNewsArticle, deleteNewsArticle, getArticlesByCategory, uploadNewsImage,
 } from '../../services/news.service';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -160,6 +160,24 @@ function ArticleModal({ article, categories, onClose, onSaved }) {
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
     const [tab, setTab] = useState('basic'); // basic | content | media
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingImage(true);
+        try {
+            const data = await uploadNewsImage(file);
+            set('imageUrl', data.imageUrl);
+            toast.success('Image uploaded to MinIO successfully');
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Failed to upload image to MinIO');
+        } finally {
+            setUploadingImage(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -256,14 +274,71 @@ function ArticleModal({ article, categories, onClose, onSaved }) {
                         </>
                     )}
                     {tab === 'media' && (
-                        <>
-                            <Input label="Image URL" placeholder="https://example.com/image.jpg" value={form.imageUrl} onChange={e => set('imageUrl', e.target.value)} />
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                                    MinIO Object Storage Image
+                                </label>
+                                <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 hover:border-blue-400 transition bg-gray-50/50 text-center">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        accept="image/*"
+                                        onChange={handleImageUpload}
+                                        className="hidden"
+                                        id="minio-news-image-input"
+                                    />
+                                    <label htmlFor="minio-news-image-input" className="cursor-pointer flex flex-col items-center">
+                                        <span className="text-3xl mb-2">
+                                            {uploadingImage ? '⏳' : '📁'}
+                                        </span>
+                                        <span className="text-sm font-medium text-gray-700">
+                                            {uploadingImage ? 'Uploading to MinIO...' : 'Click to select image and upload to MinIO'}
+                                        </span>
+                                        <span className="text-xs text-gray-400 mt-1">
+                                            Stores directly into MinIO (ddas-artifacts bucket)
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
                             {form.imageUrl && (
-                                <div className="rounded-lg border border-gray-200 overflow-hidden h-40">
-                                    <img src={form.imageUrl} alt="preview" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                                <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                        <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                                            <SymbolIcon name="check" className="text-xs" /> Stored in MinIO / Server
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => set('imageUrl', '')}
+                                            className="text-red-500 hover:text-red-700 font-medium"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                    <div className="rounded-lg border border-gray-100 overflow-hidden h-44 bg-gray-50 flex items-center justify-center">
+                                        <img
+                                            src={form.imageUrl}
+                                            alt="preview"
+                                            className="w-full h-full object-cover"
+                                            onError={e => { e.target.style.display = 'none'; }}
+                                        />
+                                    </div>
                                 </div>
                             )}
-                        </>
+
+                            <div>
+                                <Input
+                                    label="Direct Image URL (MinIO S3 / Fallback URL)"
+                                    placeholder="http://localhost:9000/ddas-artifacts/news/..."
+                                    value={form.imageUrl}
+                                    onChange={e => set('imageUrl', e.target.value)}
+                                />
+                                <p className="text-[11px] text-gray-400 mt-1">
+                                    When you upload an image above, the MinIO object URL is automatically filled here.
+                                </p>
+                            </div>
+                        </div>
                     )}
                 </form>
                 {/* Footer always visible */}

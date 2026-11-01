@@ -54,6 +54,29 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
+      - name: Build and push AI image
+        uses: docker/build-push-action@v6
+        with:
+          context: ai
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/ddas-ai:${{ github.sha }}
+            ${{ env.REGISTRY }}/ddas-ai:latest
+          cache-from: type=gha,scope=ai
+          cache-to: type=gha,mode=max,scope=ai
+
+      - name: Build and push MLflow image
+        uses: docker/build-push-action@v6
+        with:
+          context: ai
+          file: ai/Dockerfile.mlflow
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/ddas-mlflow:${{ github.sha }}
+            ${{ env.REGISTRY }}/ddas-mlflow:latest
+          cache-from: type=gha,scope=mlflow
+          cache-to: type=gha,mode=max,scope=mlflow
+
   deploy:
     needs: build
     if: github.event_name == 'workflow_dispatch' && inputs.deploy

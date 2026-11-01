@@ -1,0 +1,65 @@
+# MLflow tracking server. Runs metadata in MySQL (mlflow_db, created by setup-ai.sh),
+# artifacts in MinIO. Internal only; open the UI with:
+#   kubectl -n ddas port-forward svc/mlflow 5000:5000
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: ddas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: mlflow
+          image: ghcr.io/ushankamesh-devx/ddas-mlflow:latest
+          imagePullPolicy: Always
+          env:
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: DB_APP_USER } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: DB_APP_PASSWORD } }
+            - { name: MLFLOW_S3_ENDPOINT_URL, value: "http://minio:9000" }
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: MINIO_ROOT_USER } }
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: MINIO_ROOT_PASSWORD } }
+            - { name: AWS_DEFAULT_REGION, value: us-east-1 }
+            - { name: MLFLOW_S3_IGNORE_TLS, value: "true" }
+          # DB_APP_PASSWORD goes into a URL: keep it to letters, digits, - and _
+          args:
+            - --backend-store-uri=mysql+pymysql://$(DB_USER):$(DB_PASSWORD)@ddas-db:3306/mlflow_db
+            - --default-artifact-root=s3://ddas-artifacts/mlflow
+            - --artifacts-destination=s3://ddas-artifacts/mlflow
+            - --host=0.0.0.0
+            - --port=5000
+            - --workers=1
+            - --allowed-hosts=*
+          ports:
+            - containerPort: 5000
+          readinessProbe:
+            tcpSocket: { port: 5000 }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests: { memory: 256Mi }
+            limits: { memory: 768Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: ddas
+spec:
+  selector:
+    app: mlflow
+  ports:
+    - port: 5000

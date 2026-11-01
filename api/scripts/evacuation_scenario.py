@@ -6,12 +6,12 @@ to shelters while the command center (Evacuation page) shows them moving.
     python3 evacuation_scenario.py --reset                            # remove everything it created
 
 Run on the server (needs kubectl for the MySQL pod and the API at --url). What happens:
-1. The dam is set to 'high' hazard: its evacuation zones become active. An Evacuation Order alert
-   is raised through the API (it sends SMS only if the admin SMS switch is on).
+1. The dam is set to 'high' hazard: its evacuation zones become active. An Evacuation Order is raised
+   as a drill, so it never sends SMS.
 2. Simulated residents appear inside the zones and share their location. Each asks the routing
    API for a route and moves along it (sped up by --speedup) to the shelter it was given.
 3. About 1 in 20 residents send an SOS (trapped, injured, medical). Each SOS is acknowledged,
-   assigned to the nearest police station or hospital, and resolved, then the person moves on.
+   given a simulated responder team near the closest police station or hospital, and resolved, then the person moves on.
 4. Part way through a bridge on a busy route is blocked; residents still before it are re-routed.
 5. Arrivals fill the shelters. At the end the dam goes back to its previous status, All Clear is
    raised and a summary is printed.
@@ -169,15 +169,12 @@ def run(args):
 
     log(f'{dam["name"]}: hazard status {dam["hazard_status"]} -> high; {len(zones)} evacuation zones active')
     sql(f"UPDATE dam_current_status SET hazard_status = 'high', last_hazard_assessment_at = NOW() WHERE dam_id = {dam['id']}")
-    alert_type = records("SELECT id FROM alert_types WHERE code = 'EVACUATION_ORDER'")
-    if alert_type:
-        a = api.call('POST', '/api/v1/alerts', {
-            'alertTypeId': int(alert_type[0]['id']), 'severity': 'critical', 'status': 'active', 'damId': int(dam['id']),
-            'title': f'Evacuation Order: {dam["name"]} downstream zones',
-            'message': f'Water released from {dam["name"]}. Leave zones L1–L3 now and go to the nearest shelter.'})
-        state['alert_ids'].append(a.get('id'))
+    aid = raise_drill_alert(api, 'EVACUATION_ORDER', 'critical', dam, f'Evacuation Order: {dam["name"]} downstream zones',
+                            f'Water released from {dam["name"]}. Leave zones L1–L3 now and go to the nearest shelter.')
+    if aid:
+        state['alert_ids'].append(aid)
         save_state(state)
-        log(f'Evacuation Order raised (alert {a.get("id")})')
+        log(f'Evacuation Order raised as a drill (alert {aid}, no SMS)')
 
     # Residents: weighted towards the inner (most dangerous) zones
     weights = [len(zones) - i for i in range(len(zones))]
@@ -262,12 +259,10 @@ def run(args):
 
     log(f'{dam["name"]}: hazard status back to {state["previous_status"]}')
     sql(f"UPDATE dam_current_status SET hazard_status = {quote(state['previous_status'])} WHERE dam_id = {dam['id']}")
-    clear = records("SELECT id FROM alert_types WHERE code = 'ALL_CLEAR'")
-    if clear:
-        a = api.call('POST', '/api/v1/alerts', {'alertTypeId': int(clear[0]['id']), 'severity': 'info', 'status': 'active',
-                                                'damId': int(dam['id']), 'title': f'All Clear: {dam["name"]}',
-                                                'message': 'Water levels are back to normal. You can return home safely.'})
-        state['alert_ids'].append(a.get('id'))
+    aid = raise_drill_alert(api, 'ALL_CLEAR', 'info', dam, f'All Clear: {dam["name"]}',
+                            'Water levels are back to normal. You can return home safely.')
+    if aid:
+        state['alert_ids'].append(aid)
     for aid in state['alert_ids'][:1]:
         api.call('PATCH', f'/api/v1/alerts/{aid}/status', {'status': 'resolved'})
     state['running'] = False
@@ -275,6 +270,19 @@ def run(args):
     times = [s['response_seconds'] for s in sos_log if s.get('response_seconds')]
     log(f'Summary: {arrivals}/{len(residents)} reached shelters, {len(sos_log)} SOS'
         + (f', average response {sum(times) / len(times):.0f} s' if times else '') + f'. Remove with: {Path(__file__).name} --reset')
+
+
+def raise_drill_alert(api, type_code, severity, dam, title, message):
+    """Alert shown on the dashboards as a drill. Created as a draft, marked as a drill, then made
+    active, so it can never send SMS (drills are never queued), whatever the SMS switch says."""
+    t = records(f'SELECT id FROM alert_types WHERE code = {quote(type_code)}')
+    if not t:
+        return None
+    a = api.call('POST', '/api/v1/alerts', {'alertTypeId': int(t[0]['id']), 'severity': severity, 'status': 'draft',
+                                            'damId': int(dam['id']), 'title': title, 'message': message})
+    api.call('PATCH', f'/api/v1/alerts/{a["id"]}/simulation?enable=true')
+    api.call('PATCH', f'/api/v1/alerts/{a["id"]}/status', {'status': 'active'})
+    return a['id']
 
 
 def ensure_sos_types():
@@ -306,7 +314,7 @@ def progress_sos(r, admin):
     elif s['stage'] == 'acknowledged' and age > 40:
         s['stage'] = 'responding'
         p = s['provider']
-        note = f'Assigned to {p["name"]}' if p else 'Assigned to local response team'
+        note = f'Simulated responder team near {p["name"]}' if p else 'Simulated responder team'
         meta = {'assignedProviderId': int(p['id']), 'assignedProviderName': p['name']} if p else {}
         sql(f"UPDATE sos_events SET status = 'responding', responding_at = NOW(), response_notes = {quote(note)}, "
             f"response_time_seconds = {int(age)}, metadata = {quote(meta)} WHERE uuid = {quote(s['uuid'])}")

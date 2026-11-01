@@ -148,7 +148,7 @@ These feed the evacuation command center. All need the normal `Authorization: Be
 | `POST` | `/api/v1/safety/location` | `{ lat, lng, speedMps?, battery? }` | During an alert, every ~30 s. The first call starts sharing |
 | `POST` | `/api/v1/safety/location/stop` | | The person turns sharing off |
 | `POST` | `/api/v1/safety/sos` | `{ type, message?, lat, lng, battery? }` | Big red SOS button. `type` is a `code` from `sos-types`, e.g. `flood_trapped`, `injured`, `medical`, `stranded_vehicle` |
-| `GET` | `/api/v1/safety/sos` | | The person's own SOS calls with `status` (`triggered` → `acknowledged` → `responding` → `resolved`) and `responseNotes` (e.g. "Assigned to Kandy Police") |
+| `GET` | `/api/v1/safety/sos` | | The person's own SOS calls with `status` (`triggered` → `acknowledged` → `responding` → `resolved`) and `responseNotes` (e.g. "Simulated responder team near Kandy Police"). DDAS is a demo: police, hospitals and fire stations are map locations only and are never contacted |
 | `POST` | `/api/v1/safety/safe` | | "I'm safe" button: ends sharing; the command center counts them as safe |
 
 **Privacy:** operators see people only as counts per ~450 m area. An exact position is shown only for an SOS.

@@ -65,12 +65,14 @@ function SosItem({ sos, services, selected, onSelect, onChanged }) {
                         </Button>
                     )}
                     <Select disabled={busy || nearest.length === 0}
-                        onValueChange={(id) => act(() => CommandCenterService.assign(sos.id, Number(id)), 'Responder assigned')}>
-                        <SelectTrigger size="sm" className="h-8 w-44" aria-label="Assign responder"><SelectValue placeholder="Assign responder…" /></SelectTrigger>
+                        onValueChange={(id) => act(() => CommandCenterService.assign(sos.id, Number(id)), 'Simulated team assigned (nothing is sent to the real service)')}>
+                        <SelectTrigger size="sm" className="h-8 w-48" aria-label="Assign a simulated responder team">
+                            <SelectValue placeholder="Assign team (simulated)…" />
+                        </SelectTrigger>
                         <SelectContent>
                             {nearest.map((s) => (
                                 <SelectItem key={s.id} value={String(s.id)}>
-                                    {serviceStyle(s.type).label} · {s.name} ({s.km.toFixed(1)} km)
+                                    Team near {serviceStyle(s.type).label.toLowerCase()} · {s.name} ({s.km.toFixed(1)} km)
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -91,6 +93,7 @@ export function SosQueue({ sos, services, selectedId, onSelect, onChanged }) {
     }
     return (
         <ul className="space-y-2">
+            <li className="text-xs text-muted-foreground">Demo system: teams are simulated. Police and hospitals are map locations only and are never contacted.</li>
             {sos.map((s) => (
                 <SosItem key={s.id} sos={s} services={services} selected={s.id === selectedId} onSelect={onSelect} onChanged={onChanged} />
             ))}

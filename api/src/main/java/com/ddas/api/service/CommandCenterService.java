@@ -73,7 +73,7 @@ public class CommandCenterService {
 
         // ── Emergency services and shelters ─────────────────────────────────────
         List<Map<String, Object>> services = jdbc.queryForList(
-                "SELECT id, name, service_type type, latitude lat, longitude lng, emergency_phone phone, address_text address " +
+                "SELECT id, name, service_type type, latitude lat, longitude lng, address_text address " +
                 "FROM emergency_service_providers WHERE status <> 'inactive' AND show_on_map = 1 AND deleted_at IS NULL");
         Map<String, Object> shelterTotals = jdbc.queryForMap(
                 "SELECT COALESCE(SUM(capacity_persons),0) capacity, COALESCE(SUM(current_occupancy),0) occupancy, COUNT(*) shelters " +
@@ -128,7 +128,8 @@ public class CommandCenterService {
                 "response_time_seconds = COALESCE(response_time_seconds, TIMESTAMPDIFF(SECOND, triggered_at, NOW())), " +
                 "metadata = JSON_SET(COALESCE(metadata, JSON_OBJECT()), '$.assignedProviderId', ?, '$.assignedProviderName', ?) " +
                 "WHERE id = ? AND status IN ('triggered','acknowledged','responding')",
-                "Assigned to " + name, providerId, name, sosId);
+                // Demo system: an internal record only; the real service is never contacted
+                "Simulated responder team near " + name, providerId, name, sosId);
     }
 
     @Transactional

@@ -48,7 +48,7 @@ export function ServicesLayer({ services }) {
                 <Popup>
                     <strong>{s.name}</strong><br />
                     {style.label}{s.address ? ` · ${s.address}` : ''}<br />
-                    {s.phone && <a href={`tel:${s.phone}`}>Call {s.phone}</a>}
+                    <span style={{ color: '#64748b' }}>Location from OpenStreetMap · not connected to DDAS</span>
                 </Popup>
             </Marker>
         );

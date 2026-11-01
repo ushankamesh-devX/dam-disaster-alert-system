@@ -4,9 +4,8 @@
     python3 seed_emergency_services.py --kubectl --apply      # replace services and shelters
 
 Data only (no schema change). Downloads once from the Overpass API (OpenStreetMap, ODbL):
-- emergency_service_providers: police, hospitals and clinics, fire stations. Phone numbers are the
-  national hotlines (Police 119, Suwa Seriya ambulance 1990, Fire 110); no direct station numbers
-  are invented.
+- emergency_service_providers: police, hospitals and clinics, fire stations, as map locations only.
+  DDAS is a demo: no phone numbers are stored and nothing contacts these services.
 - system_safe_locations: up to --shelters-per-dam named schools, temples, mosques, churches and
   community halls near each dam that lie outside every danger zone. Capacities are estimates.
 Existing service providers and shelters are replaced (their links are cleared, like cleanup_demo_data.py).
@@ -28,11 +27,11 @@ from cleanup_demo_data import Plan, columns, foreign_keys  # noqa: E402
 OVERPASS = 'https://overpass-api.de/api/interpreter'
 NS = uuid.UUID('6f1d3a52-0c47-4e3e-9a55-6a1f3c9b7d21')
 
-SERVICES = {  # OSM amenity -> (service_type, location type code, hotline, marker colour, label)
-    'police': ('police', 'police_station', '119', '#1E40AF', 'Police'),
-    'hospital': ('hospital', 'hospital', '1990', '#DC2626', 'Hospital'),
-    'clinic': ('hospital', 'clinic', '1990', '#EF4444', 'Clinic'),
-    'fire_station': ('fire_brigade', 'fire_station', '110', '#EA580C', 'Fire station'),
+SERVICES = {  # OSM amenity -> (service_type, location type code, marker colour, label)
+    'police': ('police', 'police_station', '#1E40AF', 'Police'),
+    'hospital': ('hospital', 'hospital', '#DC2626', 'Hospital'),
+    'clinic': ('hospital', 'clinic', '#EF4444', 'Clinic'),
+    'fire_station': ('fire_brigade', 'fire_station', '#EA580C', 'Fire station'),
 }
 SHELTERS = {  # (amenity, religion or None) -> (location type code, capacity estimate)
     ('school', None): ('school', 400),
@@ -155,8 +154,8 @@ def main():
         shelters += [(dam, km, p, key) for km, p, key in chosen]
 
     print(f'  {len(services)} emergency services: ' + ', '.join(
-        f'{sum(1 for s in services if SERVICES[s["amenity"]][4] == label)} {label.lower()}'
-        for label in sorted({v[4] for v in SERVICES.values()})))
+        f'{sum(1 for s in services if SERVICES[s["amenity"]][3] == label)} {label.lower()}'
+        for label in sorted({v[3] for v in SERVICES.values()})))
     print(f'  {len(shelters)} shelters outside the danger zones:')
     for dam, km, p, key in shelters:
         print(f'    {dam["name"]:<16} {km:5.1f} km  {SHELTERS[key][0]:<15} {p["name"]}')
@@ -174,13 +173,13 @@ def main():
                           else f'DELETE FROM `{table}` WHERE {where}')
 
     for p in services:
-        stype, ltype, phone, colour, label = SERVICES[p['amenity']]
+        stype, ltype, colour, label = SERVICES[p['amenity']]
         statements.append(
             'INSERT INTO emergency_service_providers (uuid, code, name, name_si, description, service_type, location_type_id, '
             'address_text, latitude, longitude, emergency_phone, is_24_hours, status, is_verified, show_on_map, marker_color, metadata) VALUES ('
             + ', '.join(map(quote, [str(uuid.uuid5(NS, p['osm'])), 'OSM-' + p['osm'].replace('/', '-'), p['name'], p['name_si'],
-                                    f'{label} from OpenStreetMap ({p["osm"]}). Phone is the national {label.lower()} hotline.',
-                                    stype, types.get(ltype), p['address'], p['lat'], p['lng'], phone, 1, 'active', 0, 1, colour,
+                                    f'{label} location from OpenStreetMap ({p["osm"]}). Shown on the map only; not connected to DDAS.',
+                                    stype, types.get(ltype), p['address'], p['lat'], p['lng'], None, 1, 'active', 0, 1, colour,
                                     {'source': 'OpenStreetMap', 'osm': p['osm'], 'licence': 'ODbL'}])) + ')')
     for dam, km, p, key in shelters:
         ltype, capacity = SHELTERS[key]
@@ -190,7 +189,7 @@ def main():
             + ', '.join(map(quote, [str(uuid.uuid5(NS, 'shelter:' + p['osm'])), 'OSM-' + p['osm'].replace('/', '-'), p['name'], p['name_si'],
                                     f'Evacuation shelter from OpenStreetMap ({p["osm"]}). Capacity {capacity} is an estimate.',
                                     types.get(ltype) or types.get('shelter'), p['address'], p['lat'], p['lng'], capacity, 0,
-                                    int(dam['id']), round(km, 2), 'active', 0, 1, '117'])) + ')')
+                                    int(dam['id']), round(km, 2), 'active', 0, 1, None])) + ')')
 
     sql('START TRANSACTION;\n' + ';\n'.join(statements) + ';\nCOMMIT;')
     from evacuation_scenario import ensure_sos_types   # SOS types the mobile app can send

@@ -68,6 +68,30 @@ def base_tables():
     return result
 
 
+def entity_constraints():
+    """Capture table-level mappings as well as the per-column entity contract."""
+    unique=[]; indexes=[]
+    for path in sorted((ROOT/'src/main/java/com/ddas/api/entity').glob('*.java')):
+        source=re.sub(r'/\*.*?\*/|//[^\n]*','',path.read_text(encoding='utf8'),flags=re.S)
+        table=re.search(r'@Table\(name\s*=\s*"([^"]+)"',source)[1]
+        for match in re.finditer(r'@UniqueConstraint\s*\((.*?)\)',source,re.S):
+            columns=re.search(r'columnNames\s*=\s*\{([^}]+)\}',match[1])
+            if not columns: raise ValueError(f'Unsupported unique constraint in {path.name}')
+            unique.append({'table':table,'columns':re.findall(r'"([^"]+)"',columns[1])})
+        for match in re.finditer(r'@Index\s*\((.*?)\)',source,re.S):
+            name=re.search(r'name\s*=\s*"([^"]+)"',match[1])
+            columns=re.search(r'columnList\s*=\s*"([^"]+)"',match[1])
+            if not name or not columns: raise ValueError(f'Unsupported index in {path.name}')
+            cols=[c.strip() for c in columns[1].split(',')]
+            if not all(re.fullmatch(r'\w+',c) for c in cols):
+                raise ValueError(f'Unsupported index columns in {path.name}')
+            if re.search(r'unique\s*=\s*true',match[1]):
+                unique.append({'table':table,'columns':cols})
+            else:
+                indexes.append({'table':table,'name':name[1],'columns':cols})
+    return {'unique_keys':unique,'indexes':indexes}
+
+
 def contract():
     result={}
     foreign=[]; unique=[]
@@ -117,7 +141,11 @@ def contract():
             if table=='role_permissions' and col=='id': spec['optional']=True
             if spec['primary'] or spec['unique']:
                 unique.append({'table':table,'columns':[col],'primary':spec['primary']})
-    return {'entities':mapped,'tables':result,'foreign_keys':foreign,'unique_keys':unique}
+    constraints=entity_constraints()
+    for key in constraints['unique_keys']:
+        if key not in unique: unique.append(key)
+    return {'entities':mapped,'tables':result,'foreign_keys':foreign,'unique_keys':unique,
+        'entity_constraints':constraints,'indexes':constraints['indexes']}
 
 
 if __name__=='__main__':

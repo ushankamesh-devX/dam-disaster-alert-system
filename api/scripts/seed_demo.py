@@ -12,6 +12,7 @@ import uuid
 import os
 import argparse
 import sys
+import shlex
 from functools import lru_cache
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATABASE = os.environ.get('DDAS_SEED_DATABASE', 'dam_disaster_db')
 if not re.fullmatch(r'[A-Za-z0-9_]+', DATABASE):
     raise ValueError('DDAS_SEED_DATABASE must contain only letters, digits and underscores')
-OUT = ROOT / 'local-data' / DATABASE
+OUT = Path(os.environ.get('DDAS_BACKUP_DIR', str(ROOT / 'local-data'))) / DATABASE
 NOW = datetime.now(timezone.utc).replace(tzinfo=None, minute=0, second=0, microsecond=0)
 NS = uuid.UUID('5c790cf5-146a-458b-9936-f8c05757ead0')
 if __name__ == '__main__':
@@ -45,9 +46,32 @@ def docker(command, data=None):
         raise RuntimeError(p.stderr.decode('utf8', errors='replace'))
     return p.stdout
 
-CLIENT = 'export MYSQL_PWD=$MYSQL_PASSWORD; exec mysql --user=$MYSQL_USER --database=$MYSQL_DATABASE --default-character-set=utf8mb4 --batch --raw'
+def mysql_client(program, arguments, data=None):
+    transport=os.environ.get('DDAS_MYSQL_TRANSPORT','compose')
+    if transport=='compose':
+        return docker('export MYSQL_PWD="$MYSQL_PASSWORD"; exec '+program+
+            ' --user="$MYSQL_USER" '+shlex.join(arguments),data)
+    if transport not in {'local','container'}: raise RuntimeError('Unsupported DDAS_MYSQL_TRANSPORT: '+transport)
+    env={**os.environ,'MYSQL_PWD':os.environ['MYSQL_PASSWORD']}
+    if transport=='container':
+        command=['docker','exec','-i','-e','MYSQL_PWD',os.environ['DDAS_MYSQL_CONTAINER'],
+            program,'--user='+os.environ['MYSQL_USER'],*arguments]
+    else:
+        command=[program,'--host='+os.environ['DDAS_MYSQL_HOST'],
+            '--port='+os.environ.get('DDAS_MYSQL_PORT','3306'),
+            '--user='+os.environ['MYSQL_USER'],*arguments]
+    result=subprocess.run(command,input=data,capture_output=True,env=env)
+    if result.returncode: raise RuntimeError(result.stderr.decode('utf8',errors='replace'))
+    return result.stdout
+
+
+def dump_database(*options):
+    return mysql_client('mysqldump',['--single-transaction','--no-tablespaces',
+        '--set-gtid-purged=OFF',*options,DATABASE])
+
 def sql(query):
-    return docker(CLIENT, query.encode('utf8')).decode('utf8')
+    return mysql_client('mysql',['--database='+DATABASE,'--default-character-set=utf8mb4',
+        '--batch','--raw'],query.encode('utf8')).decode('utf8')
 def records(query):
     return list(csv.DictReader(io.StringIO(sql(query)), delimiter='\t'))
 def quote(v):
@@ -76,7 +100,7 @@ def finalize(manifest):
     updates.append('UPDATE news_user_interactions i JOIN news_articles a ON a.id=i.article_id SET i.viewed_at=DATE_ADD(a.publish_date,INTERVAL 1 HOUR),i.saved_at=NULL,i.shared_at=NULL,i.created_at=DATE_ADD(a.publish_date,INTERVAL 1 HOUR) WHERE '+where('news_user_interactions','i'))
     updates.append('UPDATE news_articles a SET a.view_count=(SELECT COUNT(*) FROM news_user_interactions i WHERE i.article_id=a.id AND i.has_viewed=1),a.save_count=(SELECT COUNT(*) FROM news_user_interactions i WHERE i.article_id=a.id AND i.has_saved=1),a.share_count=(SELECT COUNT(*) FROM news_user_interactions i WHERE i.article_id=a.id AND i.has_shared=1) WHERE '+where('news_articles','a'))
     updates.append('UPDATE news_push_logs l JOIN news_articles a ON a.id=l.article_id SET l.provider="DEMO-NO-SEND",l.total_recipients=100,l.sent_count=100,l.delivered_count=95,l.failed_count=5,l.opened_count=40,l.sent_at=DATE_ADD(a.publish_date,INTERVAL 1 HOUR),l.completed_at=DATE_ADD(a.publish_date,INTERVAL 2 HOUR),l.error_summary=JSON_OBJECT("synthetic",TRUE,"simulated_failures",5) WHERE '+where('news_push_logs','l'))
-    updates.append('UPDATE alert_user_deliveries l JOIN alerts a ON a.id=l.alert_id SET l.push_status="delivered",l.push_sent_at=DATE_ADD(a.created_at,INTERVAL 1 MINUTE),l.push_delivered_at=DATE_ADD(a.created_at,INTERVAL 2 MINUTE),l.sms_status="disabled",l.email_status="disabled",l.sms_sent_at=NULL,l.sms_delivered_at=NULL,l.email_sent_at=NULL,l.email_delivered_at=NULL,l.push_error=NULL,l.sms_error=NULL,l.email_error=NULL,l.read_at=DATE_ADD(a.created_at,INTERVAL 3 MINUTE) WHERE '+where('alert_user_deliveries','l'))
+    updates.append('UPDATE alert_user_deliveries l JOIN alerts a ON a.id=l.alert_id SET l.push_status="delivered",l.push_sent_at=DATE_ADD(a.created_at,INTERVAL 1 MINUTE),l.push_delivered_at=DATE_ADD(a.created_at,INTERVAL 2 MINUTE),l.sms_status="skipped",l.email_status="disabled",l.sms_sent_at=NULL,l.sms_delivered_at=NULL,l.email_sent_at=NULL,l.email_delivered_at=NULL,l.push_error=NULL,l.sms_error=NULL,l.email_error=NULL,l.read_at=DATE_ADD(a.created_at,INTERVAL 3 MINUTE) WHERE '+where('alert_user_deliveries','l'))
     updates.append('UPDATE alert_acknowledgments k JOIN alerts a ON a.id=k.alert_id SET k.responded_at=DATE_ADD(a.created_at,INTERVAL 4 MINUTE) WHERE '+where('alert_acknowledgments','k'))
     updates.append('UPDATE alert_escalations e JOIN alerts a ON a.id=e.alert_id SET e.escalated_at=DATE_ADD(a.created_at,INTERVAL 5 MINUTE),e.previous_severity="warning",e.new_severity="critical" WHERE '+where('alert_escalations','e'))
     updates.append('UPDATE user_hazard_location_snapshots s JOIN dam_hazard_zones z ON z.id=s.hazard_zone_id JOIN dams d ON d.id=z.dam_id SET s.dam_id=z.dam_id,s.region_id=d.region_id,s.hazard_level_id=z.hazard_level_id,s.latitude=z.center_latitude,s.longitude=z.center_longitude WHERE '+where('user_hazard_location_snapshots','s'))
@@ -109,7 +133,7 @@ def seed_base():
     if 'dams' in tables and records("SELECT id FROM dams WHERE code LIKE 'DEMO-%' LIMIT 1;"):
         raise RuntimeError('Demo rows already exist; refusing to duplicate them.')
     if not (OUT / 'before-demo.sql').exists():
-        backup = docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF $MYSQL_DATABASE')
+        backup = dump_database()
         (OUT / 'before-demo.sql').write_bytes(backup)
     print('Local database backup saved.', flush=True)
     created = []
@@ -169,7 +193,7 @@ def seed_base():
         if n=='uuid': return str(uuid.uuid5(NS,f'{t}/{j}'))
         if typ.startswith(('enum','set')):
             opts=re.findall(r"'([^']*)'",typ)
-            preferred={'status':'active','quality':'good','language_preference':'en','dam_type':'gravity','gate_type':'radial','severity':'warning','purpose':'hydropower','priority':'medium','priority_level':'medium','aggregation_type':'daily','new_status':'resolved','previous_status':'pending','operation_mode':'manual','push_status':'delivered','sms_status':'disabled','email_status':'disabled','response_type':'acknowledged','file_type':'image'}
+            preferred={'status':'active','quality':'good','language_preference':'en','dam_type':'gravity','gate_type':'radial','severity':'warning','purpose':'hydropower','priority':'medium','priority_level':'medium','aggregation_type':'daily','new_status':'resolved','previous_status':'pending','operation_mode':'manual','push_status':'delivered','sms_status':'skipped','email_status':'disabled','response_type':'acknowledged','file_type':'image'}
             if t=='reports' and n=='status': return ['pending','reviewing','in_progress','resolved','rejected'][i%5]
             if t=='alerts' and n=='status': return ['active','resolved','expired','draft'][i%4]
             if t=='news_articles' and n=='status': return 'published'
@@ -284,13 +308,14 @@ def seed_base():
 def initialize_rbac():
     # Reuse the project's permission policy, without creating a default login.
     source=(ROOT/'DB SCHEMA/init_data.sql').read_text(encoding='utf8')
-    source=source.split('-- 4. CREATE INITIAL ADMIN USER')[0]
     source=re.sub(r'--[^\n]*', '', source)
     statements=[]
     for statement in source.split(';'):
         if statement.strip().startswith('INSERT INTO'):
             table=re.search(r'INSERT INTO (\w+)',statement).group(1)
-            statements.append(statement+f' ON DUPLICATE KEY UPDATE {table}.id={table}.id;')
+            if table not in {'roles','permissions','role_permissions'}:
+                raise RuntimeError('Unexpected table in RBAC initializer: '+table)
+            statements.append(statement+';')
     sql('START TRANSACTION;'+''.join(statements)+'COMMIT;')
 
 
@@ -388,7 +413,7 @@ def main():
     manifest=json.loads(stored[0]['manifest']) if stored else None
     if manifest is None and not args.validate_only:
         if not (OUT/'before-demo.sql').exists():
-            (OUT/'before-demo.sql').write_bytes(docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF $MYSQL_DATABASE'))
+            (OUT/'before-demo.sql').write_bytes(dump_database())
         # Adopt the previous local seed only when its ID ranges and user UUID match.
         legacy=ROOT/'local-data/seed-manifest.json'
         dam_table=records("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dams'")

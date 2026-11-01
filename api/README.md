@@ -17,7 +17,7 @@ Spring Boot backend API for the Dam Disaster Alert System.
 
 ### Access Locally
 - API: http://localhost:8080
-- Database: localhost:3307 (Docker)
+- Database: localhost:3306 (Docker)
 
 ### Seed the demo database
 

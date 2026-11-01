@@ -1,165 +1,40 @@
-# Database Configuration for DDAS API
+# Database configuration
 
-## 🗄️ Your Database Details
+The supported local setup uses MySQL in `api/docker-compose.yml`, with database
+`dam_disaster_db`. MySQL is exposed on port **3306**; port **8081** is the
+phpMyAdmin web interface, not a JDBC/MySQL port.
 
-Based on your phpMyAdmin screenshot:
+1. Create `api/.env` from `api/.env.example` and configure your MySQL credentials.
+2. Set `DDAS_ADMIN_EMAIL`, `DDAS_ADMIN_PASSWORD` and optionally `DDAS_ADMIN_NAME`
+   for the first administrator. Existing accounts are not changed.
+3. From the repository root, initialize the database and start API/web:
 
-```
-Host:     157.245.159.17
-Port:     8081
-Database: dam_disaster_db
-Username: ddas_dev
-Password: [Your password - needs to be set]
-```
-
-## ✅ Configuration Applied
-
-The API is now configured to connect to your remote MySQL database:
-
-### `application.properties` - Updated
-```properties
-spring.datasource.url=jdbc:mysql://157.245.159.17:8081/dam_disaster_db
-spring.datasource.username=ddas_dev
-spring.datasource.password=your_password_here
-```
-
-### Bruno Environment - Updated
-```
-base_url: http://157.245.159.17:8080/api/v1
-```
-
-## 🔧 What You Need To Do
-
-### 1. Set Your Database Password
-
-**Option A: Edit `application.properties` directly**
-```properties
-# Replace 'your_password_here' with actual password
-spring.datasource.password=YourActualPassword123
-```
-
-**Option B: Use Environment Variable (Recommended)**
 ```powershell
-$env:SPRING_DATASOURCE_PASSWORD="YourActualPassword123"
+python api/scripts/setup_demo.py --schema-only
 ```
 
-### 2. Verify Database Has Initial Data
+Omit `--schema-only` to include demo data. Add `--database-only` to initialize
+without starting API/web. Database-only setup initializes roles and permissions;
+the administrator account is created when the API starts.
 
-Login to phpMyAdmin and check if these tables have data:
+Compose passes the database credentials and sets Hibernate to `validate`.
+When running the API outside Docker, set `SPRING_DATASOURCE_URL` to
+`jdbc:mysql://localhost:3306/dam_disaster_db`, supply
+`SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD`, and set
+`SPRING_JPA_HIBERNATE_DDL_AUTO=validate` after migrating.
+Also supply the `DDAS_ADMIN_*` values to that process if bootstrap is needed;
+Maven does not automatically load Compose's `.env` file.
 
-✅ **`roles`** table - Should have 4 roles (SUPER_ADMIN, ADMIN, DAM_OPERATOR, NORMAL_USER)
-✅ **`permissions`** table - Should have 16+ permissions
-✅ **`role_permissions`** table - Should have permission assignments
-✅ **`users`** table - Should have at least 1 admin user
+For a running Compose database, check schema compatibility without making changes:
 
-**If tables are empty, run this in phpMyAdmin:**
-```sql
--- Navigate to SQL tab in phpMyAdmin and execute:
--- Copy and paste contents from: api/DB SCHEMA/init_data.sql
-```
-
-### 3. Test Database Connection
-
-Run this command to test:
 ```powershell
-cd D:\Git\dam-disaster-alert-system\api
-./mvnw spring-boot:run
+python api/scripts/migrate_schema.py --check
 ```
 
-**Expected Output:**
-```
-✅ Started ApiApplication in X.XXX seconds
-✅ Tomcat started on port 8080
-```
+In phpMyAdmin, select the intended database before running `init_data.sql`.
+That file only adds missing roles, permissions and assignments. It does not
+create schemas or users, and it preserves existing records.
 
-**If you see connection errors:**
-- Check if password is correct
-- Check if database port 8081 is accessible
-- Verify database name is exactly `dam_disaster_db`
-
-### 4. Test API Endpoints
-
-**Health Check:**
-```bash
-curl http://157.245.159.17:8080/api/v1/health
-```
-
-**Or open in browser:**
-```
-http://157.245.159.17:8080/api/v1/health
-```
-
-## 🎯 Yes, This is the Database for Your APIs!
-
-### Database Tables Your API Uses:
-
-| Table | Used By | Status |
-|-------|---------|--------|
-| `users` | User authentication & management | ✅ Implemented |
-| `roles` | Role-based access control | ✅ Implemented |
-| `permissions` | Permission management | ✅ Implemented |
-| `role_permissions` | Role-Permission mapping | ✅ Implemented |
-| Other 40+ tables | Future modules | ⏳ Ready for implementation |
-
-## 🔍 Quick Verification Checklist
-
-Run these in phpMyAdmin SQL tab:
-
-```sql
--- Check database name
-SELECT DATABASE();
--- Should return: dam_disaster_db
-
--- Check if roles exist
-SELECT * FROM roles;
--- Should return 4 rows
-
--- Check if default user exists
-SELECT email, full_name FROM users WHERE email = 'admin@ddas.gov.lk';
--- Should return 1 row
-
--- Check user count
-SELECT COUNT(*) as total_users FROM users;
-```
-
-## 🚨 Important Notes
-
-1. **Port 8081** - This is your MySQL port (not standard 3306)
-2. **Remote Database** - Your database is on a remote server (157.245.159.17)
-3. **API Port 8080** - Your Spring Boot API will run on port 8080
-4. **Network Access** - Make sure your server allows connections from your development machine
-
-## 🔐 Security Recommendations
-
-For production, also set:
-```properties
-# In application.properties or environment variables
-JWT_SECRET=your-secret-key-min-32-chars-long-change-this
-```
-
-## 📊 Database Connection Flow
-
-```
-Your Spring Boot API (Port 8080)
-        ↓
-JDBC Connection
-        ↓
-MySQL Server: 157.245.159.17:8081
-        ↓
-Database: dam_disaster_db
-        ↓
-Tables: users, roles, permissions, etc.
-```
-
-## ✅ Summary
-
-**Answer: YES, this is exactly the database your APIs will access!**
-
-- ✅ Database URL configured
-- ✅ Username configured (ddas_dev)
-- ✅ Database name matches (dam_disaster_db)
-- ✅ Port configured (8081)
-- ⚠️ Only need to set password
-
-**Next Step:** Set your database password in `application.properties` and run the application!
-
+See the [full setup guide](../../README.md), [database source guide](../DB%20SCHEMA/README.md)
+and [migration details](../scripts/DEMO-DATA.md). Kubernetes deploys run the migration Job before API rollout. The optional
+Compose MLflow service provisions its database through `mlflow-db-init`.

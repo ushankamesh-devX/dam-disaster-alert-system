@@ -10,8 +10,8 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from seed_demo import ROOT, OUT, DATABASE, docker, records, sql, quote
-from schema_contract import entities
+from seed_demo import ROOT, OUT, DATABASE, dump_database, records, sql, quote
+from schema_contract import entities, entity_constraints
 
 MIGRATIONS=Path(__file__).with_name('migrations')
 
@@ -132,6 +132,41 @@ def column_plan(contract, columns):
     return actions
 
 
+def table_plan(contract, existing_tables):
+    """Create tables introduced after V001; add FKs after all tables/columns exist."""
+    actions=[]
+    for table,specs in contract['tables'].items():
+        if table in existing_tables: continue
+        columns=[]
+        for col,spec in specs.items():
+            if spec.get('optional'): continue
+            clause=f'`{col}` '+spec['type']+(' NULL' if spec['nullable'] else ' NOT NULL')
+            if 'default_sql' in spec: clause+=' DEFAULT '+spec['default_sql']
+            if spec.get('primary'): clause+=' AUTO_INCREMENT PRIMARY KEY'
+            columns.append(clause)
+        actions.append(f'CREATE TABLE IF NOT EXISTS `{table}` (\n  '+',\n  '.join(columns)+
+            '\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;')
+    return actions
+
+
+def index_plan(contract):
+    existing={}
+    for row in records('SELECT TABLE_NAME,INDEX_NAME,COLUMN_NAME,SUB_PART FROM information_schema.STATISTICS '
+            'WHERE TABLE_SCHEMA=DATABASE() ORDER BY SEQ_IN_INDEX'):
+        existing.setdefault((row['TABLE_NAME'],row['INDEX_NAME']),[]).append(
+            (row['COLUMN_NAME'],row['SUB_PART']))
+    actions=[]
+    for index in contract.get('indexes',[]):
+        table,name,cols=index['table'],index['name'],index['columns']
+        expected=[(c,'NULL') for c in cols]
+        if any(t==table and values==expected for (t,_),values in existing.items()): continue
+        if (table,name) in existing:
+            raise RuntimeError(f'{table}.{name}: existing index differs; explicit migration required')
+        names=','.join(f'`{c}`' for c in cols)
+        actions.append(f'ALTER TABLE `{table}` ADD INDEX `{name}` ({names});')
+    return actions
+
+
 def key_plan(contract):
     actions=[]; errors=[]
     fks,unique=existing_keys()
@@ -189,10 +224,13 @@ def migrate(check_only=False):
     contract=json.loads([p for p in files if p.suffix=='.json'][-1].read_text(encoding='utf8'))
     if contract['entities']!=entities():
         raise RuntimeError('Java entities changed after the latest schema contract; add a new versioned contract migration')
+    if contract.get('entity_constraints')!=entity_constraints():
+        raise RuntimeError('Java table constraints changed after the latest schema contract; add a new versioned contract migration')
     ddl=(MIGRATIONS/'V001__base_schema.sql').read_text(encoding='utf8')
     missing=[(m[1],m[0]) for m in re.finditer(r'CREATE TABLE IF NOT EXISTS (\w+)\s*\(.*?ENGINE=InnoDB[^;]*;',ddl,re.S) if m[1] not in tables]
-    if check_only and missing:
-        raise RuntimeError('Schema updates required: missing tables '+', '.join(t for t,_ in missing))
+    missing_tables=set(contract['tables'])-tables
+    if check_only and missing_tables:
+        raise RuntimeError('Schema updates required: missing tables '+', '.join(sorted(missing_tables)))
     backup_done=False
     def execute(actions):
         nonlocal backup_done
@@ -201,7 +239,7 @@ def migrate(check_only=False):
         if not backup_done:
             OUT.mkdir(parents=True,exist_ok=True)
             backup=OUT/('before-schema-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')+'.sql')
-            backup.write_bytes(docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF $MYSQL_DATABASE'))
+            backup.write_bytes(dump_database())
             backup_done=True
         sql("SET SESSION sql_mode='STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION';\n"+'\n'.join(actions))
     # Adapt each missing table's FK integer types to already-existing parent IDs.
@@ -218,15 +256,19 @@ def migrate(check_only=False):
         if path.suffix=='.sql' and path.name!='V001__base_schema.sql' and path.name not in applied:
             if check_only: raise RuntimeError('Pending SQL migration: '+path.name)
             execute([path.read_text(encoding='utf8')])
+    current_tables={r['TABLE_NAME'] for r in records('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()')}
+    execute(table_plan(contract,current_tables))
     changes=column_plan(contract,metadata())
     execute(changes)
     constraints=key_plan(contract)
     execute(constraints)
+    indexes=index_plan(contract)
+    execute(indexes)
     if not check_only:
         sql('CREATE TABLE IF NOT EXISTS ddas_schema_migrations (version VARCHAR(150) PRIMARY KEY,checksum CHAR(64) NOT NULL,applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB')
         for version,checksum in versions.items():
             sql('INSERT INTO ddas_schema_migrations(version,checksum) VALUES ('+quote(version)+','+quote(checksum)+') ON DUPLICATE KEY UPDATE checksum=VALUES(checksum)')
-    print(json.dumps({'database':DATABASE,'schema_versions':len(versions),'created_tables':len(missing),'column_updates':len(changes),'constraint_updates':len(constraints),'schema_valid':True}))
+    print(json.dumps({'database':DATABASE,'schema_versions':len(versions),'created_tables':len(missing_tables),'column_updates':len(changes),'constraint_updates':len(constraints),'index_updates':len(indexes),'schema_valid':True}))
 
 
 if __name__=='__main__':

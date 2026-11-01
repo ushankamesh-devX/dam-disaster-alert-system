@@ -130,6 +130,23 @@ services:
     networks:
       - ddas-network
 
+  mlflow-db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrations
+    restart: "no"
+    command: ["--mlflow-only"]
+    environment:
+      DDAS_MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DDAS_MLFLOW_USER: ${MYSQL_USER}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ddas-network
+
   mlflow:
     build:
       context: ../ai
@@ -152,6 +169,8 @@ services:
       --port 5000
       --allowed-hosts "*"
     depends_on:
+      mlflow-db-init:
+        condition: service_completed_successfully
       mysql:
         condition: service_healthy
       minio:

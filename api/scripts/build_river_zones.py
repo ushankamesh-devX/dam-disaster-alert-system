@@ -34,14 +34,17 @@ import csv  # noqa: E402
 csv.field_size_limit(2**31 - 1)   # OSM reservoir outlines are larger than the default 128 KB per field
 
 # level, from km, to km, water rise at start (m), at end (m), max half-width (m), water arrives (min), fill, stroke, opacity, name
+# The Mahaweli runs through steep gorges, so a dam release rises tens of metres above the bed.
 LEVELS = [
-    (1, 0, 3, 12, 10, 1200, 5, '#DC2626', '#991B1B', 0.42, 'Extreme danger'),
-    (2, 3, 8, 10, 8, 1800, 23, '#F97316', '#C2410C', 0.36, 'High danger'),
-    (3, 8, 15, 8, 6, 2400, 53, '#EAB308', '#A16207', 0.32, 'Moderate danger'),
-    (4, 15, 25, 6, 5, 3000, 100, '#FDE047', '#CA8A04', 0.26, 'Low danger'),
-    (5, 25, 35, 5, 4, 3500, 163, '#22C55E', '#15803D', 0.2, 'Watch'),
+    (1, 0, 3, 30, 26, 1200, 5, '#DC2626', '#991B1B', 0.42, 'Extreme danger'),
+    (2, 3, 8, 26, 22, 1800, 23, '#F97316', '#C2410C', 0.36, 'High danger'),
+    (3, 8, 15, 22, 16, 2400, 53, '#EAB308', '#A16207', 0.32, 'Moderate danger'),
+    (4, 15, 25, 16, 12, 3000, 100, '#FDE047', '#CA8A04', 0.26, 'Low danger'),
+    (5, 25, 35, 12, 10, 3500, 163, '#22C55E', '#15803D', 0.2, 'Watch'),
 ]
 CELL_M = 200
+RIVERSIDE_M = 300   # always in the zone: the riverbanks and riverside roads, whatever the terrain data says
+RISE_SCALE = 1.0    # --rise: multiplies every level's water rise
 CODES = {'KOT-01': 'KOT', 'VIC-01': 'VIC', 'RAN-01': 'RAN', 'DEMO-001': 'KOT', 'DEMO-002': 'VIC', 'DEMO-003': 'RAN'}
 ELEVATION_URL = 'https://api.opentopodata.org/v1/srtm30m'
 ELEVATION_CACHE = Path.home() / '.ddas-elevation.json'
@@ -238,10 +241,12 @@ def terrain_zones(river, total, lat0, reservoirs_xy):
         if math.hypot(p[0] - (c[0] + .5) * CELL_M, p[1] - (c[1] + .5) * CELL_M) > lv[5]:
             return False
         f = (p[2] - lv[1] * 1000) / max(1, (lv[2] - lv[1]) * 1000)
-        rise = lv[3] + (lv[4] - lv[3]) * f
+        rise = (lv[3] + (lv[4] - lv[3]) * f) * RISE_SCALE
         cx, cy = (c[0] + .5) * CELL_M, (c[1] + .5) * CELL_M
         if any(inside(cx, cy, r) for r in reservoirs_xy):
             return False                       # already water: not a flood zone
+        if math.hypot(p[0] - cx, p[1] - cy) <= RIVERSIDE_M:
+            return True                        # riverbank strip is always included
         return ground <= base + rise
 
     # Grow outwards from the river through flooding cells only (connected to the river)
@@ -286,7 +291,10 @@ def main():
     parser.add_argument('--kubectl', nargs='?', const='ddas-db-0', metavar='POD')
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--no-terrain', action='store_true', help='Simple widening bands, no elevation download')
+    parser.add_argument('--rise', type=float, default=1.0, help='Scale every water rise, e.g. 1.5 for bigger zones')
     args = parser.parse_args()
+    global RISE_SCALE
+    RISE_SCALE = args.rise
     if args.kubectl:
         os.environ['DDAS_DB_POD'] = args.kubectl
 

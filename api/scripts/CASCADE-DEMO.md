@@ -47,3 +47,15 @@ Pauses the feeder for that dam and the next one downstream, saves readings every
 10 s, plays the storm (`flood` or `heavy-rain`), then restores everything.
 
 Check without the API: `python3 api/scripts/ddas_feeder.py --dry-run --once`.
+
+## 4. Clean down to the 3 dams (`cleanup_demo_data.py`, once)
+
+```bash
+python3 api/scripts/cleanup_demo_data.py --kubectl            # dry run: what would change
+python3 api/scripts/cleanup_demo_data.py --kubectl --apply    # full backup, then apply
+```
+
+Deletes every other dam, every user except `--keep-email` (default admin and Niduk), all alerts
+and their SMS queue, and demo news. Renames the codes to `KOT-01`, `VIC-01`, `RAN-01`, removes
+"Demo" labels and sets up the 7 alert types from `ALERT-PLAN.md`. After this, don't re-run
+`seed_demo.py` or `seed_cascade_demo.py`; they look for the old `DEMO-00x` codes.

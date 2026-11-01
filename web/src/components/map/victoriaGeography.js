@@ -1,6 +1,7 @@
 import geography from '../../data/victoria-geography.json';
 
-export const isVictoriaDemo = dam => dam?.code === 'DEMO-002' && dam?.name === 'Victoria Dam';
+// VIC-01 after cleanup_demo_data.py; DEMO-002 before it
+export const isVictoriaDemo = dam => ['VIC-01', 'DEMO-002'].includes(dam?.code) && dam?.name === 'Victoria Dam';
 export const victoriaReference = dam => isVictoriaDemo(dam) ? geography : null;
 
 // Equipment and zone records are deliberately placed demo points for Victoria.

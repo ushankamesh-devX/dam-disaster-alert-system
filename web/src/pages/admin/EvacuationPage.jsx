@@ -117,7 +117,7 @@ export default function EvacuationPage() {
     const [live, setLive] = useState(false);
     const [error, setError] = useState('');
     const [layers, setLayers] = useState({
-        zones: true, river: true, people: true, trails: false, flows: false, sos: true, shelters: true,
+        zones: true, river: false, people: true, trails: false, flows: false, sos: true, shelters: true,
         services: true, bottlenecks: true, blocked: true,
     });
     const [tab, setTab] = useState('sos');
@@ -310,7 +310,6 @@ export default function EvacuationPage() {
                         <Legend colour="#15803D" label="Safe" />
                         <Legend colour="#C2410C" label="SOS" />
                         <Legend colour="#991B1B" round={false} label="Flooded zone" />
-                        <Legend colour="linear-gradient(90deg,#B91C1C,#EA580C,#EAB308)" round={false} label="River flood path (red = water first)" />
                         <Legend colour="#16A34A" label="Shelter (ring = how full)" />
                         <Legend colour="#EF4444" label="Crowded road" />
                         <span>Shield / cross = police / hospital (map only)</span>

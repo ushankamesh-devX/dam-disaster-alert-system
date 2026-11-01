@@ -1,7 +1,7 @@
 """Live evacuation scenario for demos: people leave the danger zones of one dam and walk or drive
 to shelters while the command center (Evacuation page) shows them moving.
 
-    python3 evacuation_scenario.py --dam victoria                     # 10 minutes, 150 people
+    python3 evacuation_scenario.py --dam victoria                     # 10 minutes, 80 people
     python3 evacuation_scenario.py --dam kotmale --people 80 --minutes 6
     python3 evacuation_scenario.py --reset                            # remove everything it created
 
@@ -379,7 +379,7 @@ def reset(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--dam', choices=list(DAM_CODES), default='victoria')
-    parser.add_argument('--people', type=int, default=150)
+    parser.add_argument('--people', type=int, default=80)
     parser.add_argument('--minutes', type=float, default=10)
     parser.add_argument('--speedup', type=float, default=15, help='How much faster than real life people move')
     parser.add_argument('--url', default='http://localhost', help='Web/API address (default: on the server)')

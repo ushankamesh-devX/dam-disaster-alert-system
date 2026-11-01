@@ -30,13 +30,13 @@ export function personIcon(state, mode, heading = 0, selected = false) {
             `<g transform="rotate(${Math.round(heading / 30) * 30} 12 12)"><path d="M12 0.6 14 3.4h-4Z" fill="${dark}"/></g>`;
         return L.divIcon({
             className: 'ddas-person',
-            html: `<svg width="${selected ? 30 : 24}" height="${selected ? 30 : 24}" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))">
+            html: `<svg width="${selected ? 26 : 18}" height="${selected ? 26 : 18}" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))">
                 <defs><radialGradient id="g${key.replace(/[^a-z0-9]/gi, '')}" cx="35%" cy="30%" r="75%">
                 <stop offset="0" stop-color="${light}"/><stop offset="1" stop-color="${dark}"/></radialGradient></defs>
                 ${arrow}<circle cx="12" cy="12" r="9" fill="url(#g${key.replace(/[^a-z0-9]/gi, '')})" stroke="#fff" stroke-width="1.6"/>
                 <path d="${glyph}" fill="#fff" transform="translate(1.2 1.2) scale(.9)"/>${ring}</svg>`,
-            iconSize: selected ? [30, 30] : [24, 24],
-            iconAnchor: selected ? [15, 15] : [12, 12],
+            iconSize: selected ? [26, 26] : [18, 18],
+            iconAnchor: selected ? [13, 13] : [9, 9],
         });
     });
 }

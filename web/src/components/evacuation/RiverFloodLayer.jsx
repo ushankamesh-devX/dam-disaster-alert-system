@@ -75,11 +75,9 @@ export default function RiverFloodLayer({ rivers, showAll }) {
                     const positions = s.points.map(([lng, lat]) => [lat, lng]);
                     return (
                         <Fragment key={i}>
-                            {/* Wide translucent corridor, then the river centre line */}
-                            <Polyline positions={positions} interactive={false}
-                                pathOptions={{ color: colourFor(min), weight: 26, opacity: r.active ? 0.28 : 0.12, lineCap: 'round' }} />
+                            {/* Thin river line, coloured by water arrival time */}
                             <Polyline positions={positions}
-                                pathOptions={{ color: colourFor(min), weight: 4, opacity: r.active ? 0.9 : 0.4, className: r.active ? 'ddas-river-flow' : '' }}>
+                                pathOptions={{ color: colourFor(min), weight: 3, opacity: r.active ? 0.75 : 0.35 }}>
                                 <Tooltip sticky>
                                     {r.damName} downstream · {(s.fromM / 1000).toFixed(1)}–{(s.toM / 1000).toFixed(1)} km · water in ~{Math.round(min)} min
                                 </Tooltip>

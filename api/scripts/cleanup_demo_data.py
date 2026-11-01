@@ -6,7 +6,7 @@
 Keeps: Kotmale, Victoria and Randenigala (codes become KOT-01, VIC-01, RAN-01) with their zones,
 gates, sensors, readings and shelters; the --keep-email accounts; regions, roles, permissions.
 Removes: every other dam and everything under it, every other user, all alerts and their SMS
-queue, demo news. Sets up the 7 standard alert types. Rows that only point at a removed user
+queue, demo news, demo reports and demo emergency service providers. Sets up the 7 standard alert types. Rows that only point at a removed user
 (created_by and similar nullable links) are kept with the link cleared.
 """
 import argparse
@@ -21,6 +21,8 @@ from seed_demo import DATABASE, docker, quote, records, sql  # noqa: E402
 DAMS = {'DEMO-001': 'KOT-01', 'DEMO-002': 'VIC-01', 'DEMO-003': 'RAN-01'}
 DEFAULT_KEEP = ['admin@ddas.gov.lk', 'niduk16962@gmail.com']
 NEWS_TABLES = ['news_user_interactions', 'news_push_logs', 'news_subscriptions', 'news_articles']
+# Fake demo rows with no real counterpart; real police/hospitals come from seed_emergency_services.py
+DEMO_ONLY_TABLES = ['reports', 'emergency_service_providers']
 
 # One alert type per stage of the dam emergency plan (see ALERT-PLAN.md)
 ALERT_TYPES = [
@@ -64,7 +66,9 @@ def foreign_keys():
 USER_OWNED = {'user_permissions', 'user_role_history', 'user_activity_logs', 'admin_sessions',
               'sos_events', 'sos_event_notifications', 'emergency_contacts', 'user_safe_locations',
               'user_hazard_location_snapshots', 'location_sharing_sessions', 'emergency_activity_logs',
-              'alert_user_deliveries', 'news_user_interactions', 'news_subscriptions'}
+              'alert_user_deliveries', 'news_user_interactions', 'news_subscriptions',
+              'user_alert_preferences', 'reports', 'report_comments', 'report_media', 'report_upvotes',
+              'report_status_history'}
 
 
 class Plan:
@@ -124,7 +128,7 @@ def main():
     if ('system_safe_locations', 'primary_dam_id') in cols:
         plan.delete('system_safe_locations', f'primary_dam_id IS NOT NULL AND primary_dam_id NOT IN ({dam_ids})')
     plan.delete('dams', f'id NOT IN ({dam_ids})')
-    for t in NEWS_TABLES:
+    for t in NEWS_TABLES + DEMO_ONLY_TABLES:
         if t in tables:
             plan.delete(t, '1=1')
     plan.delete('users', f'id NOT IN ({user_ids})')

@@ -77,6 +77,33 @@ MIRRORS = [OVERPASS, 'https://overpass.kumi.systems/api/interpreter', 'https://o
 CACHE = Path.home() / '.ddas-osm-places.json'
 
 
+# Location types this script uses: code -> (name, category, evacuation point, marker colour)
+LOCATION_TYPES = {
+    'school': ('School', 'shelter', 1, '#7C3AED'),
+    'temple': ('Temple', 'religious', 1, '#F59E0B'),
+    'mosque': ('Mosque', 'religious', 1, '#059669'),
+    'church': ('Church', 'religious', 1, '#0EA5E9'),
+    'community_hall': ('Community Hall', 'shelter', 1, '#0EA5E9'),
+    'police_station': ('Police Station', 'emergency_service', 0, '#1E40AF'),
+    'hospital': ('Hospital', 'medical', 0, '#DC2626'),
+    'clinic': ('Clinic', 'medical', 0, '#EF4444'),
+    'fire_station': ('Fire Station', 'emergency_service', 0, '#EA580C'),
+}
+
+
+def ensure_location_types():
+    """Add any missing location types (data only) and return {code: id}."""
+    have = {r['code']: r['id'] for r in records('SELECT id, code FROM location_types')}
+    missing = [c for c in LOCATION_TYPES if c not in have]
+    if missing:
+        sql('INSERT INTO location_types (code, name, category, is_evacuation_point, marker_color, is_active) VALUES '
+            + ', '.join(f'({quote(c)}, {quote(LOCATION_TYPES[c][0])}, {quote(LOCATION_TYPES[c][1])}, '
+                        f'{LOCATION_TYPES[c][2]}, {quote(LOCATION_TYPES[c][3])}, 1)' for c in missing))
+        print(f'  added location types: {", ".join(missing)}', flush=True)
+        have = {r['code']: r['id'] for r in records('SELECT id, code FROM location_types')}
+    return have
+
+
 def overpass(bbox):
     """Download once; the dry run's result is cached so --apply doesn't depend on Overpass being up."""
     s, w, n, e = bbox
@@ -138,7 +165,6 @@ def main():
     pad = args.radius_km / 111
     bbox = (min(d['pt'][0] for d in dams) - pad, min(d['pt'][1] for d in dams) - pad,
             max(d['pt'][0] for d in dams) + pad, max(d['pt'][1] for d in dams) + pad)
-    types = {r['code']: r['id'] for r in records('SELECT id, code FROM location_types')}
 
     print(f'Downloading OpenStreetMap places around {", ".join(d["name"] for d in dams)} ...', flush=True)
     places = [p for p in map(place, overpass(bbox)) if p]
@@ -185,6 +211,7 @@ def main():
         print('\nDry run. Re-run with --apply to replace the current services and shelters.')
         return
 
+    types = ensure_location_types()
     cols, graph = columns(), foreign_keys()
     plan = Plan(cols, graph, keeper_user_id=None)
     plan.delete('emergency_service_providers', '1=1')

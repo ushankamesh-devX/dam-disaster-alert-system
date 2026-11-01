@@ -45,7 +45,7 @@ export default function MovingPeopleLayer({ people, selectedId, onSelect, showTr
             const selected = p.id === selectedId;
             let it = items.current.get(p.id);
             if (!it) {
-                const marker = L.marker([p.lat, p.lng], { icon: personIcon(p.state, p.mode, p.headingDeg, selected), keyboard: false })
+                const marker = L.marker([p.lat, p.lng], { icon: personIcon(p.state, p.mode, p.headingDeg, selected || p.phone), keyboard: false })
                     .on('click', () => onSelectRef.current?.(p.id))
                     .addTo(map);
                 it = { marker, from: [p.lat, p.lng], to: [p.lat, p.lng], start: now };
@@ -56,9 +56,11 @@ export default function MovingPeopleLayer({ people, selectedId, onSelect, showTr
                 it.to = [p.lat, p.lng];
                 it.start = now;
             }
-            it.marker.setIcon(personIcon(p.state, p.mode, p.headingDeg, selected));
-            it.marker.setZIndexOffset(selected ? 2000 : p.state === 'danger' ? 500 : 0);
-            it.marker.bindTooltip(`${p.name} · ${label(p)}`, { direction: 'top', offset: [0, -10] });
+            it.marker.setIcon(personIcon(p.state, p.mode, p.headingDeg, selected || p.phone));
+            it.marker.setZIndexOffset(selected || p.phone ? 2000 : p.state === 'danger' ? 500 : 0);
+            // A real phone (mobile app) keeps its name on the map, so it stands out from the simulated people
+            it.marker.bindTooltip(p.phone ? `📱 ${p.name}` : `${p.name} · ${label(p)}`,
+                { direction: 'top', offset: [0, -10], permanent: !!p.phone });
 
             const color = (PERSON_COLORS[p.state] || PERSON_COLORS.moving)[1];
             if (showTrails && p.trail?.length > 1) {

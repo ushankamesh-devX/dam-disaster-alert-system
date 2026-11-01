@@ -58,8 +58,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                     onLongPress={onLongPress}
                     style={styles.emergencyButton}
                 >
-                    <MaterialCommunityIcons name="alarm-light-outline" size={32} color="#374151" />
-                    <Text style={styles.emergencyText}>Emergency{'\n'}Contact</Text>
+                    <MaterialCommunityIcons name="alarm-light-outline" size={32} color="#DC2626" />
+                    <Text style={styles.emergencyText}>Emergency{'\n'}& SOS</Text>
                 </TouchableOpacity>
               </View>
             </View>

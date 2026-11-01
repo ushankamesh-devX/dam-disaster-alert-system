@@ -33,7 +33,7 @@ public class EvacuationAnalyticsService {
     public record Person(long id, String name, double lat, double lng, String state, String mode, double speedMps,
                          Integer battery, double headingDeg, int stationarySeconds, long secondsSinceUpdate,
                          Long shelterId, String shelterName, Double shelterKm, Integer etaMin,
-                         Long zoneId, String zoneName, List<double[]> trail) {
+                         Long zoneId, String zoneName, List<double[]> trail, boolean phone) {
     }
 
     private record Shelter(long id, String name, double lat, double lng, int capacity, int occupancy, boolean inZone) {
@@ -47,7 +47,7 @@ public class EvacuationAnalyticsService {
         List<EvacuationRouteService.ZoneShape> zones = routeService.currentDangerZones();
         List<Shelter> shelters = shelters(zones);
         List<Map<String, Object>> sessions = jdbc.queryForList(
-                "SELECT s.id, u.full_name name, s.session_type type, s.status, s.last_latitude lat, s.last_longitude lng, " +
+                "SELECT s.id, u.full_name name, u.email, s.session_type type, s.status, s.last_latitude lat, s.last_longitude lng, " +
                 "TIMESTAMPDIFF(SECOND, s.last_update_at, NOW()) age, " +
                 "EXISTS (SELECT 1 FROM sos_events e WHERE e.user_id = s.user_id AND e.status IN ('triggered','acknowledged','responding')) sos " +
                 "FROM location_sharing_sessions s JOIN users u ON u.id = s.user_id " +
@@ -93,7 +93,8 @@ public class EvacuationAnalyticsService {
             out.add(new Person(id, String.valueOf(s.get("name")), lat, lng, state, mode, round1(speed), battery, heading,
                     stationary, ((Number) s.get("age")).longValue(),
                     shelter == null ? null : shelter.id(), shelter == null ? null : shelter.name(), km, eta,
-                    zone.map(z -> z.zone().getId()).orElse(null), zone.map(z -> z.zone().getZoneName()).orElse(null), trail));
+                    zone.map(z -> z.zone().getId()).orElse(null), zone.map(z -> z.zone().getZoneName()).orElse(null), trail,
+                    !String.valueOf(s.get("email")).endsWith("@scenario.ddas.local")));   // a real phone, not a simulated resident
         }
         return out;
     }

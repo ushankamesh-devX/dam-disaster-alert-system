@@ -68,7 +68,7 @@ export function PeoplePanel({ people, shown, filter, onFilter, zones, stragglers
                             <button type="button" onClick={() => onSelect(p.id)}
                                 className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-muted ${p.id === selectedId ? 'bg-accent' : ''}`}>
                                 {p.mode === 'drive' ? <Car className="size-4 shrink-0 text-muted-foreground" /> : <Footprints className="size-4 shrink-0 text-muted-foreground" />}
-                                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                                <span className="min-w-0 flex-1 truncate">{p.phone && <span title="Live phone">📱 </span>}{p.name}</span>
                                 {s && <TriangleAlert className="size-3.5 shrink-0 text-amber-600" aria-label={s.reasons.join(', ')} />}
                                 <Badge className={`shrink-0 ${STATE_BADGE[p.state]}`}>{STATE_LABEL[p.state]}</Badge>
                             </button>
@@ -88,7 +88,7 @@ export function PersonCard({ person, straggler, route, onRoute, onClose }) {
         <div className="space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm">
             <div className="flex items-start justify-between gap-2">
                 <div>
-                    <p className="font-semibold">{person.name}</p>
+                    <p className="font-semibold">{person.name}{person.phone && <span className="ml-1 text-xs font-normal text-primary">📱 Live phone</span>}</p>
                     <Badge className={STATE_BADGE[person.state]}>{STATE_LABEL[person.state]}</Badge>
                 </div>
                 <Button size="icon" variant="ghost" className="size-7" onClick={onClose} aria-label="Close"><X /></Button>

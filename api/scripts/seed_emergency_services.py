@@ -15,6 +15,7 @@ import json
 import math
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 import uuid
@@ -72,15 +73,36 @@ def outer_rings(geojson):
     return []
 
 
+MIRRORS = [OVERPASS, 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter']
+CACHE = Path.home() / '.ddas-osm-places.json'
+
+
 def overpass(bbox):
+    """Download once; the dry run's result is cached so --apply doesn't depend on Overpass being up."""
     s, w, n, e = bbox
+    key = [round(v, 4) for v in bbox]
+    if CACHE.exists():
+        cached = json.loads(CACHE.read_text())
+        if cached.get('bbox') == key:
+            print(f'  using the download saved in {CACHE}', flush=True)
+            return cached['elements']
     amenities = '|'.join(sorted(set(SERVICES) | {a for a, _ in SHELTERS}))
     query = (f'[out:json][timeout:90];(node["amenity"~"^({amenities})$"]({s},{w},{n},{e});'
              f'way["amenity"~"^({amenities})$"]({s},{w},{n},{e}););out center tags;')
-    req = urllib.request.Request(OVERPASS, data=urllib.parse.urlencode({'data': query}).encode(),
-                                 headers={'User-Agent': 'DDAS-dam-alert-system/1.0 (seed script)'})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.load(r)['elements']
+    last = None
+    for attempt, url in enumerate(MIRRORS * 2):     # each mirror twice; Overpass is often busy (502/504/429)
+        try:
+            req = urllib.request.Request(url, data=urllib.parse.urlencode({'data': query}).encode(),
+                                         headers={'User-Agent': 'DDAS-dam-alert-system/1.0 (seed script)'})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                elements = json.load(r)['elements']
+            CACHE.write_text(json.dumps({'bbox': key, 'elements': elements}))
+            return elements
+        except Exception as err:   # noqa: BLE001 - any network/server error: try the next mirror
+            last = err
+            print(f'  {url} failed ({err}); retrying ...', flush=True)
+            time.sleep(5 * (attempt + 1))
+    sys.exit(f'Could not download from OpenStreetMap: {last}')
 
 
 def place(el):

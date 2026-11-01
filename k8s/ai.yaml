@@ -47,6 +47,9 @@ spec:
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: GEMINI_API_KEY, optional: true } }
             - { name: DDAS_AI_ENABLE_DOCS, value: "false" }
             - { name: DDAS_AI_ML_ARTIFACTS_DIR, value: /service/artifacts/ml }
+            - { name: DDAS_AI_EMBEDDING_MODEL, value: gemini-embedding-2 }
+            - { name: DDAS_AI_EMBEDDING_DIMENSION, value: "768" }
+            - { name: DDAS_AI_CHAT_MODEL, value: gemini-3.5-flash-lite }
             - { name: DDAS_AI_QDRANT_URL, value: "http://qdrant:6333" }
             - { name: DDAS_AI_MINIO_ENDPOINT, value: "minio:9000" }
             - name: DDAS_AI_MINIO_ACCESS_KEY

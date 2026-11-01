@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { ensureAuth } from '@/services/api/auto-auth';
 import {
-  evacuationService, EvacStatus, metres, MySos, RouteResult, zoneAt,
+  evacuationService, EvacStatus, interiorPoint, metres, MySos, RouteResult, Zone, zoneAt,
 } from '@/services/evacuation/evacuation.service';
 import { EvacuationMap } from './EvacuationMap';
 import { SosModal } from './SosModal';
@@ -201,6 +201,30 @@ export function EvacuationFlow() {
     return () => clearInterval(id);
   }, [phase, locMode, findRoute]);
 
+  // Demo quick buttons: stand inside a dam's L1 / L2 zone and get the route in one tap
+  const quickSpots = useMemo(() => {
+    const all: Zone[] = [...(status?.dangerZones || []), ...(status?.planningZones || [])].filter((z) => z.hazardLevel <= 2);
+    const seen = new Set<string>();
+    return all.sort((a, b) => a.hazardLevel - b.hazardLevel || a.damName.localeCompare(b.damName))
+      .filter((z) => {
+        const key = `${z.damName}-${z.hazardLevel}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((z) => ({ label: `${z.damName.replace(' Dam', '')} L${z.hazardLevel}`, zone: z }));
+  }, [status]);
+
+  const goTo = async (z: Zone) => {
+    const p = interiorPoint(z.boundaryGeojson);
+    if (!p) return;
+    setLocMode('demo');
+    setPhase('idle');
+    place(p);
+    AsyncStorage.setItem(DEMO_KEY, JSON.stringify(p));
+    await findRoute();
+  };
+
   const start = async () => {
     if (!route) await findRoute();
     setPhase('evacuating');
@@ -303,7 +327,19 @@ export function EvacuationFlow() {
       </View>
 
       <EvacuationMap status={status} me={pos} route={route} sos={!!openSos} onPick={onPick} />
-      {locMode === 'demo' && phase !== 'evacuating' && <Text style={styles.hint}>Demo: long-press the map to stand somewhere, e.g. inside a red zone.</Text>}
+      {locMode === 'demo' && phase !== 'evacuating' && (
+        <>
+          <Text style={styles.hint}>Demo: tap a zone below, or long-press the map to stand anywhere.</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            {quickSpots.map((q) => (
+              <Pressable key={q.label} onPress={() => goTo(q.zone)} disabled={routing}
+                style={[styles.chip, { borderColor: LEVEL_COLOR[q.zone.hazardLevel] }]}>
+                <Text style={[styles.chipText, { color: LEVEL_COLOR[q.zone.hazardLevel] }]}>📍 {q.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       {/* Route */}
       {route && (
@@ -419,6 +455,8 @@ const styles = StyleSheet.create({
   toggleOn: { backgroundColor: '#455A64' },
   toggleText: { fontSize: 12, fontWeight: '600', color: '#374151' },
   hint: { fontSize: 11, color: '#6B7280', textAlign: 'center', marginTop: -4 },
+  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, backgroundColor: '#fff' },
+  chipText: { fontSize: 12, fontWeight: '700' },
   arrived: { textAlign: 'center', color: '#15803D', fontWeight: '700' },
   sharing: { textAlign: 'center', color: '#1D4ED8', fontSize: 12 },
   big3: { flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16 },

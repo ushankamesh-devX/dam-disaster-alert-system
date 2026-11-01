@@ -95,6 +95,24 @@ export function zoneAt(zones: Zone[], lat: number, lng: number): Zone | null {
     .sort((a, b) => a.hazardLevel - b.hazardLevel)[0] ?? null;
 }
 
+/** A point inside a zone (zones follow the river, so the plain centre can fall outside). */
+export function interiorPoint(geojson: string): [number, number] | null {
+  const ring = rings(geojson).sort((a, b) => b.length - a.length)[0];
+  if (!ring?.length) return null;
+  const xs = ring.map((p) => p[0]), ys = ring.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  let best: [number, number] | null = null, bestD = Infinity;
+  for (let i = 1; i < 12; i++) {
+    for (let j = 1; j < 12; j++) {
+      const x = x0 + ((x1 - x0) * i) / 12, y = y0 + ((y1 - y0) * j) / 12;
+      const d = (x - cx) ** 2 + (y - cy) ** 2;
+      if (d < bestD && inside(x, y, ring)) { best = [x, y]; bestD = d; }
+    }
+  }
+  return best ?? [ring[0][0], ring[0][1]];
+}
+
 export function metres(a: [number, number], b: [number, number]) {
   const lat = ((a[1] + b[1]) / 2) * (Math.PI / 180);
   return Math.hypot((b[0] - a[0]) * 111320 * Math.cos(lat), (b[1] - a[1]) * 110540);

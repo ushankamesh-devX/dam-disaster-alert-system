@@ -30,7 +30,9 @@ public class ValhallaClient {
     public record Route(double distanceKm, double timeMinutes, List<double[]> shape, List<String> instructions) {
     }
 
+    // HTTP/1.1: Java's default HTTP/2 sends an h2c upgrade on plain http, which Valhalla's server rejects
     private static final HttpClient HTTP = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 

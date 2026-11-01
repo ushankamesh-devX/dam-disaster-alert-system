@@ -16,6 +16,8 @@ import java.util.List;
 public class EvacuationStatusResponse {
 
     private List<Zone> dangerZones;
+    /** Lower levels (L4/L5) of the same dams: no evacuation needed, shown as watch areas. */
+    private List<Zone> watchZones;
     private List<Shelter> shelters;
     private List<Blocked> blockedRoads;
     /** Phones that reported a location in the last 6 hours. */

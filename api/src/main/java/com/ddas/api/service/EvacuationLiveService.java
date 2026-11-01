@@ -33,6 +33,7 @@ public class EvacuationLiveService {
     private final SystemSafeLocationRepository safeLocationRepository;
     private final BlockedRoadRepository blockedRoadRepository;
     private final EvacuationDeviceRepository deviceRepository;
+    private final com.ddas.api.repository.DamHazardZoneRepository hazardZoneRepository;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -82,8 +83,24 @@ public class EvacuationLiveService {
                         d.getLatitude().doubleValue(), d.getLongitude().doubleValue())))
                 .count();
 
+        // L4/L5 of the same dams: no evacuation, shown lighter on the map as watch areas
+        List<EvacuationStatusResponse.Zone> watchRows = hazardZoneRepository.findCurrentWatchZones().stream()
+                .map(zone -> EvacuationStatusResponse.Zone.builder()
+                        .id(zone.getId())
+                        .name(zone.getZoneName())
+                        .damName(zone.getDam().getName())
+                        .hazardLevel(zone.getHazardLevel().getLevelNumber())
+                        .color(zone.getFillColor() != null ? zone.getFillColor() : zone.getHazardLevel().getColor())
+                        .boundaryGeojson(zone.getBoundaryGeojson())
+                        .floodEtaMin(zone.getEstimatedFloodArrivalMinutes() != null
+                                ? zone.getEstimatedFloodArrivalMinutes()
+                                : zone.getHazardLevel().getEstimatedFloodTimeMinutes())
+                        .build())
+                .toList();
+
         return EvacuationStatusResponse.builder()
                 .dangerZones(zoneRows)
+                .watchZones(watchRows)
                 .shelters(shelters)
                 .blockedRoads(blocked)
                 .activeDevices(devices.size())

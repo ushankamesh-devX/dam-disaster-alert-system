@@ -106,11 +106,21 @@ class Resident:
         self.id, self.user_id, self.session_id, self.name = rid, user_id, session_id, name
         self.pos, self.mode = [lng, lat], mode
         self.path, self.step, self.shelter_id = [], 0, None
-        self.state = 'waiting'        # waiting -> moving -> sos -> moving -> arrived
+        # waiting -> moving (-> paused / detour / sos -> moving) -> arrived -> done
+        self.state = 'waiting'
         self.sos = None
+        self.zone = None            # zone the resident started in
+        self.depart_at = 0.0        # seconds into the scenario when they hear and act on the alert
+        self.pace = 1.0             # 0.6 for slow walkers (elderly, carrying children)
+        self.behaviour = 'normal'   # normal | late | stay | belongings | wrong_way
+        self.breakdown_at = None    # drivers whose car breaks down
+        self.resume_at = None       # end of a pause (gone back for belongings)
+        self.detour_until = None    # heading the wrong way until then
+        self.slowdown = 1.0         # traffic on crowded roads (drivers)
 
     def speed(self, speedup):
-        return (DRIVE_MPS if self.mode == 'drive' else WALK_MPS) * speedup
+        base = DRIVE_MPS if self.mode == 'drive' else WALK_MPS
+        return base * self.pace * self.slowdown * speedup
 
     def advance(self, metres_left):
         """Move along the path; returns True on arrival."""
@@ -155,7 +165,8 @@ def run(args):
     if not dam:
         sys.exit(f'Dam {code} not found (run cleanup_demo_data.py first).')
     dam = dam[0]
-    zones = records('SELECT z.id, z.zone_name, z.boundary_geojson g FROM dam_hazard_zones z JOIN hazard_levels h ON h.id = z.hazard_level_id '
+    zones = records('SELECT z.id, z.zone_name, z.boundary_geojson g, COALESCE(z.estimated_flood_arrival_minutes, h.estimated_flood_time_minutes) eta '
+                    'FROM dam_hazard_zones z JOIN hazard_levels h ON h.id = z.hazard_level_id '
                     f'WHERE z.dam_id = {dam["id"]} AND z.is_active = 1 AND h.evacuation_required = 1 ORDER BY h.level_number')
     if not zones:
         sys.exit(f'{dam["name"]} has no active evacuation zones.')
@@ -199,24 +210,42 @@ def run(args):
     residents = [Resident(i, ids[e], sessions[ids[e]], n, lng, lat, mode) for i, (n, e, lng, lat, mode) in enumerate(people)]
     log(f'{len(residents)} residents sharing location inside the zones')
 
+    duration = args.minutes * 60
+    # Who does what: most leave early, some late, a few stay until the water comes
+    for r, (_, _, lng, lat, _) in zip(residents, people):
+        r.zone = next((z for z in zones if inside(lng, lat, ring_of(z['g']))), None)
+        roll = rng.random()
+        if roll < 0.04:
+            r.behaviour, r.depart_at = 'stay', duration * 10
+        elif roll < 0.19:
+            r.behaviour, r.depart_at = 'late', rng.uniform(.4, .7) * duration
+        else:
+            r.depart_at = rng.expovariate(1 / (0.08 * duration))   # most within the first minutes
+            r.behaviour = 'belongings' if roll < 0.29 else 'wrong_way' if roll < 0.34 else 'normal'
+        if r.mode == 'walk' and rng.random() < 0.2:
+            r.pace = 0.6
+        if r.mode == 'drive' and rng.random() < 0.15:
+            r.breakdown_at = r.depart_at + rng.uniform(30, 150)
+
     log('Getting evacuation routes ...')
     with ThreadPoolExecutor(8) as pool:
         ok = sum(pool.map(lambda r: route(args.url, r), residents))
-    for r in residents:
-        if r.path:
-            r.state = 'moving'
-    log(f'{ok} routes found; residents start moving (x{args.speedup} speed)')
+    log(f'{ok} routes found. Departures are spread out; clock x{args.speedup}. '
+        f'{sum(r.behaviour == "late" for r in residents)} will leave late, {sum(r.behaviour == "stay" for r in residents)} stay at home')
 
     sos_types = ensure_sos_types()
-    duration = args.minutes * 60
-    sos_at = sorted(rng.uniform(.1, .6) * duration for _ in range(max(1, args.people // 20)))
+    sos_at = sorted(rng.uniform(.15, .65) * duration for _ in range(max(1, args.people // 25)))
     block_at = .35 * duration
+    # Zones flood on the scenario clock (their arrival minutes, sped up); anyone still inside sends an SOS
+    flood_at = {z['id']: (float(z['eta'] or 0) * 60 / args.speedup) for z in zones if z['eta']}
+    flooded = set()
     start = time.time()
     arrivals, sos_log = 0, []
 
     while time.time() - start < duration:
         t = time.time() - start
-        updates = []
+        updates = [f"UPDATE dam_current_status SET last_hazard_assessment_at = NOW() - INTERVAL {int(t * args.speedup)} SECOND "
+                   f"WHERE dam_id = {dam['id']}"]   # the page's flood countdown runs on the scenario clock
 
         if sos_at and t >= sos_at[0]:
             sos_at.pop(0)
@@ -227,21 +256,72 @@ def run(args):
                 sos_log.append(r.sos)
                 log(f'SOS from {r.name}: {r.sos["label"]}')
 
+        for zid, at in flood_at.items():
+            if zid not in flooded and t >= at:
+                flooded.add(zid)
+                zone = next(z for z in zones if z['id'] == zid)
+                trapped = [r for r in residents if r.state in ('waiting', 'moving', 'paused', 'detour')
+                           and inside(r.pos[0], r.pos[1], ring_of(zone['g']))][:3]
+                log(f'Water reached {zone["zone_name"]}: {len(trapped)} people still inside send SOS')
+                for r in trapped:
+                    start_sos(r, rng, sos_types, dam, services, admin, kind='flood_trapped')
+                    sos_log.append(r.sos)
+
+        # Traffic: drivers slow down where many people are on the same stretch of road
+        crowd = {}
         for r in residents:
-            if r.state == 'sos':
+            if r.state == 'moving':
+                key = (round(r.pos[0] / 0.0015), round(r.pos[1] / 0.0015))
+                crowd[key] = crowd.get(key, 0) + 1
+        for r in residents:
+            r.slowdown = 0.35 if r.mode == 'drive' and crowd.get((round(r.pos[0] / 0.0015), round(r.pos[1] / 0.0015)), 0) >= 5 else 1.0
+
+        for r in residents:
+            if r.state == 'waiting' and t >= r.depart_at and r.path:
+                if r.behaviour == 'wrong_way':
+                    r.state, r.detour_until = 'detour', t + rng.uniform(25, 45)
+                    log(f'{r.name} heads the wrong way first')
+                else:
+                    r.state = 'moving'
+            elif r.state == 'detour':
+                # Walk away from the route, then ask for a new one from where they are
+                away = [2 * r.pos[0] - r.path[min(3, len(r.path) - 1)][0], 2 * r.pos[1] - r.path[min(3, len(r.path) - 1)][1]]
+                r.path, r.step = [r.pos, away], 0
+                r.advance(r.speed(args.speedup) * TICK * 0.5)
+                if t >= r.detour_until:
+                    route(args.url, r)
+                    r.state = 'moving'
+            elif r.state == 'paused' and t >= r.resume_at:
+                r.state = 'moving'
+            elif r.state == 'sos':
                 progress_sos(r, admin)
             elif r.state == 'moving':
+                if r.behaviour == 'belongings' and r.resume_at is None and r.step >= len(r.path) // 4:
+                    r.state, r.resume_at = 'paused', t + rng.uniform(40, 90)
+                    log(f'{r.name} stops to collect belongings')
+                    continue
+                if r.breakdown_at and t >= r.breakdown_at:
+                    r.breakdown_at = None
+                    if rng.random() < 0.5:
+                        start_sos(r, rng, sos_types, dam, services, admin, kind='stranded_vehicle')
+                        sos_log.append(r.sos)
+                        log(f'{r.name}: car broke down, SOS sent')
+                    else:
+                        r.mode = 'walk'
+                        route(args.url, r)
+                        log(f'{r.name}: car broke down, continues on foot')
+                    continue
                 if r.advance(r.speed(args.speedup) * TICK):
                     r.state = 'arrived'
                     arrivals += 1
                     if r.shelter_id:
                         updates.append(f'UPDATE system_safe_locations SET current_occupancy = current_occupancy + 1 WHERE id = {int(r.shelter_id)}')
                     updates.append(f"UPDATE location_sharing_sessions SET status = 'ended', ended_at = NOW() WHERE id = {r.session_id}")
-            if r.state in ('moving', 'sos', 'arrived') and r.state != 'done':
+            if r.state in ('waiting', 'moving', 'paused', 'detour', 'sos', 'arrived'):
                 updates.append(f'UPDATE location_sharing_sessions SET last_latitude = {r.pos[1]:.7f}, last_longitude = {r.pos[0]:.7f}, '
                                f'last_update_at = NOW(), location_update_count = location_update_count + 1 WHERE id = {r.session_id}')
                 updates.append(f'INSERT INTO location_sharing_updates (session_id, latitude, longitude, speed_mps, battery_level) VALUES '
-                               f'({r.session_id}, {r.pos[1]:.7f}, {r.pos[0]:.7f}, {0 if r.state != "moving" else r.speed(1):.1f}, {rng.randint(20, 95)})')
+                               f'({r.session_id}, {r.pos[1]:.7f}, {r.pos[0]:.7f}, {r.speed(1) if r.state in ("moving", "detour") else 0:.1f}, {battery(r, rng)})')
                 if r.state == 'arrived':
                     r.state = 'done'
 
@@ -251,9 +331,12 @@ def run(args):
 
         if updates:
             sql('START TRANSACTION;\n' + ';\n'.join(updates) + ';\nCOMMIT;')
-        moving = sum(r.state == 'moving' for r in residents)
-        log(f'{int(t):4d}s  moving {moving:3d} · arrived {arrivals:3d} · SOS open {sum(r.state == "sos" for r in residents)}')
-        if moving == 0 and not any(r.state == 'sos' for r in residents) and not sos_at:
+        moving = sum(r.state in ('moving', 'detour', 'paused') for r in residents)
+        waiting = sum(r.state == 'waiting' for r in residents)
+        log(f'{int(t):4d}s  not left yet {waiting:3d} · on the way {moving:3d} · safe {arrivals:3d} · '
+            f'SOS open {sum(r.state == "sos" for r in residents)}')
+        if moving == 0 and not any(r.state == 'sos' for r in residents) and not sos_at \
+                and not any(r.state == 'waiting' and r.behaviour != 'stay' for r in residents):
             break
         time.sleep(max(0, TICK - (time.time() - start - t)))
 
@@ -285,6 +368,14 @@ def raise_drill_alert(api, type_code, severity, dam, title, message):
     return a['id']
 
 
+def battery(r, rng):
+    """Phone battery: starts between 15 and 95 %, drains a little every update."""
+    if not hasattr(r, 'battery'):
+        r.battery = rng.uniform(15, 95)
+    r.battery = max(3.0, r.battery - rng.uniform(0, 0.3))
+    return int(r.battery)
+
+
 def ensure_sos_types():
     existing = {r['code']: r['id'] for r in records('SELECT id, code FROM sos_event_types')}
     missing = [k for k in SOS_KINDS if k[0] not in existing]
@@ -292,11 +383,13 @@ def ensure_sos_types():
         sql('INSERT INTO sos_event_types (code, name, default_message, severity_level, auto_share_location) VALUES '
             + ', '.join(f'({quote(c)}, {quote(n)}, {quote(m)}, 4, 1)' for c, n, m in missing))
         existing = {r['code']: r['id'] for r in records('SELECT id, code FROM sos_event_types')}
-    return [(existing[c], n, m) for c, n, m in SOS_KINDS if c in existing]
+    return [(existing[c], n, m, c) for c, n, m in SOS_KINDS if c in existing]
 
 
-def start_sos(r, rng, sos_types, dam, services, admin):
-    type_id, label, message = rng.choice(sos_types)
+def start_sos(r, rng, sos_types, dam, services, admin, kind=None):
+    """kind: an SOS type code (e.g. 'flood_trapped'); random otherwise."""
+    pick = [s for s in sos_types if s[3] == kind] if kind else []
+    type_id, label, message, _ = pick[0] if pick else rng.choice(sos_types)
     sid = str(uuid.uuid4())
     sql('INSERT INTO sos_events (uuid, user_id, sos_type_id, custom_message, status, latitude, longitude, accuracy_meters, dam_id, battery_level) '
         f"VALUES ({quote(sid)}, {r.user_id}, {type_id}, {quote(message)}, 'triggered', {r.pos[1]:.7f}, {r.pos[0]:.7f}, 12, {dam['id']}, 40)")
@@ -381,7 +474,7 @@ def main():
     parser.add_argument('--dam', choices=list(DAM_CODES), default='victoria')
     parser.add_argument('--people', type=int, default=80)
     parser.add_argument('--minutes', type=float, default=10)
-    parser.add_argument('--speedup', type=float, default=15, help='How much faster than real life people move')
+    parser.add_argument('--speedup', type=float, default=6, help='How much faster than real life the scenario clock runs')
     parser.add_argument('--url', default='http://localhost', help='Web/API address (default: on the server)')
     parser.add_argument('--kubectl', nargs='?', const='ddas-db-0', default='ddas-db-0', metavar='POD')
     parser.add_argument('--seed', type=int, default=None)

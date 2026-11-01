@@ -21,6 +21,8 @@ import { PeoplePanel, PersonCard, ReplayBar, ShelterForecast, ZonesPanel } from 
 import { EMPTY_FILTER, filterPeople } from '../../components/evacuation/peopleFilter';
 import MovingPeopleLayer from '../../components/evacuation/MovingPeopleLayer';
 import RiverFloodLayer from '../../components/evacuation/RiverFloodLayer';
+import ZonesLayer from '../../components/evacuation/ZonesLayer';
+import { FLOODED_STYLE, LEVEL_STYLE } from '../../components/evacuation/zoneStyles';
 
 function parseGeo(text) {
     try {
@@ -28,15 +30,6 @@ function parseGeo(text) {
     } catch {
         return null;
     }
-}
-
-/** Zone style by flood timing: flooded = dark solid, water within 10 min = pulsing border. */
-function zoneStyle(zone, timing) {
-    if (timing?.flooded) return { color: '#7F1D1D', weight: 2, fillColor: '#991B1B', fillOpacity: 0.55 };
-    if (timing?.floodInMin != null && timing.floodInMin <= 10) {
-        return { color: '#DC2626', weight: 3, fillColor: zone.color || '#DC2626', fillOpacity: 0.35, className: 'ddas-zone-warn' };
-    }
-    return { color: zone.color || '#DC2626', weight: 2, fillOpacity: 0.3 };
 }
 
 /** Geoman polygon tool for drawing blocked roads. */
@@ -271,19 +264,7 @@ export default function EvacuationPage() {
                         <FlyTo target={flyTarget} />
 
                         {layers.river && <RiverFloodLayer rivers={cc?.rivers || []} />}
-                        {layers.zones && zones.map((z) => {
-                            const geo = parseGeo(z.boundaryGeojson);
-                            const t = zoneTiming.get(z.id);
-                            return geo && (
-                                <GeoJSON key={`zone-${z.id}-${t?.flooded}-${t?.floodInMin <= 10}`} data={geo} style={zoneStyle(z, t)}>
-                                    <Tooltip sticky>
-                                        {z.damName} · {z.name} (level {z.hazardLevel})<br />
-                                        {t?.flooded ? 'Flooded' : t?.floodInMin != null ? `Water arrives in ~${t.floodInMin} min` : `Flood in ~${z.floodEtaMin ?? '?'} min`}
-                                        {t ? ` · ${t.clearedPct}% evacuated, ${t.peopleInside} inside` : ''}
-                                    </Tooltip>
-                                </GeoJSON>
-                            );
-                        })}
+                        {layers.zones && <ZonesLayer zones={zones} watchZones={status?.watchZones} timing={zoneTiming} />}
                         {layers.blocked && blocked.map((b) => {
                             const geo = parseGeo(b.boundaryGeojson);
                             return geo && (
@@ -309,7 +290,8 @@ export default function EvacuationPage() {
                         <Legend colour="#B91C1C" label="In danger zone" />
                         <Legend colour="#15803D" label="Safe" />
                         <Legend colour="#C2410C" label="SOS" />
-                        <Legend colour="#991B1B" round={false} label="Flooded zone" />
+                        {Object.values(LEVEL_STYLE).map((lv) => <Legend key={lv.label} colour={lv.fill} round={false} label={lv.label} />)}
+                        <Legend colour={FLOODED_STYLE.fill} round={false} label="Flooded" />
                         <Legend colour="#16A34A" label="Shelter (ring = how full)" />
                         <Legend colour="#EF4444" label="Crowded road" />
                         <span>Shield / cross = police / hospital (map only)</span>

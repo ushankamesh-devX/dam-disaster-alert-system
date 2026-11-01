@@ -59,6 +59,7 @@ spec:
             - name: TWILIO_FROM_NUMBER
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: TWILIO_FROM_NUMBER, optional: true } }
             - { name: DDAS_AI_BACKEND_URL, value: "http://ai:8000" }
+            - { name: DDAS_ROUTING_VALHALLA_URL, value: "http://valhalla:8002" }
             - name: DDAS_AI_INCOMING_SERVICE_TOKEN
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: DDAS_AI_INCOMING_SERVICE_TOKEN, optional: true } }
             - name: DDAS_AI_SPRING_SERVICE_TOKEN

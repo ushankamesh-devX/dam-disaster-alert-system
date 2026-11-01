@@ -37,4 +37,10 @@ public interface DamHazardZoneRepository extends JpaRepository<DamHazardZone, Lo
     long countActiveZonesByDamId(@Param("damId") Long damId);
 
     boolean existsByDamIdAndZoneCode(Long damId, String zoneCode);
+
+    /** Zones people must leave right now: evacuation-level zones of every dam that is not safe. */
+    @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h, DamCurrentStatus s " +
+           "WHERE s.dam = z.dam AND z.isActive = true AND h.evacuationRequired = true " +
+           "AND s.hazardStatus <> com.ddas.api.entity.Dam.HazardStatus.safe")
+    List<DamHazardZone> findCurrentDangerZones();
 }

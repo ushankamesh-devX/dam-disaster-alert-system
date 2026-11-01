@@ -7,6 +7,7 @@ import com.ddas.api.service.HazardAssessmentService;
 import com.ddas.api.service.NotifyLkSmsGateway;
 import com.ddas.api.service.SmsControlService;
 import com.ddas.api.service.SmsDispatcherService;
+import com.ddas.api.service.SmsMessageComposer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +36,7 @@ public class SmsControlController {
     private final SmsControlService smsControlService;
     private final HazardAssessmentService hazardAssessmentService;
     private final SmsDispatcherService smsDispatcherService;
+    private final SmsMessageComposer smsMessageComposer;
     private final NotifyLkSmsGateway notifyLkGateway;
     private final UserRepository userRepository;
 
@@ -103,6 +105,12 @@ public class SmsControlController {
         }
         log.info("[SMS] Custom SMS by admin: sent={}, failed={}", sent.size(), failed.size());
         return ResponseEntity.ok(Map.of("sent", sent, "failed", failed));
+    }
+
+    /** Ready-to-send text for an alert with the dam's live values (time, water level, release, water arrival). */
+    @GetMapping("/compose")
+    public ResponseEntity<Map<String, String>> compose(@RequestParam Long alertId) {
+        return ResponseEntity.ok(Map.of("message", smsMessageComposer.compose(alertId)));
     }
 
     /** Queue one alert's SMS now for every registered user with a phone number. */

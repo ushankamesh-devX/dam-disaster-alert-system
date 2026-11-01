@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getSmsRecipients, getSmsSettings, sendCustomSms, setSmsSendingAllowed, sendAlertSms } from '../../services/sms.service';
+import { composeAlertSms, getSmsRecipients, getSmsSettings, sendCustomSms, setSmsSendingAllowed, sendAlertSms } from '../../services/sms.service';
 
 /**
  * Small admin switch for real SMS. Off by default (and after every API restart) so the
@@ -76,11 +76,33 @@ export function CustomSmsButton({ enabled, alerts = [] }) {
             .catch(() => toast.error('Could not load users'));
     }, [open]);
 
-    const latest = alerts.filter((a) => a.status === 'active')
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0];
-    const fillFromAlert = () => latest && setMessage(`[DDAS] ${latest.title}. ${(latest.message || '').trim()}`.slice(0, 480));
+    const [alertId, setAlertId] = useState('');
+    const [filling, setFilling] = useState(false);
+    const usable = alerts.filter((a) => a.status === 'active' || a.status === 'escalated')
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    const fillFrom = async (id) => {
+        setAlertId(id);
+        if (!id) return;
+        setFilling(true);
+        try {
+            setMessage((await composeAlertSms(id)).slice(0, 480));
+        } catch (e) {
+            toast.error(e.response?.data?.message || 'Could not build the message');
+        } finally {
+            setFilling(false);
+        }
+    };
+
+    // Open with the newest alert's message, built from the dam's live values
+    useEffect(() => {
+        if (open && !message && usable[0]) fillFrom(String(usable[0].id));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+
     const toggle = (id) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
-    const parts = Math.max(1, Math.ceil(message.length / SMS_PART));
+    const unicode = /[^\x00-\x7F]/.test(message);   // Sinhala/Tamil or symbols: 70 characters per SMS
+    const parts = Math.max(1, Math.ceil(message.length / (unicode ? 70 : SMS_PART)));
 
     const send = async () => {
         setBusy(true);
@@ -123,16 +145,28 @@ export function CustomSmsButton({ enabled, alerts = [] }) {
                             </div>}
                     </div>
                     <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="sms-text">Message</Label>
-                            <button type="button" onClick={fillFromAlert} disabled={!latest}
-                                className="text-xs text-primary hover:underline disabled:opacity-40 cursor-pointer">
-                                Fill from latest alert
-                            </button>
+                        <Label htmlFor="sms-alert">Alert</Label>
+                        <div className="flex gap-2">
+                            <select id="sms-alert" value={alertId} onChange={(e) => fillFrom(e.target.value)}
+                                className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm">
+                                <option value="">Custom message</option>
+                                {usable.map((a) => (
+                                    <option key={a.id} value={a.id}>#{a.id} {a.title}{a.simulationMode ? ' (drill)' : ''}</option>
+                                ))}
+                            </select>
+                            <Button type="button" size="sm" variant="outline" disabled={!alertId || filling}
+                                title="Rebuild with the latest water level and time" onClick={() => fillFrom(alertId)}>
+                                {filling ? '…' : 'Refresh values'}
+                            </Button>
                         </div>
-                        <Textarea id="sms-text" rows={5} maxLength={480} value={message} onChange={(e) => setMessage(e.target.value)}
-                            placeholder="EVACUATION ORDER · Randenigala Dam · 21:14 …" />
-                        <p className="text-right text-xs text-muted-foreground">{message.length} / 480 · {parts} SMS per person</p>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="sms-text">Message</Label>
+                        <Textarea id="sms-text" rows={7} maxLength={480} value={message} onChange={(e) => setMessage(e.target.value)}
+                            placeholder="[DDAS] EVACUATION ORDER | Victoria Dam | 21:14 …" />
+                        <p className="text-right text-xs text-muted-foreground">
+                            {message.length} / 480 · {parts} SMS per person{unicode ? ' · special characters use more SMS' : ''}
+                        </p>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

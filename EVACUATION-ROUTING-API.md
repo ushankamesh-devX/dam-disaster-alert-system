@@ -94,8 +94,54 @@ Body (`boundaryGeojson` is a GeoJSON Polygon **as a string**, `[lng, lat]` order
 3. **Valhalla** (self-hosted, Sri Lanka OpenStreetMap) routes to each, avoiding the danger zones and blocked roads. The person's own zone is not avoided, since they have to get out of it.
 4. The **fastest** route wins. `safe` compares its time with the zone's flood arrival time.
 
-## Coming next
+## 3. Register the phone for evacuation warnings (mobile)
 
-- Push notifications (Expo) when an alert changes the route: `POST /api/v1/devices { expoPushToken, lat, lng }`
-- Live dashboard updates over WebSocket
-- Offline route packs: `GET /api/public/evacuation/packs?zoneId=`
+`POST /api/public/evacuation/devices`: no login. Call it on app start and when the person moves
+about 200 m (use `expo-location` with `distanceInterval: 200`).
+
+```json
+{ "expoPushToken": "ExponentPushToken[xxxxxxxx]", "lat": 7.0512, "lng": 80.5923, "mode": "walk", "phone": "+94771234567" }
+```
+| Field | Required | Notes |
+|---|---|---|
+| `expoPushToken` | yes | From `Notifications.getExpoPushTokenAsync()` |
+| `lat`, `lng` | yes | Current position |
+| `mode` | no | `walk` (default) or `drive`; used for the route in the warning |
+| `phone` | no | SMS fallback when SMS is enabled on the server |
+
+Response: `{ "registered": true }`. Unregister on logout: `DELETE /api/public/evacuation/devices/{expoPushToken}`.
+
+The server checks every 15 seconds. Phones seen in the last 6 hours get:
+
+| When | Push title | `data` |
+|---|---|---|
+| Phone enters a danger zone | `EVACUATE NOW: <zone>`, body names the shelter, distance and time | `{ "type": "evacuate", "zoneId": 4, "shelterId": 12 }` |
+| Zones or blocked roads change while it is in one | `Evacuation route updated` | same as above |
+| The zone is no longer in danger | `All clear` | `{ "type": "all_clear" }` |
+
+**In the app:** create an Android notification channel with id **`evacuation`** and max importance.
+On `type: "evacuate"`, open the route screen and call `POST /route`.
+
+## 4. Offline route packs (mobile)
+
+`GET /api/public/evacuation/packs`: all zones. `GET /api/public/evacuation/packs?zoneId=4`: one zone.
+
+```json
+[
+  { "zoneId": 4, "mode": "walk", "computedAt": "2026-11-01T12:15:00", "route": { "...same shape as POST /route..." } }
+]
+```
+Each pack is the route from the zone's center to its best shelter, computed as if that zone's dam
+were in danger. Rebuilt every 6 hours.
+
+**In the app:** download all packs on start and once a day, and save them (AsyncStorage). When
+`POST /route` fails (no internet), find which zone the person is in (point-in-polygon on the zone
+boundaries, or the zone from the last push) and show that zone's pack.
+
+## 5. Live dashboard feed
+
+- `GET /api/public/evacuation/status`: snapshot of danger zones (with phones inside each), shelters with occupancy, blocked roads, phone counts.
+- `GET /api/public/evacuation/stream`: Server-Sent Events. A `status` event with the same JSON is sent on connect and whenever anything changes. In a browser: `new EventSource(url).addEventListener('status', ...)`.
+- `POST /api/v1/blocked-roads/rebuild-packs` (admin, `dams.edit`): rebuild offline packs now.
+
+The web dashboard page is **Evacuation** in the admin sidebar (`/admin/evacuation`).

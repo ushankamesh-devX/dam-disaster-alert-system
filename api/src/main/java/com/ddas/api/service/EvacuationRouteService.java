@@ -44,7 +44,10 @@ public class EvacuationRouteService {
     private final ValhallaClient valhallaClient;
     private final ObjectMapper objectMapper;
 
-    private record ZoneShape(DamHazardZone zone, List<List<double[]>> rings) {
+    public record ZoneShape(DamHazardZone zone, List<List<double[]>> rings) {
+        public boolean contains(double lat, double lng) {
+            return GeoPolygons.containsAny(rings, lat, lng);
+        }
     }
 
     private record Candidate(SystemSafeLocation shelter, double straightKm) {
@@ -54,18 +57,30 @@ public class EvacuationRouteService {
     }
 
     public EvacuationRouteResponse findRoute(EvacuationRouteRequest request) {
-        double lat = request.getLat();
-        double lng = request.getLng();
-        boolean drive = "drive".equals(request.getMode());
+        return findRoute(request.getLat(), request.getLng(), "drive".equals(request.getMode()), currentDangerZones());
+    }
 
-        List<ZoneShape> dangerZones = hazardZoneRepository.findCurrentDangerZones().stream()
+    /** Zones people must leave right now. */
+    public List<ZoneShape> currentDangerZones() {
+        return shapes(hazardZoneRepository.findCurrentDangerZones());
+    }
+
+    public List<ZoneShape> shapes(List<DamHazardZone> zones) {
+        return zones.stream()
                 .map(z -> new ZoneShape(z, GeoPolygons.outerRings(objectMapper, z.getBoundaryGeojson())))
                 .toList();
+    }
 
-        // The most severe zone (lowest level number) the person is standing in
-        Optional<ZoneShape> userZone = dangerZones.stream()
-                .filter(z -> GeoPolygons.containsAny(z.rings(), lat, lng))
+    /** The most severe zone (lowest level number) containing the point. */
+    public static Optional<ZoneShape> zoneAt(List<ZoneShape> zones, double lat, double lng) {
+        return zones.stream()
+                .filter(z -> z.contains(lat, lng))
                 .min(Comparator.comparing(z -> z.zone().getHazardLevel().getLevelNumber()));
+    }
+
+    /** Route avoiding the given danger zones (the live ones, or a dam's full set for offline packs). */
+    public EvacuationRouteResponse findRoute(double lat, double lng, boolean drive, List<ZoneShape> dangerZones) {
+        Optional<ZoneShape> userZone = zoneAt(dangerZones, lat, lng);
 
         // Valhalla can't start inside an excluded area, so the person's own zones stay routable
         List<List<double[]>> avoid = new ArrayList<>();
@@ -80,8 +95,8 @@ public class EvacuationRouteService {
         List<Candidate> candidates = safeLocationRepository.findAllByDeletedAtIsNull().stream()
                 .filter(s -> s.getStatus() == SystemSafeLocation.Status.active)
                 .filter(s -> freeCapacity(s) == null || freeCapacity(s) > 0)
-                .filter(s -> dangerZones.stream().noneMatch(z -> GeoPolygons.containsAny(
-                        z.rings(), s.getLatitude().doubleValue(), s.getLongitude().doubleValue())))
+                .filter(s -> dangerZones.stream().noneMatch(z -> z.contains(
+                        s.getLatitude().doubleValue(), s.getLongitude().doubleValue())))
                 .map(s -> new Candidate(s, GeoPolygons.distanceKm(
                         lat, lng, s.getLatitude().doubleValue(), s.getLongitude().doubleValue())))
                 .sorted(Comparator.comparingDouble(Candidate::straightKm))

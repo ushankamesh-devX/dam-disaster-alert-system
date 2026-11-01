@@ -4,6 +4,7 @@ import DashboardRounded from '@mui/icons-material/DashboardRounded';
 import WaterRounded from '@mui/icons-material/WaterRounded';
 import SensorsRounded from '@mui/icons-material/SensorsRounded';
 import NotificationsRounded from '@mui/icons-material/NotificationsRounded';
+import DirectionsRunRounded from '@mui/icons-material/DirectionsRunRounded';
 import VpnKeyRounded from '@mui/icons-material/VpnKeyRounded';
 import PeopleRounded from '@mui/icons-material/PeopleRounded';
 import PublicRounded from '@mui/icons-material/PublicRounded';
@@ -20,7 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const groups = [
   ['Overview', [['dashboard', 'Dashboard', DashboardRounded]]],
-  ['Monitoring', [['reports', 'Reports', AssignmentRounded], ['dams', 'Dams', WaterRounded], ['sensors', 'Sensors', SensorsRounded], ['alerts', 'Alerts', NotificationsRounded], ['device-keys', 'Device keys', VpnKeyRounded]]],
+  ['Monitoring', [['reports', 'Reports', AssignmentRounded], ['dams', 'Dams', WaterRounded], ['sensors', 'Sensors', SensorsRounded], ['alerts', 'Alerts', NotificationsRounded], ['evacuation', 'Evacuation', DirectionsRunRounded],['device-keys', 'Device keys', VpnKeyRounded]]],
   ['AI & Intelligence', [['ml-operations', 'ML Operations', AutoGraphRounded], ['ai-assistant', 'SOP Assistant', SmartToyRounded]]],
   ['Management', [['users', 'Users', PeopleRounded], ['regions', 'Regions', PublicRounded], ['roles', 'Roles', ShieldRounded], ['news', 'News', NewspaperRounded], ['system-safe-locations-test', 'Safe locations', PlaceRounded]]],
   ['System', [['settings', 'Settings', SettingsRounded], ['mapFunc', 'Map editor', MapRounded]]],

@@ -43,4 +43,9 @@ public interface DamHazardZoneRepository extends JpaRepository<DamHazardZone, Lo
            "WHERE s.dam = z.dam AND z.isActive = true AND h.evacuationRequired = true " +
            "AND s.hazardStatus <> com.ddas.api.entity.Dam.HazardStatus.safe")
     List<DamHazardZone> findCurrentDangerZones();
+
+    /** Every evacuation-level zone, whatever the dam's status; used to precompute offline route packs. */
+    @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h JOIN FETCH z.dam " +
+           "WHERE z.isActive = true AND h.evacuationRequired = true")
+    List<DamHazardZone> findAllEvacuationZones();
 }

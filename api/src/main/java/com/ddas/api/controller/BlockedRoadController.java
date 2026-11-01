@@ -3,6 +3,7 @@ package com.ddas.api.controller;
 import com.ddas.api.entity.BlockedRoad;
 import com.ddas.api.exception.ResourceNotFoundException;
 import com.ddas.api.repository.BlockedRoadRepository;
+import com.ddas.api.service.EvacuationPackService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Admin-drawn areas that evacuation routes avoid (flooded roads, landslides, bridges out).
@@ -21,6 +23,7 @@ import java.util.List;
 public class BlockedRoadController {
 
     private final BlockedRoadRepository repository;
+    private final EvacuationPackService packService;
 
     @GetMapping
     public ResponseEntity<List<BlockedRoad>> getAll() {
@@ -57,5 +60,12 @@ public class BlockedRoadController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         repository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Recompute offline route packs now, e.g. after drawing new blocked roads. */
+    @PostMapping("/rebuild-packs")
+    @PreAuthorize("hasAuthority('dams.edit')")
+    public ResponseEntity<Map<String, Integer>> rebuildPacks() {
+        return ResponseEntity.ok(Map.of("built", packService.rebuildAll()));
     }
 }

@@ -266,7 +266,7 @@ export default function EvacuationPage() {
 
                         {layers.water && <WaterFlowLayer rivers={cc?.rivers || []} dams={dams} />}
                         {layers.river && <RiverFloodLayer rivers={cc?.rivers || []} />}
-                        {layers.zones && <ZonesLayer zones={zones} watchZones={status?.watchZones} timing={zoneTiming} />}
+                        {layers.zones && <ZonesLayer zones={zones} watchZones={status?.watchZones} planningZones={status?.planningZones} timing={zoneTiming} />}
                         {layers.blocked && blocked.map((b) => {
                             const geo = parseGeo(b.boundaryGeojson);
                             return geo && (

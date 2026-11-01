@@ -85,27 +85,36 @@ public class EvacuationLiveService {
 
         // L4/L5 of the same dams: no evacuation, shown lighter on the map as watch areas
         List<EvacuationStatusResponse.Zone> watchRows = hazardZoneRepository.findCurrentWatchZones().stream()
-                .map(zone -> EvacuationStatusResponse.Zone.builder()
-                        .id(zone.getId())
-                        .name(zone.getZoneName())
-                        .damName(zone.getDam().getName())
-                        .hazardLevel(zone.getHazardLevel().getLevelNumber())
-                        .color(zone.getFillColor() != null ? zone.getFillColor() : zone.getHazardLevel().getColor())
-                        .boundaryGeojson(zone.getBoundaryGeojson())
-                        .floodEtaMin(zone.getEstimatedFloodArrivalMinutes() != null
-                                ? zone.getEstimatedFloodArrivalMinutes()
-                                : zone.getHazardLevel().getEstimatedFloodTimeMinutes())
-                        .build())
+                .map(EvacuationLiveService::zoneRow)
+                .toList();
+        // Zones of safe dams: a faint planning view, so the map is never empty
+        List<EvacuationStatusResponse.Zone> planningRows = hazardZoneRepository.findPlanningZones().stream()
+                .map(EvacuationLiveService::zoneRow)
                 .toList();
 
         return EvacuationStatusResponse.builder()
                 .dangerZones(zoneRows)
                 .watchZones(watchRows)
+                .planningZones(planningRows)
                 .shelters(shelters)
                 .blockedRoads(blocked)
                 .activeDevices(devices.size())
                 .devicesInDanger(inDanger)
                 .updatedAt(LocalDateTime.now())
+                .build();
+    }
+
+    private static EvacuationStatusResponse.Zone zoneRow(com.ddas.api.entity.DamHazardZone zone) {
+        return EvacuationStatusResponse.Zone.builder()
+                .id(zone.getId())
+                .name(zone.getZoneName())
+                .damName(zone.getDam().getName())
+                .hazardLevel(zone.getHazardLevel().getLevelNumber())
+                .color(zone.getFillColor() != null ? zone.getFillColor() : zone.getHazardLevel().getColor())
+                .boundaryGeojson(zone.getBoundaryGeojson())
+                .floodEtaMin(zone.getEstimatedFloodArrivalMinutes() != null
+                        ? zone.getEstimatedFloodArrivalMinutes()
+                        : zone.getHazardLevel().getEstimatedFloodTimeMinutes())
                 .build();
     }
 

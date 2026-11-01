@@ -23,9 +23,12 @@ const labelIcon = (text, colour) => L.divIcon({
 });
 
 /** Danger zones (L1–L3, evacuate) and watch zones (L4–L5), each level in its own colour, with labels. */
-export default function ZonesLayer({ zones, watchZones, timing, showLabels = true }) {
-    const all = [...(watchZones || []).map((z) => ({ ...z, watch: true })), ...(zones || [])]
-        .sort((a, b) => b.hazardLevel - a.hazardLevel);   // L5 first, so L1 is drawn on top
+export default function ZonesLayer({ zones, watchZones, planningZones, timing, showLabels = true }) {
+    const all = [
+        ...(planningZones || []).map((z) => ({ ...z, planning: true })),
+        ...(watchZones || []).map((z) => ({ ...z, watch: true })),
+        ...(zones || []),
+    ].sort((a, b) => b.hazardLevel - a.hazardLevel);   // L5 first, so L1 is drawn on top
     return all.map((z) => {
         const geo = parse(z.boundaryGeojson);
         if (!geo) return null;
@@ -33,7 +36,10 @@ export default function ZonesLayer({ zones, watchZones, timing, showLabels = tru
         const lv = LEVEL_STYLE[z.hazardLevel] || LEVEL_STYLE[3];
         const flooded = t?.flooded;
         const soon = !flooded && t?.floodInMin != null && t.floodInMin <= 10;
-        const style = flooded
+        // Planning view (dam safe): same colours, faint and dashed
+        const style = z.planning
+            ? { color: lv.stroke, weight: 1, fillColor: lv.fill, fillOpacity: lv.opacity * 0.4, dashArray: '5 5', opacity: 0.6 }
+            : flooded
             ? { color: FLOODED.stroke, weight: 1.5, fillColor: FLOODED.fill, fillOpacity: FLOODED.opacity, className: 'ddas-zone-flooding' }
             : { color: lv.stroke, weight: soon ? 3 : 1.5, fillColor: lv.fill, fillOpacity: lv.opacity, dashArray: lv.dash, className: soon ? 'ddas-zone-warn' : '' };
         const when = flooded ? 'flooded' : t?.floodInMin != null ? `water in ${t.floodInMin} min` : `water ~${z.floodEtaMin ?? '?'} min`;
@@ -44,11 +50,12 @@ export default function ZonesLayer({ zones, watchZones, timing, showLabels = tru
                     <Tooltip sticky>
                         <strong>{lv.label}</strong> · {z.damName}<br />
                         {z.name}<br />
-                        {flooded ? 'Flooded' : z.watch ? `Watch area · ${when}` : `Evacuate · ${when}`}
+                        {z.planning ? `Planning view · dam is safe · water would arrive in ~${z.floodEtaMin ?? '?'} min`
+                            : flooded ? 'Flooded' : z.watch ? `Watch area · ${when}` : `Evacuate · ${when}`}
                         {t ? ` · ${t.clearedPct}% evacuated, ${t.peopleInside} inside` : ''}
                     </Tooltip>
                 </GeoJSON>
-                {showLabels && pos && !z.watch && (
+                {showLabels && pos && !z.watch && !z.planning && (
                     <Marker position={pos} interactive={false} keyboard={false}
                         icon={labelIcon(`L${z.hazardLevel} · ${when}`, flooded ? FLOODED.fill : lv.stroke)} />
                 )}

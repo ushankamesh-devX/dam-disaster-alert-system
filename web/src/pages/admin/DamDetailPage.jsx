@@ -433,7 +433,7 @@ export default function DamDetailPage() {
                     { label: 'Water Level', value: `${fmt(status?.waterLevelPercentage)}%`, sub: `${fmt(status?.waterLevelMeters)} m`, highlight: true },
                     { label: 'Storage', value: `${fmt(status?.storagePercentage)}%`, sub: `${fmt(status?.storageCurrentMcm)} MCM` },
                     { label: 'Inflow', value: `${fmt(status?.inflowCumecs)} m³/s`, sub: 'Current inflow' },
-                    { label: 'Gates Open', value: `${status?.gatesOpenCount ?? '—'}/${status?.totalGatesCount ?? gates.length}`, sub: status?.spillwayGateStatus ?? 'Gate status' },
+                    { label: 'Gates Open', value: `${status?.gatesOpenCount ?? '—'}/${status?.totalGatesCount ?? gates.length}`, sub: (status?.gatesOpenCount ?? 0) > 0 ? 'Spillway releasing water' : 'All gates closed' },
                 ].map(({ label, value, sub, highlight }) => (
                     <div key={label} className={`rounded-xl p-4 border ${highlight ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200'} shadow-sm`}>
                         <p className={`text-xs mb-1 ${highlight ? 'text-blue-200' : 'text-gray-500'}`}>{label}</p>

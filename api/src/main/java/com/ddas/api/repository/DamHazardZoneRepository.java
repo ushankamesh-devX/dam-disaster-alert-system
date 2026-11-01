@@ -50,6 +50,12 @@ public interface DamHazardZoneRepository extends JpaRepository<DamHazardZone, Lo
            "AND s.hazardStatus <> com.ddas.api.entity.Dam.HazardStatus.safe")
     List<DamHazardZone> findCurrentWatchZones();
 
+    /** Zones of dams that are safe right now: shown faintly as a planning view. */
+    @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h, DamCurrentStatus s " +
+           "WHERE s.dam = z.dam AND z.isActive = true " +
+           "AND s.hazardStatus = com.ddas.api.entity.Dam.HazardStatus.safe")
+    List<DamHazardZone> findPlanningZones();
+
     /** Every evacuation-level zone, whatever the dam's status; used to precompute offline route packs. */
     @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h JOIN FETCH z.dam " +
            "WHERE z.isActive = true AND h.evacuationRequired = true")

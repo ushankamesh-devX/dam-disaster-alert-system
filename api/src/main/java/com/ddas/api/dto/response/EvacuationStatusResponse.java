@@ -18,6 +18,8 @@ public class EvacuationStatusResponse {
     private List<Zone> dangerZones;
     /** Lower levels (L4/L5) of the same dams: no evacuation needed, shown as watch areas. */
     private List<Zone> watchZones;
+    /** Zones of dams that are safe right now: drawn faintly as a planning view. */
+    private List<Zone> planningZones;
     private List<Shelter> shelters;
     private List<Blocked> blockedRoads;
     /** Phones that reported a location in the last 6 hours. */

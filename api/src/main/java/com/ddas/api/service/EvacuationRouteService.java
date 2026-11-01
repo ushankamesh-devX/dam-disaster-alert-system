@@ -9,6 +9,7 @@ import com.ddas.api.exception.ResourceNotFoundException;
 import com.ddas.api.repository.BlockedRoadRepository;
 import com.ddas.api.repository.DamHazardZoneRepository;
 import com.ddas.api.repository.SystemSafeLocationRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ import java.util.Optional;
 public class EvacuationRouteService {
 
     private static final int CANDIDATE_SHELTERS = 5;
+    private static final double HIGHER_GROUND_EXTRA_MIN = 5;
     // Used only for the straight-line fallback when Valhalla is unreachable
     private static final double WALK_KMH = 4.5;
     private static final double DRIVE_KMH = 30.0;
@@ -92,16 +94,21 @@ public class EvacuationRouteService {
                     .filter(r -> !GeoPolygons.contains(r, lat, lng)).forEach(avoid::add);
         }
 
-        List<Candidate> candidates = safeLocationRepository.findAllByDeletedAtIsNull().stream()
+        // Usable places: open, not full, outside the danger zones and not rated unsafe (below the flood).
+        // Safe high ground first; marginal places only if fewer than 2 safe ones are nearby.
+        List<Candidate> usable = safeLocationRepository.findAllByDeletedAtIsNull().stream()
                 .filter(s -> s.getStatus() == SystemSafeLocation.Status.active)
                 .filter(s -> freeCapacity(s) == null || freeCapacity(s) > 0)
+                .filter(s -> !"unsafe".equals(floodSafety(s)))
                 .filter(s -> dangerZones.stream().noneMatch(z -> z.contains(
                         s.getLatitude().doubleValue(), s.getLongitude().doubleValue())))
                 .map(s -> new Candidate(s, GeoPolygons.distanceKm(
                         lat, lng, s.getLatitude().doubleValue(), s.getLongitude().doubleValue())))
                 .sorted(Comparator.comparingDouble(Candidate::straightKm))
-                .limit(CANDIDATE_SHELTERS)
                 .toList();
+        List<Candidate> safeFirst = usable.stream().filter(c -> "safe".equals(floodSafety(c.shelter()))).limit(CANDIDATE_SHELTERS).toList();
+        List<Candidate> candidates = safeFirst.size() >= 2 ? safeFirst
+                : usable.stream().limit(CANDIDATE_SHELTERS).toList();
         if (candidates.isEmpty()) {
             throw new ResourceNotFoundException("No open shelter found outside the danger zones");
         }
@@ -114,6 +121,15 @@ public class EvacuationRouteService {
                     .ifPresent(route -> routed.add(new Routed(c, route)));
         }
         routed.sort(Comparator.comparingDouble(r -> r.route().timeMinutes()));
+        // Prefer higher ground: if a place at least 10 m higher is under 5 minutes further, go there instead
+        if (routed.size() > 1) {
+            Routed fastest = routed.get(0);
+            routed.stream().skip(1)
+                    .filter(r -> r.route().timeMinutes() <= fastest.route().timeMinutes() + HIGHER_GROUND_EXTRA_MIN)
+                    .filter(r -> aboveFlood(r.candidate().shelter()) >= aboveFlood(fastest.candidate().shelter()) + 10)
+                    .max(Comparator.comparingInt(r -> aboveFlood(r.candidate().shelter())))
+                    .ifPresent(higher -> { routed.remove(higher); routed.add(0, higher); });
+        }
 
         Integer floodEtaMin = userZone.map(z -> floodEta(z.zone())).orElse(null);
         EvacuationRouteResponse.EvacuationRouteResponseBuilder response = EvacuationRouteResponse.builder()
@@ -154,6 +170,28 @@ public class EvacuationRouteService {
                 .build();
     }
 
+    /** Flood safety written by build_safe_areas.py into amenities JSON: safe | marginal | unsafe (null if not rated). */
+    private String floodSafety(SystemSafeLocation s) {
+        JsonNode a = amenities(s);
+        return a == null || !a.hasNonNull("floodSafety") ? null : a.get("floodSafety").asText();
+    }
+
+    /** Metres above the expected flood water (0 when unknown). */
+    private int aboveFlood(SystemSafeLocation s) {
+        JsonNode a = amenities(s);
+        return a == null || !a.hasNonNull("aboveFloodM") ? 0 : a.get("aboveFloodM").asInt();
+    }
+
+    private JsonNode amenities(SystemSafeLocation s) {
+        if (s.getAmenities() == null || s.getAmenities().isBlank()) return null;
+        try {
+            JsonNode n = objectMapper.readTree(s.getAmenities());
+            return n.isObject() ? n : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private static Integer freeCapacity(SystemSafeLocation s) {
         if (s.getCapacityPersons() == null) {
             return null;
@@ -178,7 +216,8 @@ public class EvacuationRouteService {
                 .build();
     }
 
-    private static EvacuationRouteResponse.Shelter toShelter(SystemSafeLocation s) {
+    private EvacuationRouteResponse.Shelter toShelter(SystemSafeLocation s) {
+        JsonNode a = amenities(s);
         return EvacuationRouteResponse.Shelter.builder()
                 .id(s.getId())
                 .name(s.getName())
@@ -187,6 +226,8 @@ public class EvacuationRouteService {
                 .lng(s.getLongitude().doubleValue())
                 .freeCapacity(freeCapacity(s))
                 .contactPhone(s.getEmergencyPhone() != null ? s.getEmergencyPhone() : s.getContactPhone())
+                .aboveFloodM(a != null && a.hasNonNull("aboveFloodM") ? a.get("aboveFloodM").asInt() : null)
+                .kind(a != null && a.hasNonNull("kind") ? a.get("kind").asText() : "shelter")
                 .build();
     }
 

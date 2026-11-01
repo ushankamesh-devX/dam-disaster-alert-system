@@ -150,6 +150,10 @@ body {
 .ddas-zone-warn { animation: ddas-zone 1.4s ease-in-out infinite; }
 @keyframes ddas-zone { 50% { stroke-opacity: .25; } }
 .ddas-bottleneck { animation: ddas-zone 1.8s ease-in-out infinite; }
+/* "▲ 45 m" tag under shelters: height above the expected flood */
+.leaflet-tooltip.ddas-height-tag { padding: 0 5px; font: 600 10px/15px system-ui; color: #15803D; background: #fff; border: 1px solid #BBF7D0; border-radius: 9999px; box-shadow: none; }
+.leaflet-tooltip.ddas-height-tag::before { display: none; }
+
 /* Released water: ripples moving downstream, a pulsing front, zones filling with water */
 .ddas-water-flow { stroke-dasharray: 2 10; stroke-linecap: round; animation: ddas-march 0.8s linear infinite; }
 .ddas-water-front { position: relative; transform: translate(-7px, -7px); }

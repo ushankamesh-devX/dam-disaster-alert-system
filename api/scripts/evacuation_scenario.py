@@ -63,6 +63,17 @@ def ring_of(geojson):
     return g['coordinates'][0] if g['type'] == 'Polygon' else g['coordinates'][0][0]
 
 
+def rings_of(geojson):
+    """Every outer ring of a Polygon or MultiPolygon (zones from build_river_zones.py are MultiPolygons)."""
+    g = json.loads(geojson) if isinstance(geojson, str) else geojson
+    g = g.get('geometry', g)
+    return [g['coordinates'][0]] if g['type'] == 'Polygon' else [p[0] for p in g['coordinates']]
+
+
+def in_zone(lng, lat, zone):
+    return any(inside(lng, lat, ring) for ring in rings_of(zone['g']))
+
+
 def inside(lng, lat, ring):
     hit = False
     for i in range(len(ring)):
@@ -160,60 +171,84 @@ def run(args):
         sys.exit(f'A scenario is already recorded in {STATE}. Run --reset first.')
     rng = random.Random(args.seed)
     api = admin_api(args.url)
-    code = DAM_CODES[args.dam]
-    dam = records(f'SELECT d.id, d.name, s.hazard_status FROM dams d JOIN dam_current_status s ON s.dam_id = d.id WHERE d.code = {quote(code)}')
-    if not dam:
-        sys.exit(f'Dam {code} not found (run cleanup_demo_data.py first).')
-    dam = dam[0]
-    zones = records('SELECT z.id, z.zone_name, z.boundary_geojson g, COALESCE(z.estimated_flood_arrival_minutes, h.estimated_flood_time_minutes) eta '
+    names = [n.strip().lower() for n in args.dam.split(',') if n.strip()]
+    unknown = [n for n in names if n not in DAM_CODES]
+    if unknown:
+        sys.exit(f'Unknown dam(s) {unknown}; choose from {", ".join(DAM_CODES)}')
+    dams = []
+    for n in names:
+        row = records(f'SELECT d.id, d.name, s.hazard_status FROM dams d JOIN dam_current_status s ON s.dam_id = d.id '
+                      f'WHERE d.code = {quote(DAM_CODES[n])}')
+        if not row:
+            sys.exit(f'Dam {DAM_CODES[n]} not found (run cleanup_demo_data.py first).')
+        dams.append(row[0])
+    zones = records('SELECT z.id, z.dam_id, z.zone_name, z.boundary_geojson g, '
+                    'COALESCE(z.estimated_flood_arrival_minutes, h.estimated_flood_time_minutes) eta '
                     'FROM dam_hazard_zones z JOIN hazard_levels h ON h.id = z.hazard_level_id '
-                    f'WHERE z.dam_id = {dam["id"]} AND z.is_active = 1 AND h.evacuation_required = 1 ORDER BY h.level_number')
-    if not zones:
-        sys.exit(f'{dam["name"]} has no active evacuation zones.')
+                    'WHERE z.dam_id IN (' + ','.join(str(d['id']) for d in dams) + ') AND z.is_active = 1 '
+                    'AND h.evacuation_required = 1 ORDER BY z.dam_id, h.level_number')
+    for d in dams:
+        if not any(z['dam_id'] == d['id'] for z in zones):
+            sys.exit(f'{d["name"]} has no active evacuation zones (run build_river_zones.py).')
     role = records("SELECT id FROM roles WHERE code = 'NORMAL_USER'")[0]['id']
     admin = records(f"SELECT id FROM users WHERE email = {quote(os.environ['DDAS_ADMIN_EMAIL'])}")[0]['id']
     services = records("SELECT id, name, service_type, latitude, longitude FROM emergency_service_providers "
                        "WHERE status = 'active' AND service_type IN ('police', 'hospital', 'fire_brigade')")
 
-    state = {'running': True, 'dam_id': dam['id'], 'previous_status': dam['hazard_status'], 'alert_ids': [], 'blocked_road_ids': []}
+    duration = args.minutes * 60
+    # Cascade: the first dam releases at once, each next one a quarter of the way through
+    for i, d in enumerate(dams):
+        d['active_at'] = i * 0.25 * duration
+        d['active'] = False
+    state = {'running': True, 'dam_id': dams[0]['id'], 'previous_status': dams[0]['hazard_status'],
+             'dams': [{'id': d['id'], 'previous_status': d['hazard_status']} for d in dams],
+             'alert_ids': [], 'blocked_road_ids': []}
     save_state(state)
 
-    log(f'{dam["name"]}: hazard status {dam["hazard_status"]} -> high; {len(zones)} evacuation zones active')
-    sql(f"UPDATE dam_current_status SET hazard_status = 'high', last_hazard_assessment_at = NOW() WHERE dam_id = {dam['id']}")
-    aid = raise_drill_alert(api, 'EVACUATION_ORDER', 'critical', dam, f'Evacuation Order: {dam["name"]} downstream zones',
-                            f'Water released from {dam["name"]}. Leave zones L1–L3 now and go to the nearest shelter.')
-    if aid:
-        state['alert_ids'].append(aid)
-        save_state(state)
-        log(f'Evacuation Order raised as a drill (alert {aid}, no SMS)')
+    def activate(d):
+        d['active'] = True
+        dz = [z for z in zones if z['dam_id'] == d['id']]
+        log(f'{d["name"]}: hazard status {d["hazard_status"]} -> high; {len(dz)} evacuation zones active')
+        sql(f"UPDATE dam_current_status SET hazard_status = 'high', last_hazard_assessment_at = NOW() WHERE dam_id = {d['id']}")
+        aid = raise_drill_alert(api, 'EVACUATION_ORDER', 'critical', d, f'Evacuation Order: {d["name"]} downstream zones',
+                                f'Water released from {d["name"]}. Leave zones L1–L3 now and go to the nearest high ground.')
+        if aid:
+            state['alert_ids'].append(aid)
+            save_state(state)
+            log(f'Evacuation Order for {d["name"]} raised as a drill (alert {aid}, no SMS)')
 
-    # Residents: weighted towards the inner (most dangerous) zones
-    weights = [len(zones) - i for i in range(len(zones))]
+    activate(dams[0])
+    dam = dams[0]
+
+    # Residents: split across the dams, weighted towards each dam's inner (most dangerous) zones
     batch = uuid.uuid4().hex[:6]
     people = []
     for i in range(args.people):
-        zone = rng.choices(zones, weights)[0]
-        lng, lat = random_point(rng, ring_of(zone['g']))
+        d = dams[i % len(dams)]
+        dz = [z for z in zones if z['dam_id'] == d['id']]
+        zone = rng.choices(dz, [len(dz) - k for k in range(len(dz))])[0]
+        lng, lat = random_point(rng, rng.choice(rings_of(zone['g'])))
         people.append((f'Resident {batch}-{i + 1:03d}', f'r{batch}{i + 1:03d}@{EMAIL_DOMAIN}', lng, lat,
-                       'drive' if rng.random() < 0.3 else 'walk'))
+                       'drive' if rng.random() < 0.3 else 'walk', d))
     user_rows = [f"({quote(str(uuid.uuid4()))}, {quote(n)}, {quote(e)}, '!scenario-no-login', {role}, 'active', 0, {lat}, {lng}, NOW())"
-                 for n, e, lng, lat, _ in people]
+                 for n, e, lng, lat, _, _ in people]
     sql('INSERT INTO users (uuid, full_name, email, password_hash, role_id, status, notification_enabled, '
         'last_known_latitude, last_known_longitude, last_location_update) VALUES ' + ',\n'.join(user_rows))
     ids = {r['email']: r['id'] for r in records(f"SELECT id, email FROM users WHERE email LIKE 'r{batch}%@{EMAIL_DOMAIN}'")}
     sql('INSERT INTO location_sharing_sessions (uuid, user_id, session_type, share_token, expires_at, status, '
         'update_interval_seconds, share_with_authorities, last_latitude, last_longitude, last_update_at) VALUES ' + ',\n'.join(
             f"({quote(str(uuid.uuid4()))}, {ids[e]}, 'manual', {quote('scn-' + uuid.uuid4().hex)}, NOW() + INTERVAL 6 HOUR, "
-            f"'active', {TICK}, 1, {lat}, {lng}, NOW())" for _, e, lng, lat, _ in people))
+            f"'active', {TICK}, 1, {lat}, {lng}, NOW())" for _, e, lng, lat, _, _ in people))
     sessions = {r['user_id']: r['id'] for r in records(
         f"SELECT s.id, s.user_id FROM location_sharing_sessions s JOIN users u ON u.id = s.user_id WHERE u.email LIKE 'r{batch}%'")}
-    residents = [Resident(i, ids[e], sessions[ids[e]], n, lng, lat, mode) for i, (n, e, lng, lat, mode) in enumerate(people)]
+    residents = [Resident(i, ids[e], sessions[ids[e]], n, lng, lat, mode) for i, (n, e, lng, lat, mode, _) in enumerate(people)]
+    for r, p in zip(residents, people):
+        r.dam = p[5]
     log(f'{len(residents)} residents sharing location inside the zones')
 
-    duration = args.minutes * 60
     # Who does what: most leave early, some late, a few stay until the water comes
-    for r, (_, _, lng, lat, _) in zip(residents, people):
-        r.zone = next((z for z in zones if inside(lng, lat, ring_of(z['g']))), None)
+    for r, (_, _, lng, lat, _, _) in zip(residents, people):
+        r.zone = next((z for z in zones if in_zone(lng, lat, z)), None)
         roll = rng.random()
         if roll < 0.04:
             r.behaviour, r.depart_at = 'stay', duration * 10
@@ -226,10 +261,14 @@ def run(args):
             r.pace = 0.6
         if r.mode == 'drive' and rng.random() < 0.15:
             r.breakdown_at = r.depart_at + rng.uniform(30, 150)
+        # Downstream dams in the cascade: their people only react once that dam's alert goes out
+        r.depart_at += r.dam['active_at']
+        if r.breakdown_at:
+            r.breakdown_at += r.dam['active_at']
 
     log('Getting evacuation routes ...')
     with ThreadPoolExecutor(8) as pool:
-        ok = sum(pool.map(lambda r: route(args.url, r), residents))
+        ok = sum(pool.map(lambda r: route(args.url, r), [r for r in residents if r.dam['active']]))
     log(f'{ok} routes found. Departures are spread out; clock x{args.speedup}. '
         f'{sum(r.behaviour == "late" for r in residents)} will leave late, {sum(r.behaviour == "stay" for r in residents)} stay at home')
 
@@ -237,22 +276,31 @@ def run(args):
     sos_at = sorted(rng.uniform(.15, .65) * duration for _ in range(max(1, args.people // 25)))
     block_at = .35 * duration
     # Zones flood on the scenario clock (their arrival minutes, sped up); anyone still inside sends an SOS
-    flood_at = {z['id']: (float(z['eta'] or 0) * 60 / args.speedup) for z in zones if z['eta']}
+    dam_by_id = {d['id']: d for d in dams}
+    flood_at = {z['id']: dam_by_id[z['dam_id']]['active_at'] + float(z['eta'] or 0) * 60 / args.speedup
+                for z in zones if z['eta']}
     flooded = set()
     start = time.time()
     arrivals, sos_log = 0, []
 
     while time.time() - start < duration:
         t = time.time() - start
-        updates = [f"UPDATE dam_current_status SET last_hazard_assessment_at = NOW() - INTERVAL {int(t * args.speedup)} SECOND "
-                   f"WHERE dam_id = {dam['id']}"]   # the page's flood countdown runs on the scenario clock
+        for d in dams:
+            if not d['active'] and t >= d['active_at']:
+                activate(d)
+                later = [r for r in residents if r.dam is d]
+                with ThreadPoolExecutor(8) as pool:      # routes now avoid this dam's zones too
+                    list(pool.map(lambda r: route(args.url, r), later))
+        # The page's flood countdown runs on the scenario clock, per dam
+        updates = [f"UPDATE dam_current_status SET last_hazard_assessment_at = NOW() - INTERVAL "
+                   f"{int((t - d['active_at']) * args.speedup)} SECOND WHERE dam_id = {d['id']}" for d in dams if d['active']]
 
         if sos_at and t >= sos_at[0]:
             sos_at.pop(0)
             pool_ = [r for r in residents if r.state == 'moving']
             if pool_:
                 r = rng.choice(pool_)
-                start_sos(r, rng, sos_types, dam, services, admin)
+                start_sos(r, rng, sos_types, r.dam, services, admin)
                 sos_log.append(r.sos)
                 log(f'SOS from {r.name}: {r.sos["label"]}')
 
@@ -261,10 +309,10 @@ def run(args):
                 flooded.add(zid)
                 zone = next(z for z in zones if z['id'] == zid)
                 trapped = [r for r in residents if r.state in ('waiting', 'moving', 'paused', 'detour')
-                           and inside(r.pos[0], r.pos[1], ring_of(zone['g']))][:3]
+                           and in_zone(r.pos[0], r.pos[1], zone)][:3]
                 log(f'Water reached {zone["zone_name"]}: {len(trapped)} people still inside send SOS')
                 for r in trapped:
-                    start_sos(r, rng, sos_types, dam, services, admin, kind='flood_trapped')
+                    start_sos(r, rng, sos_types, r.dam, services, admin, kind='flood_trapped')
                     sos_log.append(r.sos)
 
         # Traffic: drivers slow down where many people are on the same stretch of road
@@ -303,7 +351,7 @@ def run(args):
                 if r.breakdown_at and t >= r.breakdown_at:
                     r.breakdown_at = None
                     if rng.random() < 0.5:
-                        start_sos(r, rng, sos_types, dam, services, admin, kind='stranded_vehicle')
+                        start_sos(r, rng, sos_types, r.dam, services, admin, kind='stranded_vehicle')
                         sos_log.append(r.sos)
                         log(f'{r.name}: car broke down, SOS sent')
                     else:
@@ -340,13 +388,17 @@ def run(args):
             break
         time.sleep(max(0, TICK - (time.time() - start - t)))
 
-    log(f'{dam["name"]}: hazard status back to {state["previous_status"]}')
-    sql(f"UPDATE dam_current_status SET hazard_status = {quote(state['previous_status'])} WHERE dam_id = {dam['id']}")
-    aid = raise_drill_alert(api, 'ALL_CLEAR', 'info', dam, f'All Clear: {dam["name"]}',
-                            'Water levels are back to normal. You can return home safely.')
-    if aid:
-        state['alert_ids'].append(aid)
-    for aid in state['alert_ids'][:1]:
+    evacuation_orders = list(state['alert_ids'])
+    for d in dams:
+        if not d['active']:
+            continue
+        log(f'{d["name"]}: hazard status back to {d["hazard_status"]}')
+        sql(f"UPDATE dam_current_status SET hazard_status = {quote(d['hazard_status'])} WHERE dam_id = {d['id']}")
+        aid = raise_drill_alert(api, 'ALL_CLEAR', 'info', d, f'All Clear: {d["name"]}',
+                                'Water levels are back to normal. You can return home safely.')
+        if aid:
+            state['alert_ids'].append(aid)
+    for aid in evacuation_orders:
         api.call('PATCH', f'/api/v1/alerts/{aid}/status', {'status': 'resolved'})
     state['running'] = False
     save_state(state)
@@ -457,7 +509,9 @@ def reset(args):
                    else f'DELETE FROM `{t}` WHERE {w}') for k, t, c, w in plan.steps]
     statements.append('UPDATE system_safe_locations SET current_occupancy = 0')
     if state.get('dam_id'):
-        statements.append(f"UPDATE dam_current_status SET hazard_status = {quote(state.get('previous_status') or 'safe')} WHERE dam_id = {int(state['dam_id'])}")
+        for d in state.get('dams') or [{'id': state['dam_id'], 'previous_status': state.get('previous_status')}]:
+            statements.append(f"UPDATE dam_current_status SET hazard_status = {quote(d.get('previous_status') or 'safe')} "
+                              f"WHERE dam_id = {int(d['id'])}")
     sql('START TRANSACTION;\n' + ';\n'.join(statements) + ';\nCOMMIT;')
     for rid in state.get('blocked_road_ids', []):
         if rid:
@@ -471,7 +525,8 @@ def reset(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--dam', choices=list(DAM_CODES), default='victoria')
+    parser.add_argument('--dam', default='victoria',
+                        help='One dam or a cascade, e.g. victoria or victoria,randenigala (kotmale, victoria, randenigala)')
     parser.add_argument('--people', type=int, default=80)
     parser.add_argument('--minutes', type=float, default=10)
     parser.add_argument('--speedup', type=float, default=6, help='How much faster than real life the scenario clock runs')

@@ -300,7 +300,8 @@ public class EvacuationAnalyticsService {
 
     private List<Shelter> shelters(List<EvacuationRouteService.ZoneShape> zones) {
         return jdbc.queryForList("SELECT id, name, latitude lat, longitude lng, COALESCE(capacity_persons,0) cap, COALESCE(current_occupancy,0) occ " +
-                        "FROM system_safe_locations WHERE deleted_at IS NULL AND status = 'active'")
+                        "FROM system_safe_locations WHERE deleted_at IS NULL AND status = 'active' " +
+                        "AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(amenities, '$.floodSafety')), '') <> 'unsafe'")
                 .stream().map(r -> {
                     double lat = num(r.get("lat")), lng = num(r.get("lng"));
                     return new Shelter(((Number) r.get("id")).longValue(), String.valueOf(r.get("name")), lat, lng,

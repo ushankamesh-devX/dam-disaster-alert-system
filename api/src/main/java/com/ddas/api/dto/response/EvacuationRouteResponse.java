@@ -56,6 +56,10 @@ public class EvacuationRouteResponse {
         /** Null when capacity is unknown. */
         private Integer freeCapacity;
         private String contactPhone;
+        /** Metres above the expected flood water; null if not rated. */
+        private Integer aboveFloodM;
+        /** "high_ground" (assembly point) or "shelter". */
+        private String kind;
     }
 
     @Data

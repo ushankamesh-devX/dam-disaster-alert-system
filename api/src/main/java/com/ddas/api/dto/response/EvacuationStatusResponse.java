@@ -56,6 +56,14 @@ public class EvacuationStatusResponse {
         private String status;
         /** Inside a danger zone, so routes don't send people there. */
         private boolean inDangerZone;
+        /** safe | marginal | unsafe, from build_safe_areas.py (null if not rated). */
+        private String floodSafety;
+        /** Metres above the expected flood water. */
+        private Integer aboveFloodM;
+        /** "high_ground" assembly point or "shelter". */
+        private String kind;
+        /** Green safe-area outline for high-ground assembly points (GeoJSON). */
+        private String boundaryGeojson;
     }
 
     @Data

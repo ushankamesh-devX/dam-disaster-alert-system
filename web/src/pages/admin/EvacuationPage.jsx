@@ -15,7 +15,7 @@ import EvacuationService from '../../services/evacuation.service';
 import CommandCenterService from '../../services/commandCenter.service';
 import { MAP_OPTIONS, TILE_PROPS, SRI_LANKA_CENTER, loadMapDams } from '../../components/map/mapDefaults';
 import { MapBehavior, DamJumpControl } from '../../components/map/MapControls';
-import { BottleneckLayer, LayerToggles, ServicesLayer, ShelterLayer, SosLayer } from '../../components/evacuation/LiveLayers';
+import { BottleneckLayer, EvacuationRoutesLayer, LayerToggles, SafeAreasLayer, ServicesLayer, ShelterLayer, SosLayer } from '../../components/evacuation/LiveLayers';
 import { BroadcastDialog, SosQueue, Timeline } from '../../components/evacuation/LivePanels';
 import { PeoplePanel, PersonCard, ReplayBar, ShelterForecast, ZonesPanel } from '../../components/evacuation/AnalyticsPanels';
 import { EMPTY_FILTER, filterPeople } from '../../components/evacuation/peopleFilter';
@@ -111,7 +111,7 @@ export default function EvacuationPage() {
     const [live, setLive] = useState(false);
     const [error, setError] = useState('');
     const [layers, setLayers] = useState({
-        zones: true, water: true, river: false, people: true, trails: false, sos: true, shelters: true,
+        zones: true, water: true, safe: true, routes: true, river: false, people: true, trails: false, sos: true, shelters: true,
         services: true, bottlenecks: true, blocked: true,
     });
     const [tab, setTab] = useState('sos');
@@ -128,6 +128,7 @@ export default function EvacuationPage() {
     const [travelMode, setTravelMode] = useState('walk');
     const [testResult, setTestResult] = useState(null);
     const [packsMsg, setPacksMsg] = useState('');
+    const [packs, setPacks] = useState([]);           // marked evacuation routes
 
     // People every 5 s (smooth movement); everything else every 10 s
     const refreshPeople = useCallback(async () => {
@@ -146,7 +147,10 @@ export default function EvacuationPage() {
         const p = setInterval(refreshPeople, 5000);
         const a = setInterval(refreshAll, 10000);
         loadMapDams().then(setDams);
-        return () => { clearTimeout(first); clearInterval(p); clearInterval(a); };
+        const loadPacks = () => EvacuationService.packs().then(setPacks).catch(() => {});
+        loadPacks();
+        const r = setInterval(loadPacks, 60000);
+        return () => { clearTimeout(first); clearInterval(p); clearInterval(a); clearInterval(r); };
     }, [refreshPeople, refreshAll]);
 
     const zones = status?.dangerZones || [];
@@ -264,6 +268,8 @@ export default function EvacuationPage() {
                         <LayerToggles layers={layers} onChange={setLayers} />
                         <FlyTo target={flyTarget} />
 
+                        {layers.safe && <SafeAreasLayer shelters={shelters} />}
+                        {layers.routes && <EvacuationRoutesLayer packs={packs} mode={travelMode} />}
                         {layers.water && <WaterFlowLayer rivers={cc?.rivers || []} dams={dams} />}
                         {layers.river && <RiverFloodLayer rivers={cc?.rivers || []} />}
                         {layers.zones && <ZonesLayer zones={zones} watchZones={status?.watchZones} planningZones={status?.planningZones} timing={zoneTiming} />}
@@ -295,7 +301,9 @@ export default function EvacuationPage() {
                         {Object.values(LEVEL_STYLE).map((lv) => <Legend key={lv.label} colour={lv.fill} round={false} label={lv.label} />)}
                         <Legend colour={FLOODED_STYLE.fill} round={false} label="Water arrived" />
                         <Legend colour="#1D4ED8" label="Water front" />
-                        <Legend colour="#16A34A" label="Shelter (ring = how full)" />
+                        <Legend colour="#16A34A" label="Shelter (ring = how full, ▲ m above flood)" />
+                        <Legend colour="#22C55E" round={false} label="Safe high ground" />
+                        <Legend colour="#15803D" label="Assembly point / evacuation route" />
                         <Legend colour="#EF4444" label="Crowded road" />
                         <span>Shield / cross = police / hospital (map only)</span>
                     </div>

@@ -75,6 +75,18 @@ export function shelterIcon(occupancy, capacity, unusable) {
     });
 }
 
+/** High-ground assembly point: green mountain with a flag. */
+export function assemblyIcon() {
+    return cached('a', () => L.divIcon({
+        className: 'ddas-shelter',
+        html: `<svg width="34" height="34" viewBox="0 0 34 34" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))">
+            <circle cx="17" cy="17" r="15" fill="#15803D" stroke="#fff" stroke-width="2"/>
+            <path d="M7 24 14 13l3.5 5 2.5-3.5L27 24Z" fill="#fff"/>
+            <path d="M20 7v8" stroke="#fff" stroke-width="1.6"/><path d="M20 7h5l-1.3 1.8L25 10.6h-5Z" fill="#FDE047"/></svg>`,
+        iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -16],
+    }));
+}
+
 const SERVICE_GLYPH = {
     police: { color: '#1E40AF', path: 'M12 3 19 5.6v5.3c0 4.4-3 7.6-7 9.1-4-1.5-7-4.7-7-9.1V5.6Z', inner: 'M12 7.6 13.1 10h2.6l-2.1 1.6.8 2.6L12 12.7l-2.4 1.5.8-2.6L8.3 10h2.6Z' },
     hospital: { color: '#DC2626', path: 'M4 4h16v16H4Z', inner: 'M10.5 7h3v3.5H17v3h-3.5V17h-3v-3.5H7v-3h3.5Z' },

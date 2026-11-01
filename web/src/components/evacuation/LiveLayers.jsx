@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { Circle, Marker, Popup, Tooltip } from 'react-leaflet';
+import { Fragment, useEffect, useRef } from 'react';
+import { Circle, GeoJSON, Marker, Polyline, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { Switch } from '@/components/ui/switch';
 import { serviceStyle } from './serviceStyles';
-import { serviceIcon, shelterIcon, sosIcon } from './mapIcons';
+import { assemblyIcon, serviceIcon, shelterIcon, sosIcon } from './mapIcons';
 
 // Map layers for the evacuation command center (people are in MovingPeopleLayer).
 
@@ -31,20 +31,61 @@ export function ServicesLayer({ services }) {
     });
 }
 
+const SAFETY_TEXT = { safe: 'Safe high ground', marginal: 'Marginal: used only if nothing higher is reachable', unsafe: 'Below the flood water: not used' };
+
 export function ShelterLayer({ shelters, forecast }) {
     const byId = new Map((forecast || []).map((f) => [f.id, f]));
     return shelters.map((s) => {
         const f = byId.get(s.id);
-        const unusable = s.inDangerZone || s.status === 'closed' || s.status === 'inactive';
+        const highGround = s.kind === 'high_ground';
+        const unusable = s.inDangerZone || s.status === 'closed' || s.status === 'inactive' || s.floodSafety === 'unsafe';
         return (
-            <Marker key={`h-${s.id}`} position={[s.lat, s.lng]} icon={shelterIcon(s.occupancy, s.capacity, unusable)} zIndexOffset={1000}>
+            <Marker key={`h-${s.id}`} position={[s.lat, s.lng]} zIndexOffset={highGround ? 1200 : 1000}
+                icon={highGround ? assemblyIcon() : shelterIcon(s.occupancy, s.capacity, unusable)}>
                 <Popup>
                     <strong>{s.name}</strong><br />
+                    {s.aboveFloodM != null && <>{s.aboveFloodM >= 0 ? '▲' : '▼'} {Math.abs(s.aboveFloodM)} m {s.aboveFloodM >= 0 ? 'above' : 'below'} the expected flood<br /></>}
+                    {s.floodSafety && <>{SAFETY_TEXT[s.floodSafety]}<br /></>}
                     {s.capacity ? `${s.occupancy ?? 0} / ${s.capacity} people` : 'Capacity unknown'}<br />
-                    {unusable ? 'Inside a danger zone — not used'
+                    {s.inDangerZone ? 'Inside a danger zone — not used'
                         : f?.incoming ? `+${f.incoming} on the way${f.willFill ? ' · will fill' : ''}` : 'Nobody on the way'}
                 </Popup>
+                {s.aboveFloodM != null && !unusable && (
+                    <Tooltip direction="bottom" offset={[0, 14]} permanent className="ddas-height-tag">▲ {s.aboveFloodM} m</Tooltip>
+                )}
             </Marker>
+        );
+    });
+}
+
+function parseGeo(text) {
+    try { return typeof text === 'string' ? JSON.parse(text) : text; } catch { return null; }
+}
+
+/** Green "safe high ground" areas around the assembly points. */
+export function SafeAreasLayer({ shelters }) {
+    return shelters.filter((s) => s.kind === 'high_ground' && s.boundaryGeojson).map((s) => {
+        const geo = parseGeo(s.boundaryGeojson);
+        return geo && (
+            <GeoJSON key={`safe-${s.id}`} data={geo}
+                style={{ color: '#15803D', weight: 1.5, fillColor: '#22C55E', fillOpacity: 0.28 }}>
+                <Tooltip sticky>Safe high ground · {s.name}{s.aboveFloodM != null ? ` · +${s.aboveFloodM} m above flood` : ''}</Tooltip>
+            </GeoJSON>
+        );
+    });
+}
+
+/** Marked evacuation routes (offline route packs): green road lines with moving arrows towards safety. */
+export function EvacuationRoutesLayer({ packs, mode = 'walk' }) {
+    return packs.filter((p) => p.mode === mode && p.route?.route?.coordinates?.length > 1).map((p) => {
+        const pts = p.route.route.coordinates.map(([lng, lat]) => [lat, lng]);
+        return (
+            <Fragment key={`route-${p.zoneId}-${p.mode}`}>
+                <Polyline positions={pts} interactive={false} pathOptions={{ color: '#15803D', weight: 6, opacity: 0.8, lineCap: 'round' }} />
+                <Polyline positions={pts} pathOptions={{ color: '#fff', weight: 2, opacity: 0.95, dashArray: '1 9', lineCap: 'round', className: 'ddas-flow' }}>
+                    <Tooltip sticky>Evacuation route ({p.mode === 'drive' ? 'driving' : 'walking'}) to {p.route.shelter?.name} · {p.route.distanceKm} km</Tooltip>
+                </Polyline>
+            </Fragment>
         );
     });
 }
@@ -59,8 +100,8 @@ export function BottleneckLayer({ bottlenecks }) {
 }
 
 const LAYERS = [
-    ['zones', 'Danger zones'], ['water', 'Water flow'], ['river', 'River timing labels'], ['people', 'People'],
-    ['trails', 'Movement trails'], ['sos', 'SOS'], ['shelters', 'Shelters'], ['services', 'Police & hospitals'],
+    ['zones', 'Danger zones'], ['water', 'Water flow'], ['safe', 'Safe high ground'], ['routes', 'Evacuation routes'],
+    ['river', 'River timing labels'], ['people', 'People'], ['trails', 'Movement trails'], ['sos', 'SOS'], ['shelters', 'Shelters'], ['services', 'Police & hospitals'],
     ['bottlenecks', 'Crowded roads'], ['blocked', 'Blocked roads'],
 ];
 

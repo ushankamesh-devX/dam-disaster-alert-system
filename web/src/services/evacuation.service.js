@@ -55,6 +55,11 @@ const EvacuationService = {
         await apiClient.delete(`/api/v1/blocked-roads/${id}`);
     },
 
+    /** Offline route packs = marked evacuation routes: [{ zoneId, mode, computedAt, route }] */
+    packs() {
+        return publicJson('/packs');
+    },
+
     async rebuildPacks() {
         const res = await apiClient.post('/api/v1/blocked-roads/rebuild-packs');
         return res.data;

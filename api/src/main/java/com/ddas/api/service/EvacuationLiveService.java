@@ -34,6 +34,7 @@ public class EvacuationLiveService {
     private final BlockedRoadRepository blockedRoadRepository;
     private final EvacuationDeviceRepository deviceRepository;
     private final com.ddas.api.repository.DamHazardZoneRepository hazardZoneRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -118,10 +119,17 @@ public class EvacuationLiveService {
                 .build();
     }
 
-    private static EvacuationStatusResponse.Shelter toShelter(SystemSafeLocation s,
-                                                             List<EvacuationRouteService.ZoneShape> zones) {
+    private EvacuationStatusResponse.Shelter toShelter(SystemSafeLocation s,
+                                                      List<EvacuationRouteService.ZoneShape> zones) {
         double lat = s.getLatitude().doubleValue();
         double lng = s.getLongitude().doubleValue();
+        com.fasterxml.jackson.databind.JsonNode a = null;
+        try {
+            if (s.getAmenities() != null && !s.getAmenities().isBlank()) a = objectMapper.readTree(s.getAmenities());
+        } catch (Exception ignored) {
+            // amenities is free-form JSON; an unreadable value just means "not rated"
+        }
+        boolean rated = a != null && a.isObject();
         return EvacuationStatusResponse.Shelter.builder()
                 .id(s.getId())
                 .name(s.getName())
@@ -131,6 +139,10 @@ public class EvacuationLiveService {
                 .occupancy(s.getCurrentOccupancy())
                 .status(s.getStatus() == null ? null : s.getStatus().name())
                 .inDangerZone(zones.stream().anyMatch(z -> z.contains(lat, lng)))
+                .floodSafety(rated && a.hasNonNull("floodSafety") ? a.get("floodSafety").asText() : null)
+                .aboveFloodM(rated && a.hasNonNull("aboveFloodM") ? a.get("aboveFloodM").asInt() : null)
+                .kind(rated && a.hasNonNull("kind") ? a.get("kind").asText() : "shelter")
+                .boundaryGeojson(s.getBoundaryGeojson())
                 .build();
     }
 

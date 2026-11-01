@@ -285,6 +285,12 @@ public class HazardAssessmentService {
      */
     private String composeSmsMessage(Alert alert, User user) {
         String name = user.getFullName() != null ? user.getFullName().split(" ")[0] : "Resident";
+        // Alerts written on the dashboard carry their own message; send that
+        if (alert.getTitle() == null || !alert.getTitle().contains("High Water Level")) {
+            String text = String.format("[DDAS ALERT] Dear %s, %s. %s Helpline: 117", name,
+                    alert.getTitle(), alert.getMessage() == null ? "" : alert.getMessage().trim());
+            return text.length() > 300 ? text.substring(0, 297) + "..." : text;
+        }
         return String.format(
                 "[DDAS ALERT] Dear %s, %s Danger level exceeded. Please evacuate immediately. Helpline: 1990",
                 name,

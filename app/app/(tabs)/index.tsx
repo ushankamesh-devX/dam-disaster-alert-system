@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Linking, RefreshControl, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Href, useRouter } from 'expo-router';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { FloodRiskMap } from '@/components/pages/Dashboard/FloodRiskMap';
 import { QuickActions } from '@/components/pages/Dashboard/QuickActions';
@@ -65,6 +66,16 @@ export default function HomeScreen() {
           onShareLocation={handleShareLocation}
           onEmergencyContact={handleEmergencyContact}
         />
+
+        <Pressable onPress={() => router.push('/assistant' as Href)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 120, padding: 16, borderRadius: 20, backgroundColor: '#0F766E' }}>
+          <MaterialCommunityIcons name="robot-happy-outline" size={30} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Ask DDAS AI</Text>
+            <Text style={{ color: '#CCFBF1', fontSize: 12 }}>Is my dam safe? What should I do?</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
+        </Pressable>
 
         {/* <Text className="text-gray-600 text-base mt-6 px-4 mb-6">
           Welcome to the Dam Disaster Alert System. Monitor water levels and receive real-time alerts.

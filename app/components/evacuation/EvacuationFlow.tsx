@@ -159,7 +159,7 @@ export function EvacuationFlow() {
 
   const loadSos = useCallback(() => evacuationService.mySos().then(setSos).catch(() => undefined), []);
   useEffect(() => {
-    ensureAuth().then(loadSos);
+    ensureAuth().then(loadSos).catch(() => undefined);
   }, [loadSos]);
   useEffect(() => {
     if (!openSos) return;

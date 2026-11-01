@@ -30,6 +30,7 @@ function RootNavigator() {
           <Stack.Protected guard={ready}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="settings" />
+            <Stack.Screen name="assistant" />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack.Protected>
           <Stack.Screen name="onboarding" />

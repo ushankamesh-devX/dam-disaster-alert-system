@@ -96,19 +96,34 @@ public class CommandCenterService {
         return out;
     }
 
-    /** Last 40 things that happened, newest first. */
+    private static final String RECENT = " > NOW() - INTERVAL 24 HOUR";
+
+    /**
+     * Last 40 things that happened, newest first. One query per source, merged here: the tables
+     * use different text collations, so a single SQL UNION fails with "Illegal mix of collations".
+     * Never fails the snapshot; on error the timeline is just empty.
+     */
     private List<Map<String, Object>> timeline() {
-        return jdbc.queryForList(
-                "SELECT * FROM (" +
-                " SELECT created_at ts, 'alert' kind, title text, severity detail FROM alerts" +
-                " UNION ALL SELECT e.triggered_at, 'sos', CONCAT('SOS: ', t.name), u.full_name FROM sos_events e" +
-                "   JOIN sos_event_types t ON t.id = e.sos_type_id JOIN users u ON u.id = e.user_id" +
-                " UNION ALL SELECT e.responding_at, 'sos_assigned', COALESCE(e.response_notes, 'Responder assigned'), t.name FROM sos_events e" +
-                "   JOIN sos_event_types t ON t.id = e.sos_type_id WHERE e.responding_at IS NOT NULL" +
-                " UNION ALL SELECT e.resolved_at, 'sos_resolved', CONCAT('SOS resolved: ', t.name), e.resolution_notes FROM sos_events e" +
-                "   JOIN sos_event_types t ON t.id = e.sos_type_id WHERE e.resolved_at IS NOT NULL" +
-                " UNION ALL SELECT created_at, 'blocked', CONCAT('Road blocked: ', name), reason FROM blocked_roads" +
-                ") x WHERE ts > NOW() - INTERVAL 24 HOUR ORDER BY ts DESC LIMIT 40");
+        String[] sources = {
+                "SELECT created_at ts, 'alert' kind, title text, severity detail FROM alerts WHERE created_at" + RECENT,
+                "SELECT e.triggered_at ts, 'sos' kind, CONCAT('SOS: ', t.name) text, u.full_name detail FROM sos_events e " +
+                        "JOIN sos_event_types t ON t.id = e.sos_type_id JOIN users u ON u.id = e.user_id WHERE e.triggered_at" + RECENT,
+                "SELECT e.responding_at ts, 'sos_assigned' kind, COALESCE(e.response_notes, 'Responder assigned') text, t.name detail " +
+                        "FROM sos_events e JOIN sos_event_types t ON t.id = e.sos_type_id WHERE e.responding_at" + RECENT,
+                "SELECT e.resolved_at ts, 'sos_resolved' kind, CONCAT('SOS resolved: ', t.name) text, e.resolution_notes detail " +
+                        "FROM sos_events e JOIN sos_event_types t ON t.id = e.sos_type_id WHERE e.resolved_at" + RECENT,
+                "SELECT created_at ts, 'blocked' kind, CONCAT('Road blocked: ', name) text, reason detail FROM blocked_roads WHERE created_at" + RECENT,
+        };
+        List<Map<String, Object>> all = new ArrayList<>();
+        for (String sql : sources) {
+            try {
+                all.addAll(jdbc.queryForList(sql + " ORDER BY ts DESC LIMIT 40"));
+            } catch (Exception e) {
+                // One broken source must not hide the rest of the command center
+            }
+        }
+        all.sort(Comparator.comparing((Map<String, Object> m) -> String.valueOf(m.get("ts"))).reversed());
+        return all.size() > 40 ? all.subList(0, 40) : all;
     }
 
     @Transactional

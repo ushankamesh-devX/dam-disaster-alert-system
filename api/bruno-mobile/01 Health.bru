@@ -1,0 +1,19 @@
+meta {
+  name: Health
+  type: http
+  seq: 1
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("API is UP", function () { expect(res.getBody().data.status).to.equal("UP"); });
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Dam Hazard Zones
+  type: http
+  seq: 15
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/{{damId}}/hazard-zones/active
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

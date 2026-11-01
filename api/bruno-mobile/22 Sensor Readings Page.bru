@@ -1,0 +1,19 @@
+meta {
+  name: Sensor Readings Page
+  type: http
+  seq: 22
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/sensors/{{sensorId}}/readings?page=0&size=20
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+
+}

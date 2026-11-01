@@ -10,6 +10,18 @@ FastAPI + Uvicorn; uv dependency management; Python 3.12; app version `0.1.0`.
 
 ## Run
 
+### Docker dependencies with host Spring Boot
+
+- Run `api/scripts/start-local.ps1` from PowerShell.
+- Spring runs at `localhost:8080`; AI remains in Docker at `localhost:8000`.
+- `api/docker-compose.host.yml` connects AI to `host.docker.internal:8080/api/v1/internal/ml`.
+- Both service tokens come from `api/.env`; model/artifact state uses the `ai-artifacts` volume.
+- Optional `ai/.env` supplies provider settings such as `DDAS_AI_GEMINI_API_KEY`; Compose overrides network addresses and service tokens.
+- The image creates a writable artifact directory for its non-root user.
+- Existing database volumes are preserved. Published forecasts require an active model release and suitable input data.
+
+### Standalone AI development
+
 From `ai/`, with uv installed:
 
 ```powershell

@@ -27,6 +27,8 @@ public class UserResponse {
     private BigDecimal lastKnownLatitude;
     private BigDecimal lastKnownLongitude;
     private LocalDateTime lastLocationUpdate;
+    private Long preferredDamId;
+    private LocalDateTime onboardingCompletedAt;
     private LocalDateTime emailVerifiedAt;
     private LocalDateTime phoneVerifiedAt;
     private LocalDateTime lastLoginAt;

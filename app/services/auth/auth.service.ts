@@ -1,9 +1,22 @@
 import { axiosInstance, ENDPOINTS, tokenStorage } from "../api";
+import type { UserProfile } from '@/models/user';
+
+interface AuthResult { success: boolean; data: { token: string; user: UserProfile } }
+
+async function authenticate(path: string, data: LoginPayload | RegisterPayload) {
+  const response = await axiosInstance.post<AuthResult>(path, data);
+  const token = response.data.data?.token;
+  if (!token || !response.data.data.user) throw new Error('The server returned an incomplete sign-in response.');
+  await tokenStorage.set(token);
+  return response;
+}
 
 export interface RegisterPayload {
-  name: string;
+  fullName: string;
   email: string;
   password: string;
+  phoneNumber?: string;
+  languagePreference?: string;
 }
 
 export interface LoginPayload {
@@ -13,19 +26,9 @@ export interface LoginPayload {
 
 export const authService = {
   register: (data: RegisterPayload) =>
-    axiosInstance.post(ENDPOINTS.AUTH.REGISTER, data),
+    authenticate(ENDPOINTS.AUTH.REGISTER, data),
 
-  login: async (data: LoginPayload) => {
-    const response = await axiosInstance.post(ENDPOINTS.AUTH.LOGIN, data);
-    const token: string =
-      response.data?.token ||
-      response.data?.accessToken ||
-      response.data?.data?.token;
-    if (token) {
-      await tokenStorage.set(token);
-    }
-    return response;
-  },
+  login: (data: LoginPayload) => authenticate(ENDPOINTS.AUTH.LOGIN, data),
 
   logout: async () => {
     await tokenStorage.clear();

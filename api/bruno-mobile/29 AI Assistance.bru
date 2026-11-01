@@ -1,0 +1,29 @@
+meta {
+  name: AI Assistance
+  type: http
+  seq: 29
+  tags: [
+    ai
+  ]
+}
+
+post {
+  url: {{baseUrl}}/ai/chat
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+body:json {
+  {
+    "query": "Summarize the available dam data and cite sources.",
+    "dam_id": "{{damId}}"
+  }
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("Grounded answer structure", function () { const result=res.getBody().data; expect(result.answer).to.be.a("string"); expect(result.sources).to.be.an("array"); });
+}

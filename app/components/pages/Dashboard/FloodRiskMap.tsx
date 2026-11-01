@@ -7,6 +7,7 @@ import { hazardZoneService } from '@/services/hazard/hazard-zone.service';
 import { damService } from '@/services/dams/dam.service';
 import { LiveHazardMapView } from '@/components/pages/Hazardmap/LiveHazardMapView';
 import { pickDisplayedDam } from '@/services/dams/display-dam';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HazardLevel {
   level: string;
@@ -23,36 +24,24 @@ interface FloodRiskMapProps {
   onMapTouchEnd?: () => void;
 }
 
-const DEFAULT_HAZARD_LEVELS: HazardLevel[] = [
-  {
-    level: '01',
-    label: 'Hazard Level 01',
-    description: 'Dam to 1km downstream',
-    color: Colors.light.success, // Green
-  },
-  {
-    level: '02',
-    label: 'Hazard Level 02',
-    description: 'Dam to 1km downstream',
-    color: Colors.light.warning, // Orange/Yellow
-  },
-];
-
 export function FloodRiskMap({
   title,
-  hazardLevels = DEFAULT_HAZARD_LEVELS,
+  hazardLevels = [],
   onViewFullMap,
   onMapTouchStart,
   onMapTouchEnd,
 }: FloodRiskMapProps) {
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [apiLevels, setLevels] = useState<HazardLevel[] | null>(null);
   const levels = apiLevels ?? hazardLevels;
   const [previewDamId, setPreviewDamId] = useState<string>();
+  const [zoneState, setZoneState] = useState('loading');
   // If title prop is provided, use it, otherwise use translation
   const displayTitle = title || t('flood_risk_map');
 
   useEffect(() => {
+    let cancelled = false;
     const fetchHazardZones = async () => {
       try {
         const damsRes = await damService.getActive();
@@ -60,18 +49,20 @@ export function FloodRiskMap({
           ? damsRes.data
           : (damsRes.data?.data ?? damsRes.data?.content ?? []);
 
-        if (dams.length === 0) return;
-        const selectedDam = pickDisplayedDam(dams)!;
+        if (dams.length === 0) throw new Error('Dam unavailable');
+        const selectedDam = pickDisplayedDam(dams, user?.preferredDamId);
+        if (!selectedDam) throw new Error('Dam unavailable');
         const damId = String(selectedDam.id ?? selectedDam.damId ?? '');
-        if (!damId) return;
-        setPreviewDamId(damId);
+        if (!damId) throw new Error('Dam unavailable');
+        if (!cancelled) setPreviewDamId(damId);
 
         const zonesRes = await hazardZoneService.getActiveByDam(damId);
         const rawZones: Record<string, unknown>[] = Array.isArray(zonesRes.data)
           ? zonesRes.data
           : (zonesRes.data?.data ?? []);
 
-        if (rawZones.length > 0) {
+        if (!cancelled) setZoneState(rawZones.length ? 'ready' : 'empty');
+        if (!cancelled && rawZones.length > 0) {
           setLevels(rawZones.map((zone, i) => {
             const hazardLevel = (zone.hazardLevel ?? {}) as Record<string, unknown>;
             return {
@@ -83,12 +74,13 @@ export function FloodRiskMap({
           }).sort((a, b) => Number(a.level) - Number(b.level)));
         }
       } catch {
-        // keep current levels on error
+        if (!cancelled) setZoneState('failed');
       }
     };
 
     fetchHazardZones();
-  }, []);
+    return () => { cancelled = true; };
+  }, [user?.preferredDamId]);
 
   return (
     <View style={{ marginTop: 24, marginBottom: 16 }}>
@@ -106,7 +98,7 @@ export function FloodRiskMap({
           onTouchEnd={onMapTouchEnd}
           onTouchCancel={onMapTouchEnd}
         >
-          <LiveHazardMapView mode="zones" focusDamId={previewDamId} />
+          <LiveHazardMapView mode="zones" focusDamId={previewDamId ?? String(user?.preferredDamId ?? '')} />
         </View>
 
         {/* Interactive Map View Details Section */}
@@ -117,6 +109,7 @@ export function FloodRiskMap({
 
           {/* Hazard Levels */}
           <View className="space-y-2 border p-3 rounded-lg border-gray-200">
+            {zoneState !== 'ready' && <Text className="text-gray-600 text-sm">{zoneState === 'loading' ? 'Loading hazard zones…' : zoneState === 'failed' ? 'Hazard zones unavailable. Open the full map to try again.' : 'No hazard zones are published for this dam.'}</Text>}
             {levels.map((hazard, index) => (
               <View key={index} className="flex-row items-start mb-2">
                 {/* Color Indicator */}

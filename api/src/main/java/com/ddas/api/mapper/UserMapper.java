@@ -32,6 +32,8 @@ public class UserMapper {
                 .lastKnownLatitude(user.getLastKnownLatitude())
                 .lastKnownLongitude(user.getLastKnownLongitude())
                 .lastLocationUpdate(user.getLastLocationUpdate())
+                .preferredDamId(user.getPreferredDam() != null ? user.getPreferredDam().getId() : null)
+                .onboardingCompletedAt(user.getOnboardingCompletedAt())
                 .emailVerifiedAt(user.getEmailVerifiedAt())
                 .phoneVerifiedAt(user.getPhoneVerifiedAt())
                 .lastLoginAt(user.getLastLoginAt())

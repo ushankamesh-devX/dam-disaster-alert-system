@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,19 +9,24 @@ import Animated, {
 } from 'react-native-reanimated';
 
 interface HazardCardProps {
-  level: number; // 0 to 100 representing the gauge percentage
+  level: number | null; // Water-level percentage; null means no measurement.
   hazardValue: string;
+  title?: string;
+  subtitle?: string;
+  status?: string;
+  statusLabel?: string;
+  children?: React.ReactNode;
 }
 
-export function HazardCard({ level = 75, hazardValue = ">1.2 m²s" }: HazardCardProps) {
-  const { t } = useTranslation();
+export function HazardCard({ level = null, hazardValue = 'Unavailable', title = 'Flood hazard', subtitle = 'Latest recorded status', status = 'unavailable', statusLabel = 'Unavailable', children }: HazardCardProps) {
+  const elevated = ['high', 'severe', 'critical', 'emergency'].includes(status);
   const rotation = useSharedValue(-90); // Start at left (-90deg)
 
   useEffect(() => {
     // Map level (0-100) to degrees (-90 to 90)
-    const targetRotation = -90 + (level / 100) * 180;
+    const targetRotation = -90 + (Math.max(0, Math.min(100, level ?? 0)) / 100) * 180;
     rotation.value = withTiming(targetRotation, { duration: 1000, easing: Easing.out(Easing.exp) });
-  }, [level]);
+  }, [level, rotation]);
 
   const animatedNeedleStyle = useAnimatedStyle(() => {
     return {
@@ -33,15 +37,18 @@ export function HazardCard({ level = 75, hazardValue = ">1.2 m²s" }: HazardCard
   });
 
   return (
-    <View className="bg-[#5D2E2E] rounded-3xl mx- mt- overflow-hidden shadow-lg border border-[#7D3E3E]">
+    <View style={{ backgroundColor: ['high', 'severe', 'critical', 'emergency'].includes(status) ? '#5D2E2E' : '#455A64', borderColor: ['high', 'severe', 'critical', 'emergency'].includes(status) ? '#7D3E3E' : '#627780' }} className="rounded-3xl overflow-hidden shadow-lg border">
       {/* Header Section */}
       <View className="flex-row items-center p-4 pb-3">
         <View className="mr-3">
           <MaterialCommunityIcons name="bullhorn-outline" size={32} color="white" style={{ transform: [{ rotate: '-15deg' }] }} />
         </View>
-        <View>
-          <Text className="text-white text-xl font-bold tracking-wide">{t('severe_flood_hazard')}</Text>
-          <Text className="text-gray-200 text-sm">{t('immediate_evacuation')}</Text>
+        <View className="flex-1">
+          <Text className="text-white text-xl font-bold tracking-wide">{title}</Text>
+          <Text className="text-gray-200 text-sm">{subtitle}</Text>
+        </View>
+        <View style={{ backgroundColor: 'rgba(255,255,255,0.16)' }} className="rounded-full px-3 py-2 ml-2">
+          <Text className="text-white text-xs font-bold">{statusLabel}</Text>
         </View>
       </View>
 
@@ -52,7 +59,7 @@ export function HazardCard({ level = 75, hazardValue = ">1.2 m²s" }: HazardCard
       <View className="flex-row items-center justify-between p-4 pt-6 pb-8">
         {/* Left Icon */}
         <View className="w-1/4 items-center">
-          <MaterialCommunityIcons name="alert-outline" size={32} color="white" />
+          <MaterialCommunityIcons name={elevated ? 'alert-outline' : status === 'safe' ? 'shield-check-outline' : status === 'unavailable' ? 'help-circle-outline' : 'information-outline'} size={32} color="white" />
         </View>
 
         {/* Center Gauge */}
@@ -81,6 +88,7 @@ export function HazardCard({ level = 75, hazardValue = ">1.2 m²s" }: HazardCard
                 alignItems: 'center',
                 justifyContent: 'center', // Center pivot
                 position: 'absolute',
+                opacity: level == null ? 0 : 1,
               },
               animatedNeedleStyle
             ]}>
@@ -114,10 +122,11 @@ export function HazardCard({ level = 75, hazardValue = ">1.2 m²s" }: HazardCard
 
         {/* Right Text */}
         <View className="w-1/4 pl-2">
-          <Text className="text-white text-xs font-medium">{t('hazard_level_label')}</Text>
+          <Text className="text-white text-xs font-medium">Water level</Text>
           <Text className="text-[#9ACD32] text-lg font-bold">{hazardValue}</Text>
         </View>
       </View>
+      {children}
     </View>
   );
 }

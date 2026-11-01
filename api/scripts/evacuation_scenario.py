@@ -159,10 +159,13 @@ def route(url, r):
         log(f'  route failed for {r.name}: {e}')
         return False
     shelter = data.get('shelter') or {}
-    coords = (data.get('route') or {}).get('coordinates') or [r.pos, [shelter.get('lng'), shelter.get('lat')]]
-    if None in coords[-1]:
-        return False
-    r.path, r.step, r.shelter_id = [r.pos] + coords, 0, shelter.get('id')
+    coords = (data.get('route') or {}).get('coordinates')
+    if not coords or len(coords) < 2:
+        return False        # no road route: wait and retry, never cut across country
+    # Start where the road route starts (the person's home is next to that road; cars are parked on it)
+    if metres(r.pos, coords[0]) < 2500:
+        r.pos = list(coords[0])
+    r.path, r.step, r.shelter_id = coords, 0, shelter.get('id')
     return True
 
 
@@ -268,7 +271,7 @@ def run(args):
 
     log('Getting evacuation routes ...')
     with ThreadPoolExecutor(8) as pool:
-        ok = sum(pool.map(lambda r: route(args.url, r), [r for r in residents if r.dam['active']]))
+        ok = sum(pool.map(lambda r: route(args.url, r), residents))   # also puts everyone on a road
     log(f'{ok} routes found. Departures are spread out; clock x{args.speedup}. '
         f'{sum(r.behaviour == "late" for r in residents)} will leave late, {sum(r.behaviour == "stay" for r in residents)} stay at home')
 
@@ -325,19 +328,16 @@ def run(args):
             r.slowdown = 0.35 if r.mode == 'drive' and crowd.get((round(r.pos[0] / 0.0015), round(r.pos[1] / 0.0015)), 0) >= 5 else 1.0
 
         for r in residents:
+            if r.state == 'waiting' and t >= r.depart_at and not r.path and t - getattr(r, 'last_try', -99) >= 30:
+                r.last_try = t          # no road route yet: try again every 30 s (never cut across country)
+                route(args.url, r)
             if r.state == 'waiting' and t >= r.depart_at and r.path:
                 if r.behaviour == 'wrong_way':
-                    r.state, r.detour_until = 'detour', t + rng.uniform(25, 45)
-                    log(f'{r.name} heads the wrong way first')
+                    # Hesitates by the road (unsure where to go), then leaves along the route
+                    r.state, r.resume_at = 'paused', t + rng.uniform(25, 45)
+                    r.behaviour = 'normal'
+                    log(f'{r.name} hesitates before leaving')
                 else:
-                    r.state = 'moving'
-            elif r.state == 'detour':
-                # Walk away from the route, then ask for a new one from where they are
-                away = [2 * r.pos[0] - r.path[min(3, len(r.path) - 1)][0], 2 * r.pos[1] - r.path[min(3, len(r.path) - 1)][1]]
-                r.path, r.step = [r.pos, away], 0
-                r.advance(r.speed(args.speedup) * TICK * 0.5)
-                if t >= r.detour_until:
-                    route(args.url, r)
                     r.state = 'moving'
             elif r.state == 'paused' and t >= r.resume_at:
                 r.state = 'moving'

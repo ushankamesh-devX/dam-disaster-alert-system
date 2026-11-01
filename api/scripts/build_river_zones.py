@@ -29,6 +29,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from seed_demo import docker, quote, records, sql  # noqa: E402
 from cleanup_demo_data import Plan, columns, foreign_keys  # noqa: E402
+import csv  # noqa: E402
+
+csv.field_size_limit(2**31 - 1)   # OSM reservoir outlines are larger than the default 128 KB per field
 
 # level, from km, to km, water rise at start (m), at end (m), max half-width (m), water arrives (min), fill, stroke, opacity, name
 LEVELS = [

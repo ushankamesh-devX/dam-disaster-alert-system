@@ -98,11 +98,10 @@ export function CustomSmsButton({ enabled, alerts = [] }) {
 
     return (
         <>
-            <button type="button" onClick={() => setOpen(true)} disabled={!enabled}
-                title={enabled ? 'Write and send an SMS now' : 'Turn SMS on first'}
-                className="text-xs text-gray-600 hover:text-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
-                Send SMS
-            </button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}
+                title={enabled ? 'Write and send an SMS now' : 'Turn the SMS switch on to send'}>
+                ✉ Send SMS
+            </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>

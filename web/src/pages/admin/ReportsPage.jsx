@@ -1,13 +1,14 @@
 import SymbolIcon from '../../components/ui/SymbolIcon';
 import { Paper, Typography, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { StatusChip as Badge, LoadingSkeleton as Skeleton, TextareaField as Textarea, Field as SelectField, AppDialog, AppButton, AppSelect } from '../../components/ui/controls';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
     getReports, getReportStats, updateReportStatus,
     assignReport, deleteReport, getReportTypes
 } from '../../services/report.service';
 import { getAllUsersList } from '../../services/user.service';
+import ReportDetailDrawer from './ReportDetailDrawer';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -254,6 +255,10 @@ export default function ReportsPage() {
 
     const [activeTab, setActiveTab] = useState('reports'); // 'reports' | 'types'
 
+    // Detail Drawer
+    const [selectedReportId, setSelectedReportId] = useState(null);
+    const [detailRefreshTrigger, setDetailRefreshTrigger] = useState(0);
+
     // Modals
     const [updatingStatusFor, setUpdatingStatusFor] = useState(null);
     const [assigningFor, setAssigningFor] = useState(null);
@@ -299,8 +304,9 @@ export default function ReportsPage() {
 
     // Handlers
     const handleReportUpdated = (updated) => {
-        setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
+        setReports(prev => prev.map(r => r.id === updated.id ? { ...r, ...updated } : r));
         getReportStats().then(setStats).catch(() => {}); // Refresh stats
+        setDetailRefreshTrigger(prev => prev + 1);
     };
 
     const handleDelete = async () => {
@@ -308,6 +314,9 @@ export default function ReportsPage() {
             await deleteReport(deletingReport.id);
             toast.success('Report deleted');
             setReports(prev => prev.filter(r => r.id !== deletingReport.id));
+            if (selectedReportId === deletingReport?.id) {
+                setSelectedReportId(null);
+            }
             setTotal(t => t - 1);
             getReportStats().then(setStats).catch(() => {});
             setDeletingReport(null);
@@ -403,7 +412,8 @@ export default function ReportsPage() {
                                             <TableCell colSpan={7} className="py-16 text-center text-gray-400 text-sm">No reports found</TableCell>
                                         </TableRow>
                                     ) : reports.map(r => (
-                                        <TableRow key={r.id} className="hover:bg-gray-50/50 transition">
+                                        <TableRow key={r.id} onClick={() => setSelectedReportId(r.id)} className={`hover:bg-blue-50/40 cursor-pointer transition ${selectedReportId === r.id ? "bg-blue-50/60" : ""}`}>
+
                                             <TableCell className="px-4 py-3 font-mono text-xs text-gray-600">{r.reportNumber}</TableCell>
                                             <TableCell className="px-4 py-3 max-w-[200px]">
                                                 <p className="font-medium text-gray-900 truncate" title={r.title}>{r.title}</p>
@@ -427,10 +437,10 @@ export default function ReportsPage() {
                                                 {new Date(r.createdAt).toLocaleDateString()}
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-right">
-                                                <div className="flex justify-end items-center gap-2">
-                                                    <AppButton onClick={() => setUpdatingStatusFor(r)} className="hover:underline">Status</AppButton>
-                                                    <AppButton onClick={() => setAssigningFor(r)} className="hover:underline">Assign</AppButton>
-                                                    <AppButton onClick={() => setDeletingReport(r)} className="hover:underline">Del</AppButton>
+                                                <div className="flex justify-end items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                    <AppButton onClick={(e) => { e.stopPropagation(); setUpdatingStatusFor(r); }} className="hover:underline">Status</AppButton>
+                                                    <AppButton onClick={(e) => { e.stopPropagation(); setAssigningFor(r); }} className="hover:underline">Assign</AppButton>
+                                                    <AppButton onClick={(e) => { e.stopPropagation(); setDeletingReport(r); }} className="hover:underline">Del</AppButton>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -463,6 +473,15 @@ export default function ReportsPage() {
             {deletingReport && (
                 <DeleteModal title={deletingReport.reportNumber} onClose={() => setDeletingReport(null)} onConfirm={handleDelete} />
             )}
+
+            {/* Report Detail Drawer */}
+            <ReportDetailDrawer
+                reportId={selectedReportId}
+                onClose={() => setSelectedReportId(null)}
+                onOpenStatus={(rep) => setUpdatingStatusFor(rep)}
+                onOpenAssign={(rep) => setAssigningFor(rep)}
+                refreshTrigger={detailRefreshTrigger}
+            />
         </div>
     );
 }

@@ -24,6 +24,8 @@ public class ReportResponse {
     private Boolean isAnonymous;
     private Long userId;
     private String userName;
+    private String userEmail;
+    private String userPhone;
     private Long damId;
     private String damName;
     private Long reportTypeId;
@@ -42,7 +44,8 @@ public class ReportResponse {
     private String rejectionReason;
     @Builder.Default
     private List<ReportMediaResponse> media = new ArrayList<>();
+    @Builder.Default
+    private List<String> mediaUrls = new ArrayList<>();
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

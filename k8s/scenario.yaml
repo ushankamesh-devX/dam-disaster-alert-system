@@ -1,0 +1,103 @@
+# Evacuation scenario runner: the Start / Stop / Reset buttons on the evacuation page (Tools tab).
+# Uses the scripts uploaded to ~/api/scripts on the server (hostPath), so uploading a script is enough.
+# It may only exec into pods of the ddas namespace (MySQL), nothing else.
+#   kubectl apply -f k8s/scenario.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddas-scenario
+  namespace: ddas
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ddas-scenario
+  namespace: ddas
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ddas-scenario
+  namespace: ddas
+subjects:
+  - kind: ServiceAccount
+    name: ddas-scenario
+    namespace: ddas
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ddas-scenario
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddas-scenario
+  namespace: ddas
+spec:
+  replicas: 1          # one runner: one scenario at a time
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ddas-scenario
+  template:
+    metadata:
+      labels:
+        app: ddas-scenario
+    spec:
+      serviceAccountName: ddas-scenario
+      initContainers:
+        - name: kubectl
+          image: curlimages/curl:8.11.1
+          command: ["sh", "-c", "curl -fsSL -o /tools/kubectl https://dl.k8s.io/release/v1.31.4/bin/linux/amd64/kubectl && chmod +x /tools/kubectl"]
+          volumeMounts:
+            - { name: tools, mountPath: /tools }
+      containers:
+        - name: runner
+          image: python:3.12.7-alpine
+          workingDir: /app/scripts
+          command: ["python3", "-u", "/app/scripts/scenario_runner.py"]
+          ports:
+            - containerPort: 8090
+          env:
+            - { name: PATH, value: "/tools:/usr/local/bin:/usr/bin:/bin" }
+            - { name: HOME, value: "/state" }          # .ddas-scenario.json lives here (kept across restarts)
+            - { name: PYTHONDONTWRITEBYTECODE, value: "1" }
+            - { name: DDAS_API_URL, value: "http://api:8080" }
+            - name: DDAS_ADMIN_EMAIL
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: DDAS_ADMIN_EMAIL } }
+            - name: DDAS_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: DDAS_ADMIN_PASSWORD } }
+          volumeMounts:
+            - { name: scripts, mountPath: /app/scripts, readOnly: true }
+            - { name: tools, mountPath: /tools }
+            - { name: state, mountPath: /state }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+      volumes:
+        - name: scripts
+          hostPath: { path: /home/ubuntu/api/scripts, type: Directory }
+        - name: tools
+          emptyDir: {}
+        - name: state
+          hostPath: { path: /var/lib/ddas-scenario, type: DirectoryOrCreate }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddas-scenario
+  namespace: ddas
+spec:
+  selector:
+    app: ddas-scenario
+  ports:
+    - port: 8090
+      targetPort: 8090

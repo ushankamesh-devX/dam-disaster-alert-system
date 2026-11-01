@@ -105,6 +105,17 @@ public class SmsDispatcherService {
 
     // ── SMS Send Logic ─────────────────────────────────────────────────────────
 
+    /** Admin custom SMS: sends right away (no queue) and returns the gateway reference. */
+    public String sendNow(String to, String message) {
+        if (!smsEnabled) {
+            throw new com.ddas.api.exception.BadRequestException("SMS is disabled on the server (SMS_ENABLED=false).");
+        }
+        if (!smsControlService.isSendingAllowed()) {
+            throw new com.ddas.api.exception.BadRequestException("SMS sending is switched off. Turn it on first.");
+        }
+        return sendSms(to, message);
+    }
+
     /**
      * SMS provider ට අනුව appropriate gateway call කරයි.
      * @return Gateway SID or reference string

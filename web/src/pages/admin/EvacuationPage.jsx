@@ -23,6 +23,7 @@ import MovingPeopleLayer from '../../components/evacuation/MovingPeopleLayer';
 import RiverFloodLayer from '../../components/evacuation/RiverFloodLayer';
 import ZonesLayer from '../../components/evacuation/ZonesLayer';
 import WaterFlowLayer from '../../components/evacuation/WaterFlowLayer';
+import ScenarioPanel from '../../components/evacuation/ScenarioPanel';
 import { FLOODED_STYLE, LEVEL_STYLE } from '../../components/evacuation/zoneStyles';
 
 function parseGeo(text) {
@@ -343,6 +344,9 @@ export default function EvacuationPage() {
                             <Timeline items={cc?.timeline || []} />
                         </TabsContent>
                         <TabsContent value="tools" className="min-h-0 space-y-3 overflow-y-auto">
+                            <Panel title="Demo scenario">
+                                <ScenarioPanel />
+                            </Panel>
                             {draft && (
                                 <Panel title="New blocked road">
                                     <div className="space-y-1"><Label htmlFor="br-name">Name</Label>

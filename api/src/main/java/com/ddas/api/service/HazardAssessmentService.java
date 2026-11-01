@@ -182,12 +182,8 @@ public class HazardAssessmentService {
      */
     @Transactional
     public void queueSmsDeliveries(Alert alert, Long damId) {
-        // SMS credits are limited: nothing is queued until an admin turns sending on
-        if (!smsControlService.isSendingAllowed()) {
-            log.info("[SMS] Sending is switched off by admin — alert id={} not queued", alert.getId());
-            return;
-        }
-        queueSmsDeliveriesNow(alert);
+        // SMS credits are limited: alerts never send SMS by themselves. An admin sends them by hand.
+        log.info("[SMS] Automatic SMS is off — alert id={} not queued (send it from the admin panel)", alert.getId());
     }
 
     /** Admin "Send SMS" on one alert: queue it for every registered user with a phone number. */

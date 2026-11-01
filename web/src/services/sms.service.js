@@ -6,6 +6,13 @@ export const getSmsSettings = async () => (await apiClient.get('/api/v1/sms/sett
 export const setSmsSendingAllowed = async (sendingAllowed) =>
     (await apiClient.put('/api/v1/sms/settings', { sendingAllowed })).data;
 
+/** Registered users with a phone number: [{ id, name, phone (masked) }] */
+export const getSmsRecipients = async () => (await apiClient.get('/api/v1/sms/recipients')).data;
+
+/** Send a custom SMS now. Returns { sent: [names], failed: [names] }. */
+export const sendCustomSms = async (userIds, message) =>
+    (await apiClient.post('/api/v1/sms/send', { userIds, message })).data;
+
 /** Queue one alert's SMS for every registered user with a phone number. */
 export const sendAlertSms = async (alertId) =>
     (await apiClient.post(`/api/v1/sms/alerts/${alertId}/send`)).data;

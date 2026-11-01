@@ -11,7 +11,7 @@ import {
 } from '../../services/alertService';
 import { getAllDamsList } from '../../services/dam.service';
 import { getAllRegionsList } from '../../services/region.service';
-import { SmsSwitch, SendSmsButton } from '../../components/alerts/SmsSwitch';
+import { SmsSwitch, SendSmsButton, CustomSmsButton } from '../../components/alerts/SmsSwitch';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -623,6 +623,7 @@ export default function AlertsPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <SmsSwitch onChange={setSmsOn} />
+                    <CustomSmsButton enabled={smsOn} alerts={alerts} />
                     <AppButton variant="contained" onClick={() => setShowCreate(true)}
                         className="flex items-center gap-2">
                         <span className="text-base leading-none">+</span> Create Alert

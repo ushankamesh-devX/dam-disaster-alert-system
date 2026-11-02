@@ -220,9 +220,18 @@ public class DamForecastService {
                 .map(Dam::getId)
                 .findFirst()
                 .orElse(2L);
+        Long targetDamId = damId;
+        if (targetDamId == null) {
+            targetDamId = damRepository.findAll().stream()
+                    .filter(d -> Boolean.TRUE.equals(d.getIsMlEnabled()))
+                    .map(Dam::getId)
+                    .findFirst()
+                    .orElse(2L);
+        }
+        final Long finalDamId = targetDamId;
 
-        Dam dam = damRepository.findById(targetDamId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dam not found: " + targetDamId));
+        Dam dam = damRepository.findById(finalDamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dam not found: " + finalDamId));
 
         Sensor waterLevelSensor = sensorRepository.findByDamId(targetDamId).stream()
                 .filter(s -> s.getSensorType() != null && "WATER_LEVEL".equalsIgnoreCase(s.getSensorType().getCode()))

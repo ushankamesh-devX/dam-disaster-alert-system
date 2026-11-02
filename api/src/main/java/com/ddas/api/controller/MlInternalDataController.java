@@ -63,6 +63,13 @@ public class MlInternalDataController {
         return ResponseEntity.ok(mlInternalDataService.getDamOverflowConfig(id));
     }
 
+    @GetMapping("/dams/{id}/forecasts/latest")
+    public ResponseEntity<MlDataListResponse<MlForecastResponse>> getLatestDamForecasts(
+            @PathVariable("id") Long id
+    ) {
+        return ResponseEntity.ok(mlInternalDataService.getLatestDamForecasts(id));
+    }
+
     @GetMapping("/dams/{id}/forecasts")
     public ResponseEntity<MlCursorPageResponse<MlForecastResponse>> getDamForecasts(
             @PathVariable("id") Long id,

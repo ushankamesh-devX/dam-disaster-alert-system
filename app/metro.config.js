@@ -1,8 +1,11 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
 const http = require("node:http");
+const { installNativeWindChangeCompat } = require('./scripts/metro-nativewind-compat.cjs');
 
 const config = getDefaultConfig(__dirname);
+// Leave memory for the local API, Docker dependencies, and Android tooling.
+config.maxWorkers = 2;
 const existingEnhancer = config.server.enhanceMiddleware;
 // Expo's tunnel forwards both the bundle and authenticated local API requests.
 config.server.enhanceMiddleware = (middleware, server) => {
@@ -24,4 +27,13 @@ config.server.enhanceMiddleware = (middleware, server) => {
   };
 };
 
-module.exports = withNativeWind(config, { input: "./global.css" });
+const nativeWindConfig = withNativeWind(config, { input: "./global.css" });
+const nativeWindEnhancer = nativeWindConfig.server.enhanceMiddleware;
+nativeWindConfig.server.enhanceMiddleware = (middleware, server) => {
+  const ready = server.getBundler().getBundler().getDependencyGraph().then(graph => {
+    installNativeWindChangeCompat(graph._haste, nativeWindConfig.projectRoot);
+  });
+  const enhanced = nativeWindEnhancer(middleware, server);
+  return (req, res, next) => { ready.then(() => enhanced(req, res, next)).catch(next); };
+};
+module.exports = nativeWindConfig;

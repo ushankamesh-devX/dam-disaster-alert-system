@@ -1,0 +1,38 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+  tags: [
+    core
+  ]
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+body:json {
+  {
+    "email": "{{email}}",
+    "password": "{{password}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("email", bru.getEnvVar("email") || bru.getProcessEnv("DDAS_MOBILE_EMAIL"));
+  bru.setVar("password", bru.getEnvVar("password") || bru.getProcessEnv("DDAS_MOBILE_PASSWORD"));
+}
+
+script:post-response {
+  if (res.status === 200 && res.body.data?.token) bru.setVar("accessToken", res.body.data.token);
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("Token returned", function () { expect(res.getBody().data.token).to.be.a("string").and.not.empty; });
+}

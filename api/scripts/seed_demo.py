@@ -12,6 +12,7 @@ import uuid
 import os
 import argparse
 import sys
+import shlex
 from functools import lru_cache
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATABASE = os.environ.get('DDAS_SEED_DATABASE', 'dam_disaster_db')
 if not re.fullmatch(r'[A-Za-z0-9_]+', DATABASE):
     raise ValueError('DDAS_SEED_DATABASE must contain only letters, digits and underscores')
-OUT = ROOT / 'local-data' / DATABASE
+OUT = Path(os.environ.get('DDAS_BACKUP_DIR', str(ROOT / 'local-data'))) / DATABASE
 NOW = datetime.now(timezone.utc).replace(tzinfo=None, minute=0, second=0, microsecond=0)
 NS = uuid.UUID('5c790cf5-146a-458b-9936-f8c05757ead0')
 if __name__ == '__main__':
@@ -45,9 +46,32 @@ def docker(command, data=None):
         raise RuntimeError(p.stderr.decode('utf8', errors='replace'))
     return p.stdout
 
-CLIENT = 'export MYSQL_PWD=$MYSQL_PASSWORD; exec mysql --user=$MYSQL_USER --database=$MYSQL_DATABASE --default-character-set=utf8mb4 --batch --raw'
+def mysql_client(program, arguments, data=None):
+    transport=os.environ.get('DDAS_MYSQL_TRANSPORT','compose')
+    if transport=='compose':
+        return docker('export MYSQL_PWD="$MYSQL_PASSWORD"; exec '+program+
+            ' --user="$MYSQL_USER" '+shlex.join(arguments),data)
+    if transport not in {'local','container'}: raise RuntimeError('Unsupported DDAS_MYSQL_TRANSPORT: '+transport)
+    env={**os.environ,'MYSQL_PWD':os.environ['MYSQL_PASSWORD']}
+    if transport=='container':
+        command=['docker','exec','-i','-e','MYSQL_PWD',os.environ['DDAS_MYSQL_CONTAINER'],
+            program,'--user='+os.environ['MYSQL_USER'],*arguments]
+    else:
+        command=[program,'--host='+os.environ['DDAS_MYSQL_HOST'],
+            '--port='+os.environ.get('DDAS_MYSQL_PORT','3306'),
+            '--user='+os.environ['MYSQL_USER'],*arguments]
+    result=subprocess.run(command,input=data,capture_output=True,env=env)
+    if result.returncode: raise RuntimeError(result.stderr.decode('utf8',errors='replace'))
+    return result.stdout
+
+
+def dump_database(*options):
+    return mysql_client('mysqldump',['--single-transaction','--no-tablespaces',
+        '--set-gtid-purged=OFF',*options,DATABASE])
+
 def sql(query):
-    return docker(CLIENT, query.encode('utf8')).decode('utf8')
+    return mysql_client('mysql',['--database='+DATABASE,'--default-character-set=utf8mb4',
+        '--batch','--raw'],query.encode('utf8')).decode('utf8')
 def records(query):
     return list(csv.DictReader(io.StringIO(sql(query)), delimiter='\t'))
 def quote(v):
@@ -89,6 +113,39 @@ def finalize(manifest):
             updates.append(q)
     if updates:
         sql('START TRANSACTION;\n'+';\n'.join(updates)+';\nCOMMIT;')
+    updates.append('UPDATE dam_gates g JOIN dams d ON d.id=g.dam_id SET g.latitude=d.latitude,g.longitude=d.longitude WHERE '+where('dam_gates','g'))
+    updates.append('UPDATE gate_operation_logs l JOIN dam_gates g ON g.id=l.gate_id SET l.dam_id=g.dam_id,l.opening_before=0,l.opening_after=g.current_opening_meters,l.operation_type=IF(g.current_opening_meters>0,"partial_open","close") WHERE '+where('gate_operation_logs','l'))
+    updates.append('UPDATE dam_hazard_zone_history h JOIN dam_hazard_zones z ON z.id=h.zone_id SET h.dam_id=z.dam_id WHERE '+where('dam_hazard_zone_history','h'))
+    updates.append('UPDATE dam_hazard_assessments h JOIN dams d ON d.id=h.dam_id SET h.new_hazard_level_id=d.overall_hazard_level_id,h.new_status=d.overall_hazard_status WHERE '+where('dam_hazard_assessments','h'))
+    updates.append('UPDATE reports r SET r.resolved_at=IF(r.status="resolved",DATE_ADD(r.created_at,INTERVAL 1 HOUR),NULL),r.resolved_by=IF(r.status="resolved",(SELECT id FROM users WHERE email="admin@ddas.gov.lk"),NULL),r.resolution_notes=IF(r.status="resolved","Synthetic report resolved during demo exercise",NULL),r.rejection_reason=IF(r.status="rejected","Synthetic report rejected during demo review",NULL),r.duplicate_of_id=NULL,r.related_alert_id=NULL WHERE '+where('reports','r'))
+    updates.append('UPDATE report_status_history h JOIN reports r ON r.id=h.report_id SET h.new_status=r.status,h.created_at=DATE_ADD(r.created_at,INTERVAL 1 HOUR) WHERE '+where('report_status_history','h'))
+    updates.append('UPDATE reports r SET r.comment_count=(SELECT COUNT(*) FROM report_comments c WHERE c.report_id=r.id),r.upvote_count=(SELECT COUNT(*) FROM report_upvotes u WHERE u.report_id=r.id) WHERE '+where('reports','r'))
+    updates.append('UPDATE news_user_interactions i JOIN news_articles a ON a.id=i.article_id SET i.viewed_at=DATE_ADD(a.publish_date,INTERVAL 1 HOUR),i.saved_at=NULL,i.shared_at=NULL,i.created_at=DATE_ADD(a.publish_date,INTERVAL 1 HOUR) WHERE '+where('news_user_interactions','i'))
+    updates.append('UPDATE news_articles a SET a.view_count=(SELECT COUNT(*) FROM news_user_interactions i WHERE i.article_id=a.id AND i.has_viewed=1),a.save_count=(SELECT COUNT(*) FROM news_user_interactions i WHERE i.article_id=a.id AND i.has_saved=1),a.share_count=(SELECT COUNT(*) FROM news_user_interactions i WHERE i.article_id=a.id AND i.has_shared=1) WHERE '+where('news_articles','a'))
+    updates.append('UPDATE news_push_logs l JOIN news_articles a ON a.id=l.article_id SET l.provider="DEMO-NO-SEND",l.total_recipients=100,l.sent_count=100,l.delivered_count=95,l.failed_count=5,l.opened_count=40,l.sent_at=DATE_ADD(a.publish_date,INTERVAL 1 HOUR),l.completed_at=DATE_ADD(a.publish_date,INTERVAL 2 HOUR),l.error_summary=JSON_OBJECT("synthetic",TRUE,"simulated_failures",5) WHERE '+where('news_push_logs','l'))
+    updates.append('UPDATE alert_user_deliveries l JOIN alerts a ON a.id=l.alert_id SET l.push_status="delivered",l.push_sent_at=DATE_ADD(a.created_at,INTERVAL 1 MINUTE),l.push_delivered_at=DATE_ADD(a.created_at,INTERVAL 2 MINUTE),l.sms_status="skipped",l.email_status="disabled",l.sms_sent_at=NULL,l.sms_delivered_at=NULL,l.email_sent_at=NULL,l.email_delivered_at=NULL,l.push_error=NULL,l.sms_error=NULL,l.email_error=NULL,l.read_at=DATE_ADD(a.created_at,INTERVAL 3 MINUTE) WHERE '+where('alert_user_deliveries','l'))
+    updates.append('UPDATE alert_acknowledgments k JOIN alerts a ON a.id=k.alert_id SET k.responded_at=DATE_ADD(a.created_at,INTERVAL 4 MINUTE) WHERE '+where('alert_acknowledgments','k'))
+    updates.append('UPDATE alert_escalations e JOIN alerts a ON a.id=e.alert_id SET e.escalated_at=DATE_ADD(a.created_at,INTERVAL 5 MINUTE),e.previous_severity="warning",e.new_severity="critical" WHERE '+where('alert_escalations','e'))
+    updates.append('UPDATE user_hazard_location_snapshots s JOIN dam_hazard_zones z ON z.id=s.hazard_zone_id JOIN dams d ON d.id=z.dam_id SET s.dam_id=z.dam_id,s.region_id=d.region_id,s.hazard_level_id=z.hazard_level_id,s.latitude=z.center_latitude,s.longitude=z.center_longitude WHERE '+where('user_hazard_location_snapshots','s'))
+    updates.append('UPDATE sos_events s JOIN dam_hazard_zones z ON z.id=s.hazard_zone_id JOIN dams d ON d.id=z.dam_id SET s.dam_id=z.dam_id,s.region_id=d.region_id,s.hazard_level_id=z.hazard_level_id,s.latitude=z.center_latitude,s.longitude=z.center_longitude,s.status="resolved",s.acknowledged_at=DATE_ADD(s.triggered_at,INTERVAL 1 MINUTE),s.responding_at=DATE_ADD(s.triggered_at,INTERVAL 5 MINUTE),s.resolved_at=DATE_ADD(s.triggered_at,INTERVAL 30 MINUTE),s.cancelled_at=NULL,s.cancellation_reason=NULL WHERE '+where('sos_events','s'))
+    updates.append('UPDATE sos_event_notifications n JOIN sos_events s ON s.id=n.sos_event_id SET n.provider="DEMO-NO-SEND",n.channel="in_app",n.status="delivered",n.queued_at=s.triggered_at,n.sent_at=DATE_ADD(s.triggered_at,INTERVAL 1 MINUTE),n.delivered_at=DATE_ADD(s.triggered_at,INTERVAL 2 MINUTE),n.failed_at=NULL,n.next_retry_at=NULL,n.error_code=NULL,n.error_message=NULL WHERE '+where('sos_event_notifications','n'))
+    updates.append('UPDATE location_sharing_sessions s SET s.expires_at=DATE_ADD(s.started_at,INTERVAL 1 HOUR),s.ended_at=DATE_ADD(s.started_at,INTERVAL 1 HOUR),s.status="ended" WHERE '+where('location_sharing_sessions','s'))
+    updates.append('UPDATE dam_current_status st JOIN dams d ON d.id=st.dam_id SET '
+        'st.total_gates_count=(SELECT COUNT(*) FROM dam_gates g WHERE g.dam_id=d.id),'
+        'st.gates_open_count=(SELECT COUNT(*) FROM dam_gates g WHERE g.dam_id=d.id AND g.current_opening_meters>0),'
+        'st.hazard_value=d.overall_hazard_status,'
+        'st.active_hazard_zones=(SELECT JSON_ARRAYAGG(z.id) FROM dam_hazard_zones z WHERE z.dam_id=d.id AND z.is_active=1) '
+        'WHERE '+where('dam_current_status','st'))
+    sql('START TRANSACTION;\n'+';\n'.join(updates)+';\nCOMMIT;')
+    fk_rows=records('SELECT TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL;')
+    checks=[]
+    for r in fk_rows:
+        t,c,p,pc=(r[k] for k in ['TABLE_NAME','COLUMN_NAME','REFERENCED_TABLE_NAME','REFERENCED_COLUMN_NAME'])
+        checks.append(f'SELECT {quote(t+"."+c)} AS relationship,COUNT(*) AS orphan_count FROM `{t}` child LEFT JOIN `{p}` parent ON child.`{c}`=parent.`{pc}` WHERE child.`{c}` IS NOT NULL AND parent.`{pc}` IS NULL')
+    result=records(' UNION ALL '.join(checks)+';')
+    failures=[r for r in result if int(r['orphan_count'])]
+    if failures: raise RuntimeError('Foreign-key validation failed: '+str(failures))
+    manifest['validation']={'foreign_key_relationships_checked':len(result),'orphan_count':0}
     (OUT/'seed-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf8')
     try:
         from scatter_demo import apply as scatter_geography
@@ -104,7 +161,7 @@ def seed_base():
         if stored:
             return json.loads(stored[0]['manifest'])
     if not (OUT / 'before-demo.sql').exists():
-        backup = docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF $MYSQL_DATABASE')
+        backup = dump_database()
         (OUT / 'before-demo.sql').write_bytes(backup)
     print('Local database backup saved.', flush=True)
     created = []
@@ -169,7 +226,7 @@ def seed_base():
         if n=='uuid': return str(uuid.uuid5(NS,f'{t}/{j}'))
         if typ.startswith(('enum','set')):
             opts=re.findall(r"'([^']*)'",typ)
-            preferred={'status':'active','quality':'good','language_preference':'en','dam_type':'gravity','gate_type':'radial','severity':'warning','purpose':'hydropower','priority':'medium','priority_level':'medium','aggregation_type':'daily','new_status':'resolved','previous_status':'pending','operation_mode':'manual','push_status':'delivered','sms_status':'disabled','email_status':'disabled','response_type':'acknowledged','file_type':'image'}
+            preferred={'status':'active','quality':'good','language_preference':'en','dam_type':'gravity','gate_type':'radial','severity':'warning','purpose':'hydropower','priority':'medium','priority_level':'medium','aggregation_type':'daily','new_status':'resolved','previous_status':'pending','operation_mode':'manual','push_status':'delivered','sms_status':'skipped','email_status':'disabled','response_type':'acknowledged','file_type':'image'}
             if t=='reports' and n=='status': return ['pending','reviewing','in_progress','resolved','rejected'][i%5]
             if t=='alerts' and n=='status': return ['active','resolved','expired','draft'][i%4]
             if t=='news_articles' and n=='status': return 'published'
@@ -277,6 +334,20 @@ def initialize_rbac():
                 else:
                     statements.append(statement + f' ON DUPLICATE KEY UPDATE {table}.id={table}.id;')
     sql('START TRANSACTION;' + ''.join(statements) + 'COMMIT;')
+    # Reuse the project's permission policy, without creating a default login.
+    source=(ROOT/'DB SCHEMA/init_data.sql').read_text(encoding='utf8')
+    source=re.sub(r'--[^\n]*', '', source)
+    statements=[]
+    for statement in source.split(';'):
+        stmt=statement.strip()
+        if stmt.startswith('INSERT INTO'):
+            if 'ON DUPLICATE KEY UPDATE' not in stmt:
+                table=re.search(r'INSERT INTO (\w+)',stmt).group(1)
+                col='role_id' if table=='role_permissions' else 'id'
+                stmt+=f' ON DUPLICATE KEY UPDATE {table}.{col}={table}.{col}'
+            statements.append(stmt+';')
+    sql('START TRANSACTION;'+''.join(statements)+'COMMIT;')
+
 
 def manifest_statement(manifest):
     return "INSERT INTO ddas_demo_seed_runs (seed_key,manifest) VALUES ('ddas-demo',"+quote(manifest)+") ON DUPLICATE KEY UPDATE manifest=VALUES(manifest);"
@@ -295,6 +366,29 @@ def main():
         sql('CREATE TABLE ddas_demo_seed_runs (seed_key VARCHAR(50) PRIMARY KEY, manifest JSON NOT NULL) ENGINE=InnoDB')
     stored=records("SELECT manifest FROM ddas_demo_seed_runs WHERE seed_key='ddas-demo'")
     manifest=json.loads(stored[0]['manifest']) if stored else None
+    if manifest is None and not args.validate_only:
+        if not (OUT/'before-demo.sql').exists():
+            (OUT/'before-demo.sql').write_bytes(dump_database())
+        # Adopt the previous local seed only when its ID ranges and user UUID match.
+        legacy=ROOT/'local-data/seed-manifest.json'
+        dam_table=records("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dams'")
+        existing=records("SELECT id FROM dams WHERE code='DEMO-002'") if dam_table else []
+        if existing:
+            if not legacy.exists():
+                raise RuntimeError('Legacy demo found without its manifest; refusing duplicate or guessed ownership')
+            manifest=json.loads(legacy.read_text(encoding='utf8'))
+            legacy_dams=next(e for e in manifest['tables'] if e['table']=='dams')['ids']
+            if not legacy_dams or not legacy_dams[0] <= int(existing[0]['id']) <= legacy_dams[1]:
+                raise RuntimeError('Existing DEMO-002 does not belong to this seed')
+            expected=str(uuid.uuid5(NS,'users/1'))
+            owned=records(f"SELECT id FROM users WHERE uuid={quote(expected)} AND email='demo001@example.invalid'")
+            if not owned:
+                raise RuntimeError('Legacy demo ownership could not be verified')
+            validate(manifest)
+            manifest['phase']='geography'
+            save_manifest(manifest)
+        else:
+            manifest=seed_base()
     if manifest is None:
         manifest=seed_base()
     if manifest and manifest.get('phase')=='base':

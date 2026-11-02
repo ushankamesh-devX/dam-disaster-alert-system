@@ -36,8 +36,20 @@ public class AlertController {
     // Existing Endpoints (unchanged)
     // =========================================================================
 
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<AlertResponseDTO>>> getAllAlerts() {
+        List<AlertResponseDTO> response = alertService.getAllAlerts();
+        return ResponseEntity.ok(ApiResponse.success("Alerts retrieved successfully", response));
+    }
+
+    @GetMapping("/feed")
+    public ResponseEntity<ApiResponse<List<AlertResponseDTO>>> getAlertFeed() {
+        List<AlertResponseDTO> response = alertService.getAllAlerts();
+        return ResponseEntity.ok(ApiResponse.success("Alert feed retrieved successfully", response));
+    }
+
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('alerts.create', 'alerts.broadcast')")
+    @PreAuthorize("hasAnyAuthority('alerts.create', 'alerts.broadcast') or hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AlertResponseDTO>> createAlert(@Valid @RequestBody AlertRequestDTO request) {
         AlertResponseDTO response = alertService.createAlert(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -45,7 +57,7 @@ public class AlertController {
     }
 
     @PostMapping("/broadcast")
-    @PreAuthorize("hasAuthority('alerts.broadcast')")
+    @PreAuthorize("hasAuthority('alerts.broadcast') or hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AlertResponseDTO>> broadcastEmergencyAlert(
             @Valid @RequestBody AlertRequestDTO request) {
         request.setSeverity(AlertType.AlertSeverity.emergency);
@@ -60,7 +72,6 @@ public class AlertController {
     }
 
     @GetMapping("/active")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<AlertResponseDTO>>> getAllActiveAlerts() {
         List<AlertResponseDTO> response = alertService.getAllActiveAlerts();
         return ResponseEntity.ok(ApiResponse.success("Active alerts retrieved successfully", response));

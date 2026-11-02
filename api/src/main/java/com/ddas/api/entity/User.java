@@ -71,6 +71,13 @@ public class User {
     @Column(name = "last_location_update")
     private LocalDateTime lastLocationUpdate;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "preferred_dam_id")
+    private Dam preferredDam;
+
+    @Column(name = "onboarding_completed_at")
+    private LocalDateTime onboardingCompletedAt;
+
     @Column(name = "email_verified_at")
     private LocalDateTime emailVerifiedAt;
 

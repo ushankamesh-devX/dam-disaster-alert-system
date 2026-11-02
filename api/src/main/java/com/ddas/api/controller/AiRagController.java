@@ -18,6 +18,9 @@ public class AiRagController {
 
     @PostMapping("/api/v1/ai/chat")
     public ResponseEntity<ApiResponse<Object>> chat(@RequestBody Map<String, Object> body) {
+        if (!(body.get("query") instanceof String query) || query.isBlank()) {
+            throw new com.ddas.api.exception.BadRequestException("A non-empty query is required");
+        }
         return ResponseEntity.ok(ApiResponse.success(aiRagService.chat(body)));
     }
 

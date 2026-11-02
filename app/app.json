@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "app",
+    "name": "DDAS",
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,6 +16,8 @@
       }
     },
     "android": {
+      "package": "lk.ddas.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -30,6 +32,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#DC2626",
+          "defaultChannel": "critical_alerts"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -48,7 +58,8 @@
       "expo-localization",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -2,51 +2,19 @@
 
 ## 🚀 Quick Setup (5 Minutes)
 
-### Step 1: Setup Database
+### Steps 1–3: Configure and initialize the database, then start the API
 
-```bash
-# Login to MySQL
-mysql -u root -p
+Follow the [current setup guide](../../README.md) to create `api/.env` with your
+MySQL and initial administrator credentials. From the repository root:
 
-# Create database
-CREATE DATABASE ddas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE ddas;
-
-# Run schema (from api directory)
-source DB\ SCHEMA/ddas_complete_schema.sql
-
-# Initialize data (roles, permissions, sample admin)
-source DB\ SCHEMA/init_data.sql
-
-# Verify
-SELECT * FROM roles;
-SELECT * FROM users;
+```powershell
+python api/scripts/setup_demo.py --schema-only
 ```
 
-### Step 2: Configure Database Connection
-
-Edit `src/main/resources/application.properties` or set environment variables:
-
-```bash
-# Option 1: Edit application.properties
-spring.datasource.url=jdbc:mysql://localhost:3306/ddas
-spring.datasource.username=root
-spring.datasource.password=your_password
-
-# Option 2: Set environment variables (Recommended)
-$env:SPRING_DATASOURCE_URL="jdbc:mysql://localhost:3306/ddas"
-$env:SPRING_DATASOURCE_USERNAME="root"
-$env:SPRING_DATASOURCE_PASSWORD="your_password"
-```
-
-### Step 3: Run the Application
-
-```bash
-# Build and run
-./mvnw spring-boot:run
-```
-
-The API will start at **http://localhost:8080**
+This migrates the schema, initializes roles and permissions, and starts API/web.
+Omit `--schema-only` if you also want demo data. The current database is
+`dam_disaster_db`; the old standalone design SQL is not a complete installation.
+See [database sources](../DB%20SCHEMA/README.md).
 
 ### Step 4: Test with Bruno
 
@@ -101,13 +69,12 @@ curl http://localhost:8080/api/v1/users/me \
 
 ---
 
-## 🔐 Default Admin User
+## Initial administrator
 
-After running `init_data.sql`:
-
-- **Email:** `admin@ddas.gov.lk`
-- **Password:** `Admin@123`
-- **Role:** Super Administrator
+API startup creates the first administrator from `DDAS_ADMIN_EMAIL` and
+`DDAS_ADMIN_PASSWORD` in `api/.env`. There is no built-in email or password.
+`init_data.sql` only initializes roles and permissions. Existing accounts are
+preserved.
 
 ---
 

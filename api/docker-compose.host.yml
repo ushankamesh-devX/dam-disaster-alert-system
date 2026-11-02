@@ -1,0 +1,35 @@
+# Use with docker-compose.yml: Spring Boot runs on the host, dependencies in Docker.
+services:
+  api:
+    profiles: [container-api]
+  web:
+    profiles: [container-web]
+  mlflow:
+    # One local worker avoids competing with Android builds for several GB of RAM.
+    command: >
+      --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/mlflow_db
+      --default-artifact-root s3://ddas-artifacts/mlflow
+      --artifacts-destination s3://ddas-artifacts/mlflow
+      --host 0.0.0.0
+      --port 5000
+      --workers 1
+      --allowed-hosts "*"
+  ai:
+    env_file:
+      - path: ../ai/.env
+        required: false
+    depends_on: !override
+      - qdrant
+      - minio
+      - mlflow
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    environment:
+      DDAS_AI_SPRING_DATA_BASE_URL: http://host.docker.internal:8080/api/v1/internal/ml
+      DDAS_AI_ML_ARTIFACTS_DIR: /service/artifacts/ml
+    volumes:
+      - ai-artifacts:/service/artifacts
+      # Local code edits use the installed image dependencies without rebuilding.
+      - ../ai/app:/service/app:ro
+volumes:
+  ai-artifacts:

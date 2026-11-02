@@ -1,0 +1,141 @@
+-- ============================================================================
+-- Migration V011: Incident Reports Schema and Seed Data
+-- Creates report_types, reports, and report_media tables if not present,
+-- and seeds the report types matching mobile IssueType options.
+-- ============================================================================
+
+-- 1. Report Types Table
+CREATE TABLE IF NOT EXISTS report_types (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    name_si VARCHAR(100) NULL,
+    name_ta VARCHAR(100) NULL,
+    description TEXT NULL,
+    icon VARCHAR(100) NULL COMMENT 'Icon name: alert-octagon, waves, terrain, cog, information',
+    color VARCHAR(20) NULL COMMENT 'Hex color',
+    category ENUM('structural', 'water', 'environmental', 'equipment', 'safety', 'other') DEFAULT 'other',
+    default_priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    requires_photo BOOLEAN DEFAULT FALSE,
+    requires_location BOOLEAN DEFAULT TRUE,
+    auto_alert_threshold INT NULL COMMENT 'Create alert after X reports of same type',
+    is_active BOOLEAN DEFAULT TRUE,
+    display_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_rt_category (category),
+    INDEX idx_rt_active (is_active),
+    INDEX idx_rt_order (display_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. Reports Table
+CREATE TABLE IF NOT EXISTS reports (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    report_number VARCHAR(20) UNIQUE NOT NULL COMMENT 'Human-readable: RPT-2026-00001',
+    user_id BIGINT NOT NULL,
+    is_anonymous BOOLEAN DEFAULT FALSE,
+    report_type_id BIGINT NOT NULL,
+    priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    dam_id BIGINT NULL,
+    region_id BIGINT NULL,
+    latitude DECIMAL(10, 8) NULL,
+    longitude DECIMAL(11, 8) NULL,
+    location_description VARCHAR(500) NULL,
+    location_description_si VARCHAR(500) NULL,
+    title VARCHAR(255) NULL,
+    description TEXT NOT NULL,
+    description_si TEXT NULL,
+    status ENUM('pending', 'reviewing', 'in_progress', 'resolved', 'rejected', 'duplicate') DEFAULT 'pending',
+    assigned_to BIGINT NULL COMMENT 'User ID of assigned officer',
+    assigned_at TIMESTAMP NULL,
+    assigned_by BIGINT NULL,
+    resolution_notes TEXT NULL,
+    resolution_notes_si TEXT NULL,
+    resolved_at TIMESTAMP NULL,
+    resolved_by BIGINT NULL,
+    rejection_reason TEXT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verified_at TIMESTAMP NULL,
+    verified_by BIGINT NULL,
+    verification_notes TEXT NULL,
+    requires_followup BOOLEAN DEFAULT FALSE,
+    followup_date DATE NULL,
+    duplicate_of_id BIGINT NULL,
+    related_alert_id BIGINT NULL,
+    view_count INT DEFAULT 0,
+    upvote_count INT DEFAULT 0,
+    comment_count INT DEFAULT 0,
+    metadata JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (report_type_id) REFERENCES report_types(id) ON DELETE RESTRICT,
+    FOREIGN KEY (dam_id) REFERENCES dams(id) ON DELETE SET NULL,
+    FOREIGN KEY (region_id) REFERENCES regions(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (duplicate_of_id) REFERENCES reports(id) ON DELETE SET NULL,
+    INDEX idx_reports_user (user_id),
+    INDEX idx_reports_type (report_type_id),
+    INDEX idx_reports_dam (dam_id),
+    INDEX idx_reports_region (region_id),
+    INDEX idx_reports_status (status),
+    INDEX idx_reports_priority (priority),
+    INDEX idx_reports_assigned (assigned_to),
+    INDEX idx_reports_created (created_at DESC),
+    INDEX idx_reports_location (latitude, longitude),
+    INDEX idx_reports_deleted (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. Report Media Table
+CREATE TABLE IF NOT EXISTS report_media (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    report_id BIGINT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_url VARCHAR(500) NULL,
+    file_type ENUM('image', 'video', 'document') NOT NULL,
+    mime_type VARCHAR(100) NULL,
+    file_size_bytes BIGINT NULL,
+    width INT NULL,
+    height INT NULL,
+    duration_seconds INT NULL,
+    thumbnail_url VARCHAR(500) NULL,
+    latitude DECIMAL(10, 8) NULL,
+    longitude DECIMAL(11, 8) NULL,
+    captured_at TIMESTAMP NULL,
+    display_order INT DEFAULT 0,
+    caption VARCHAR(500) NULL,
+    is_primary BOOLEAN DEFAULT FALSE,
+    uploaded_by BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_rm_report (report_id),
+    INDEX idx_rm_type (file_type),
+    INDEX idx_rm_primary (report_id, is_primary)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4. Seed mobile IssueType values into report_types (idempotent with ON DUPLICATE KEY UPDATE)
+INSERT INTO report_types (code, name, description, icon, color, category, default_priority, is_active, display_order)
+VALUES
+    ('structural', 'Structural Issue', 'Dam wall cracks, seepage, structural foundation concerns', 'alert-octagon', '#DC2626', 'structural', 'critical', TRUE, 1),
+    ('water-level', 'Abnormal Water Level', 'Spillway overflows, rapid rise in reservoir water level', 'waves', '#2563EB', 'water', 'high', TRUE, 2),
+    ('erosion', 'Soil Erosion', 'Embankment washouts, soil slippage around dam perimeter', 'terrain', '#D97706', 'environmental', 'medium', TRUE, 3),
+    ('equipment', 'Equipment Failure', 'Sluice gate malfunctions, sensor defects, power failures', 'cog', '#7C3AED', 'equipment', 'medium', TRUE, 4),
+    ('other', 'Other Incident', 'General dam or surrounding area observations and hazards', 'information', '#6B7280', 'other', 'low', TRUE, 5)
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    description = VALUES(description),
+    icon = VALUES(icon),
+    color = VALUES(color),
+    category = VALUES(category),
+    default_priority = VALUES(default_priority),
+    is_active = VALUES(is_active),
+    display_order = VALUES(display_order);
+

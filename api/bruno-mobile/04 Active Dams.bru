@@ -1,0 +1,23 @@
+meta {
+  name: Active Dams
+  type: http
+  seq: 4
+  tags: [
+    core
+  ]
+}
+
+get {
+  url: {{baseUrl}}/dams/active
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  if (res.status === 200 && Array.isArray(res.body) && res.body.length) bru.setVar("damId", res.body[0].id);
+}
+
+tests {
+  test("Expected HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("Dam list is an array", function () { expect(res.getBody()).to.be.an("array"); });
+}

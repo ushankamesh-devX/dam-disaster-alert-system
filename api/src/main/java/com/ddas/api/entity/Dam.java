@@ -167,6 +167,7 @@ public class Dam {
     public Boolean isMlEnabled() {
         return this.isMlEnabled;
     }
+    private Boolean isMlEnabled = false;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

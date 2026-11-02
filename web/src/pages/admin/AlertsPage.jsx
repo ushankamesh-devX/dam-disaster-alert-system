@@ -11,6 +11,7 @@ import {
 } from '../../services/alertService';
 import { getAllDamsList } from '../../services/dam.service';
 import { getAllRegionsList } from '../../services/region.service';
+import AdminDispatchCenter from '../../components/admin/AdminDispatchCenter';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -616,10 +617,17 @@ export default function AlertsPage() {
             {/* ── Header ───────────────────────────────────────────────────────── */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">Alert Management</Typography>
+                    <Typography component="h1" variant="h1" className="text-xl font-bold text-gray-900">Alert Management & Emergency Dispatch</Typography>
                     <p className="text-sm text-gray-400">{loading ? '…' : `${alerts.length} alerts displayed`}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                        onClick={() => setShowCreate(true)}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl shadow-md flex items-center gap-2 text-sm cursor-pointer active:scale-95 transition-all"
+                    >
+                        <span>🚨</span>
+                        <span>Broadcast Emergency Alert</span>
+                    </button>
                     <AppButton variant="contained" onClick={() => setShowCreate(true)}
                         className="flex items-center gap-2">
                         <span className="text-base leading-none">+</span> Create Alert
@@ -634,6 +642,17 @@ export default function AlertsPage() {
                     </AppButton>
                 </div>
             </div>
+
+            {/* ── Admin Dispatch Center (Interactive Broadcast Console) ─────────── */}
+            <AdminDispatchCenter
+                dams={dams}
+                regions={regions}
+                alerts={alerts}
+                onAlertDispatched={(newAlert) => {
+                    setAlerts(prev => [newAlert, ...prev]);
+                    load();
+                }}
+            />
 
             {/* ── Stat Cards ───────────────────────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

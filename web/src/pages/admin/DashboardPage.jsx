@@ -463,6 +463,14 @@ export default function DashboardPage() {
                             <Icons.Warning size={12} /> {error}
                         </span>
                     )}
+                    <button
+                        onClick={() => navigate('/admin/alerts')}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3.5 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                        title="Broadcast emergency alert to all mobile apps"
+                    >
+                        <span>🚨</span>
+                        <span>Broadcast Emergency Alert</span>
+                    </button>
                     <span className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         System live

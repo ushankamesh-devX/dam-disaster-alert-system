@@ -34,7 +34,12 @@ export const ENDPOINTS = {
     BY_REGION: (regionId: string) => `/dams/region/${regionId}`,
     BY_STATUS: (status: string) => `/dams/status/${status}`,
     BY_HAZARD_STATUS: (status: string) => `/dams/hazard-status/${status}`,
+    FORECASTS: (id: string) => `/dams/${id}/forecasts`,
+    FORECAST_HISTORY: (id: string) => `/dams/${id}/forecast-history`,
+    OVERFLOW_CONFIG: (id: string) => `/dams/${id}/overflow-config`,
   },
+
+  AI: { CHAT: "/ai/chat" },
 
   DAM_STATUS: {
     ALL: "/dams/statuses",

@@ -61,11 +61,14 @@ data:
     }
 
     // 4. Application database and user (written on the primary, replicated to all)
-    shell.connect(inst('root', rootPw, 0));
+    var primary = cluster.status().defaultReplicaSet.primary;
+    shell.connect({user: 'root', password: rootPw, host: primary.split(':')[0], port: 3306});
     var s = shell.getSession();
     s.runSql('CREATE DATABASE IF NOT EXISTS dam_disaster_db');
     s.runSql("CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?", [appUser, appPw]);
     s.runSql("GRANT ALL PRIVILEGES ON dam_disaster_db.* TO ?@'%'", [appUser]);
+    s.runSql('CREATE DATABASE IF NOT EXISTS mlflow_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+    s.runSql("GRANT ALL PRIVILEGES ON mlflow_db.* TO ?@'%'", [appUser]);
 
     println(JSON.stringify(cluster.status(), null, 2));
 ---

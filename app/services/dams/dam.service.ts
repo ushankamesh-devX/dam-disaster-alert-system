@@ -12,6 +12,9 @@ export const damService = {
 
   getActive: () => axiosInstance.get(ENDPOINTS.DAMS.ACTIVE),
 
+  getOverflowConfig: (damId: string) =>
+    axiosInstance.get(ENDPOINTS.DAMS.OVERFLOW_CONFIG(damId)),
+
   getByRegion: (regionId: string) =>
     axiosInstance.get(ENDPOINTS.DAMS.BY_REGION(regionId)),
 

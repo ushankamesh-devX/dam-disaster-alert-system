@@ -9,12 +9,17 @@ import com.ddas.api.entity.Alert;
 import com.ddas.api.entity.AlertAuditLog;
 import com.ddas.api.entity.AlertType;
 import com.ddas.api.exception.ResourceNotFoundException;
+import com.ddas.api.entity.AlertUserDelivery;
+import com.ddas.api.entity.User;
 import com.ddas.api.repository.AlertAuditLogRepository;
 import com.ddas.api.repository.AlertRepository;
 import com.ddas.api.repository.AlertTypeRepository;
+import com.ddas.api.repository.AlertUserDeliveryRepository;
+import com.ddas.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -35,6 +40,10 @@ public class AlertService {
         private final AlertRepository alertRepository;
         private final AlertTypeRepository alertTypeRepository;
         private final AlertAuditLogRepository alertAuditLogRepository;
+        private final NotificationService notificationService;
+        private final UserRepository userRepository;
+        private final AlertUserDeliveryRepository alertUserDeliveryRepository;
+        private final SmsDispatcherService smsDispatcherService;
 
         // අලුතින් එකතු කළ SMS සේවාව (@RequiredArgsConstructor මගින් ස්වයංක්‍රීයව Inject
         // වේ)
@@ -55,7 +64,7 @@ public class AlertService {
                                 .title(request.getTitle())
                                 .message(request.getMessage())
                                 .severity(request.getSeverity())
-                                .status(request.getStatus() == null ? Alert.AlertStatus.draft : request.getStatus())
+                                .status(request.getStatus() == null ? Alert.AlertStatus.active : request.getStatus())
                                 .damId(request.getDamId())
                                 .regionId(request.getRegionId())
                                 .build();
@@ -67,7 +76,16 @@ public class AlertService {
                 // Alert එක Save වූ වහාම SMS යැවීම
                 triggerTestSms(saved);
 
+                dispatchAlertNotifications(saved);
                 return toResponseDTO(saved);
+        }
+
+        @Transactional(readOnly = true)
+        public List<AlertResponseDTO> getAllAlerts() {
+                return alertRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+                                .stream()
+                                .map(this::toResponseDTO)
+                                .toList();
         }
 
         @Transactional(readOnly = true)
@@ -172,6 +190,7 @@ public class AlertService {
                 // Regional Broadcast එකක් Save වූ වහාම SMS යැවීම
                 triggerTestSms(saved);
 
+                dispatchAlertNotifications(saved);
                 return toResponseDTO(saved);
         }
 
@@ -205,6 +224,7 @@ public class AlertService {
                 // Emergency Broadcast එකක් Save වූ වහාම SMS යැවීම
                 triggerTestSms(saved);
 
+                dispatchAlertNotifications(saved);
                 return toResponseDTO(saved);
         }
 
@@ -339,6 +359,105 @@ public class AlertService {
                                 .createdAt(alert.getCreatedAt())
                                 .updatedAt(alert.getUpdatedAt())
                                 .build();
+        }
+
+        // -------------------------------------------------------------------------
+        // Push Notification Dispatch
+        // -------------------------------------------------------------------------
+
+        /**
+         * Sends push notifications via FCM (topics + registered device tokens)
+         * and queues/dispatches SMS alerts via Notify.lk / Twilio.
+         *
+         * @param alert The persisted alert
+         */
+        private void dispatchAlertNotifications(Alert alert) {
+                String severityStr = alert.getSeverity() != null ? alert.getSeverity().name() : "unknown";
+
+                // 1. Regional topic if regionId is present
+                if (alert.getRegionId() != null) {
+                        try {
+                                notificationService.sendRegionalAlertNotification(
+                                                alert.getTitle(),
+                                                alert.getMessage(),
+                                                alert.getRegionId(),
+                                                alert.getId(),
+                                                severityStr);
+                        } catch (Exception ex) {
+                                log.error("Failed to send regional FCM notification for alertId={}: {}", alert.getId(), ex.getMessage());
+                        }
+                }
+
+                // 2. Broadcast topic /topics/all_alerts
+                try {
+                        Map<String, String> data = new HashMap<>();
+                        data.put("alertId", String.valueOf(alert.getId()));
+                        data.put("severity", severityStr);
+                        data.put("title", alert.getTitle() != null ? alert.getTitle() : "");
+                        data.put("message", alert.getMessage() != null ? alert.getMessage() : "");
+                        notificationService.sendPushNotification(alert.getTitle(), alert.getMessage(), "/topics/all_alerts", data);
+                } catch (Exception ex) {
+                        log.warn("FCM topic broadcast failed for alertId={}: {}", alert.getId(), ex.getMessage());
+                }
+
+                // 3. Dispatch to all active users with registered FCM push tokens
+                try {
+                        List<User> usersWithPush = userRepository.findUsersWithPushNotificationsEnabled();
+                        log.info("Dispatching FCM push to {} registered devices for alertId={}", usersWithPush.size(), alert.getId());
+                        for (User u : usersWithPush) {
+                                if (u.getPushToken() != null && !u.getPushToken().isBlank()) {
+                                        Map<String, String> data = new HashMap<>();
+                                        data.put("alertId", String.valueOf(alert.getId()));
+                                        data.put("severity", severityStr);
+                                        data.put("title", alert.getTitle() != null ? alert.getTitle() : "");
+                                        notificationService.sendPushNotification(alert.getTitle(), alert.getMessage(), u.getPushToken(), data);
+                                }
+                        }
+                } catch (Exception ex) {
+                        log.error("Failed to dispatch push notifications to registered users for alertId={}: {}", alert.getId(), ex.getMessage());
+                }
+
+                // 4. SMS Delivery Queue & Dispatch
+                try {
+                        queueAndDispatchSms(alert);
+                } catch (Exception ex) {
+                        log.warn("SMS delivery processing failed for alertId={}: {}", alert.getId(), ex.getMessage());
+                }
+        }
+
+        private void queueAndDispatchSms(Alert alert) {
+                List<User> users = userRepository.findAll().stream()
+                                .filter(u -> u.getDeletedAt() == null)
+                                .filter(u -> u.getPhoneNumber() != null && !u.getPhoneNumber().isBlank())
+                                .filter(u -> !Boolean.FALSE.equals(u.getNotificationEnabled()))
+                                .toList();
+
+                for (User user : users) {
+                        if (!alertUserDeliveryRepository.existsByAlertIdAndUserId(alert.getId(), user.getId())) {
+                                String smsText = String.format("[DDAS %s] %s: %s",
+                                                alert.getSeverity() != null ? alert.getSeverity().name().toUpperCase() : "ALERT",
+                                                alert.getTitle(),
+                                                alert.getMessage());
+                                if (smsText.length() > 160) {
+                                        smsText = smsText.substring(0, 157) + "...";
+                                }
+
+                                AlertUserDelivery delivery = AlertUserDelivery.builder()
+                                                .alert(alert)
+                                                .user(user)
+                                                .phoneNumber(user.getPhoneNumber())
+                                                .smsMessage(smsText)
+                                                .smsStatus(AlertUserDelivery.SmsStatus.pending)
+                                                .attemptCount(0)
+                                                .build();
+
+                                alertUserDeliveryRepository.save(delivery);
+                        }
+                }
+
+                if (smsDispatcherService != null) {
+                        smsDispatcherService.dispatchPendingSms();
+                }
         }
 
         // -------------------------------------------------------------------------

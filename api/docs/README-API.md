@@ -42,34 +42,31 @@ src/main/java/com/ddas/api/
 
 ### 1. Database Setup
 
-Create the database and run the schema:
+Configure `api/.env` using the [current setup guide](../../README.md), then run
+from the repository root:
 
-```bash
-# Create database
-mysql -u root -p
-CREATE DATABASE ddas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE ddas;
-
-# Run schema
-mysql -u root -p ddas < "DB SCHEMA/ddas_complete_schema.sql"
-
-# Initialize data (roles, permissions, admin user)
-mysql -u root -p ddas < "DB SCHEMA/init_data.sql"
+```powershell
+python api/scripts/setup_demo.py --schema-only --database-only
 ```
+
+This applies versioned migrations and initializes roles and permissions. The
+legacy `ddas_complete_schema.sql` is a design reference, not a current installer.
+API startup creates the first administrator from `DDAS_ADMIN_EMAIL` and
+`DDAS_ADMIN_PASSWORD`; `init_data.sql` does not create a default account.
 
 ### 2. Configure Application
 
 Update `src/main/resources/application.properties`:
 
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/ddas
+spring.datasource.url=jdbc:mysql://localhost:3306/dam_disaster_db
 spring.datasource.username=root
 spring.datasource.password=your_password
 ```
 
 Or use environment variables:
 ```bash
-export SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/ddas
+export SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/dam_disaster_db
 export SPRING_DATASOURCE_USERNAME=root
 export SPRING_DATASOURCE_PASSWORD=your_password
 export JWT_SECRET=your_jwt_secret_key_here

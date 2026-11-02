@@ -11,6 +11,7 @@ import {
 } from '../../services/alertService';
 import { getAllDamsList } from '../../services/dam.service';
 import { getAllRegionsList } from '../../services/region.service';
+import { SmsSwitch, SendSmsButton, CustomSmsButton } from '../../components/alerts/SmsSwitch';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -504,6 +505,7 @@ export default function AlertsPage() {
     const [analytics, setAnalytics] = useState(null);
     const [dams, setDams] = useState([]);
     const [regions, setRegions] = useState([]);
+    const [smsOn, setSmsOn] = useState(false);
 
     // UI State
     const [loading, setLoading] = useState(true);
@@ -620,6 +622,8 @@ export default function AlertsPage() {
                     <p className="text-sm text-gray-400">{loading ? '…' : `${alerts.length} alerts displayed`}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                    <SmsSwitch onChange={setSmsOn} />
+                    <CustomSmsButton enabled={smsOn} alerts={alerts} />
                     <AppButton variant="contained" onClick={() => setShowCreate(true)}
                         className="flex items-center gap-2">
                         <span className="text-base leading-none">+</span> Create Alert
@@ -765,6 +769,7 @@ export default function AlertsPage() {
                                         <TableCell className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                             <div className="flex items-center gap-2">
                                                 <AppButton onClick={() => setSelectedAlert(alert)} className="hover:underline">View</AppButton>
+                                                {!alert.simulationMode && <SendSmsButton alertId={alert.id} enabled={smsOn} />}
                                             </div>
                                         </TableCell>
                                     </TableRow>

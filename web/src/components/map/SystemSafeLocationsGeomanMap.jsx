@@ -16,6 +16,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
+import { MAP_OPTIONS, TILE_PROPS } from './mapDefaults';
+import { MapBehavior, DamJumpControl } from './MapControls';
 
 // Fix for default marker icons in React-Leaflet
 
@@ -540,15 +542,15 @@ export default function SystemSafeLocationsGeomanMap({
     return (
         <div style={{ width: '100%', height, minHeight: '400px' }}>
             <MapContainer
+                {...MAP_OPTIONS}
                 center={center}
                 zoom={zoom}
                 ref={mapRef}
                 style={{ width: '100%', height: '100%', minHeight: '400px', borderRadius: '8px', zIndex: 0 }}
             >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
+                <TileLayer {...TILE_PROPS} />
+                <MapBehavior fitDams />
+                <DamJumpControl />
                 <FeatureGroup ref={featureGroupRef} />
                 <SystemSafeLocationsGeomanEffect
                     readOnly={readOnly}

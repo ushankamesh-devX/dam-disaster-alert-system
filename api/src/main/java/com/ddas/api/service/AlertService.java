@@ -35,6 +35,20 @@ public class AlertService {
         private final AlertRepository alertRepository;
         private final AlertTypeRepository alertTypeRepository;
         private final AlertAuditLogRepository alertAuditLogRepository;
+        private final HazardAssessmentService hazardAssessmentService;
+
+        /**
+         * Dashboard alerts that are live, active and critical/emergency go into the SMS queue,
+         * the same queue the automatic water-level alerts use. Drafts and drills are not sent.
+         */
+        private void queueSmsIfUrgent(Alert alert) {
+                boolean urgent = alert.getSeverity() == AlertType.AlertSeverity.critical
+                                || alert.getSeverity() == AlertType.AlertSeverity.emergency;
+                if (urgent && alert.getStatus() == Alert.AlertStatus.active
+                                && !alert.isSimulationMode()) {
+                        hazardAssessmentService.queueSmsDeliveries(alert, alert.getDamId());
+                }
+        }
 
         // -------------------------------------------------------------------------
         // Existing Operations (unchanged) Helloooo
@@ -59,6 +73,7 @@ public class AlertService {
                 Alert saved = alertRepository.save(alert);
                 recordAudit("ALERT_CREATED", saved.getId(),
                                 "Alert created with status=" + saved.getStatus() + ", severity=" + saved.getSeverity());
+                queueSmsIfUrgent(saved);
                 return toResponseDTO(saved);
         }
 
@@ -97,6 +112,7 @@ public class AlertService {
                 alert.setStatus(newStatus);
                 Alert updated = alertRepository.save(alert);
                 recordAudit("ALERT_STATUS_UPDATED", alertId, "Status changed to " + newStatus);
+                queueSmsIfUrgent(updated);   // e.g. a draft published as active; already-queued users are skipped
                 return toResponseDTO(updated);
         }
 
@@ -172,6 +188,7 @@ public class AlertService {
                 Alert saved = alertRepository.save(alert);
                 recordAudit("REGIONAL_BROADCAST", saved.getId(),
                                 "Regional broadcast to regionId=" + regionId + ", severity=" + request.getSeverity());
+                queueSmsIfUrgent(saved);
                 return toResponseDTO(saved);
         }
 
@@ -208,6 +225,7 @@ public class AlertService {
                                                 + ", regionId=" + saved.getRegionId());
                 log.warn("EMERGENCY_OVERRIDE alert persisted. alertId={}, damId={}, regionId={}",
                                 saved.getId(), saved.getDamId(), saved.getRegionId());
+                queueSmsIfUrgent(saved);
                 return toResponseDTO(saved);
         }
 

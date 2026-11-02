@@ -1,0 +1,59 @@
+# MinIO object storage (models, MLflow artifacts). Community fork: MinIO stopped
+# publishing official images in Oct 2025. Internal only: S3 API on minio:9000.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: ddas
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+        - name: minio
+          image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+          args: ["server", "/data", "--console-address", ":9090"]
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: MINIO_ROOT_USER } }
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: MINIO_ROOT_PASSWORD } }
+          ports:
+            - { name: s3, containerPort: 9000 }
+            - { name: console, containerPort: 9090 }
+          readinessProbe:
+            httpGet: { path: /minio/health/ready, port: 9000 }
+            periodSeconds: 15
+          resources:
+            requests: { memory: 256Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: ddas
+spec:
+  selector:
+    app: minio
+  ports:
+    - { name: s3, port: 9000 }
+    - { name: console, port: 9090 }

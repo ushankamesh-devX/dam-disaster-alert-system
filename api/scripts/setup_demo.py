@@ -11,7 +11,7 @@ import time
 import urllib.error
 import urllib.request
 import http.client
-from seed_demo import ROOT, DATABASE, records, compose_command, initialize_rbac
+from seed_demo import ROOT, DATABASE, records, compose_command
 
 
 def compose(*args):
@@ -51,8 +51,6 @@ def main():
             time.sleep(2)
     script='migrate_schema.py' if args.schema_only else 'seed_demo.py'
     subprocess.run([sys.executable,str(Path(__file__).with_name(script))],cwd=ROOT,check=True)
-    if args.schema_only:
-        initialize_rbac()
     if not args.database_only:
         compose('up','-d','--build','api','web')
         wait_http('http://localhost:8080/api/v1/health')

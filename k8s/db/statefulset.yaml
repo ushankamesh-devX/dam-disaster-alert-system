@@ -1,5 +1,5 @@
-# 3 MySQL 8.4 servers. db-setup-job.yaml turns them into one InnoDB Cluster
-# (1 primary + 2 replicas, automatic failover).
+# One MySQL 8.4 server. On first start the image creates the app database and user.
+# Restarts on its own after an EC2 stop/start (no cluster to reboot).
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -7,8 +7,7 @@ metadata:
   namespace: ddas
 spec:
   serviceName: ddas-db
-  replicas: 3
-  podManagementPolicy: Parallel
+  replicas: 1
   selector:
     matchLabels:
       app: ddas-db
@@ -18,19 +17,6 @@ spec:
         app: ddas-db
     spec:
       terminationGracePeriodSeconds: 60
-      initContainers:
-        # Each member needs its own server_id and the hostname others use to reach it
-        - name: member-config
-          image: mysql:8.4
-          command: ["bash", "-c"]
-          args:
-            - |
-              ord=${HOSTNAME##*-}
-              cp /base/ddas.cnf /conf/ddas.cnf
-              printf '[mysqld]\nserver_id=%d\nreport_host=%s.ddas-db\n' $((100 + ord)) "$HOSTNAME" > /conf/member.cnf
-          volumeMounts:
-            - { name: base-config, mountPath: /base }
-            - { name: conf, mountPath: /conf }
       containers:
         - name: mysql
           image: mysql:8.4
@@ -38,9 +24,15 @@ spec:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef: { name: ddas-secrets, key: MYSQL_ROOT_PASSWORD }
+            - { name: MYSQL_DATABASE, value: dam_disaster_db }
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef: { name: ddas-secrets, key: DB_APP_USER }
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: ddas-secrets, key: DB_APP_PASSWORD }
           ports:
             - { name: mysql, containerPort: 3306 }
-            - { name: gr, containerPort: 33061 }
           readinessProbe:
             exec:
               command: ["mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
@@ -48,19 +40,18 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
           resources:
-            requests: { memory: 200Mi }
-            limits: { memory: 384Mi }
+            requests: { memory: 512Mi }
+            limits: { memory: 1Gi }
           volumeMounts:
-            - { name: data, mountPath: /var/lib/mysql }
-            - { name: conf, mountPath: /etc/mysql/conf.d }
+            - { name: mysql, mountPath: /var/lib/mysql }
+            - { name: config, mountPath: /etc/mysql/conf.d }
       volumes:
-        - name: base-config
+        - name: config
           configMap: { name: ddas-db-config }
-        - name: conf
-          emptyDir: {}
+  # Named "mysql" (not "data") so the old cluster volumes are left untouched as a backup
   volumeClaimTemplates:
     - metadata:
-        name: data
+        name: mysql
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: local-path

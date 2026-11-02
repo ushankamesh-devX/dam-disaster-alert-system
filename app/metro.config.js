@@ -11,7 +11,7 @@ const existingEnhancer = config.server.enhanceMiddleware;
 config.server.enhanceMiddleware = (middleware, server) => {
   const next = existingEnhancer ? existingEnhancer(middleware, server) : middleware;
   return (req, res, nextMiddleware) => {
-    if (!req.url?.startsWith('/api/v1/')) return next(req, res, nextMiddleware);
+    if (!req.url?.startsWith('/api/v1/') && !req.url?.startsWith('/api/public/')) return next(req, res, nextMiddleware);
     const upstream = http.request({
       hostname: '127.0.0.1', port: 8080, path: req.url, method: req.method,
       headers: { ...req.headers, host: 'localhost:8080' },

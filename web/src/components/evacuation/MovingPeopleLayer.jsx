@@ -1,0 +1,87 @@
+import { useEffect, useRef } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { personIcon, PERSON_COLORS } from './mapIcons';
+
+const GLIDE_MS = 4500;   // a little under the 5 s poll, so people glide instead of jumping
+
+/**
+ * Individual (simulated) people as Leaflet markers managed directly, so they can glide between
+ * updates. Optional fading trails.
+ */
+export default function MovingPeopleLayer({ people, selectedId, onSelect, showTrails }) {
+    const map = useMap();
+    const items = useRef(new Map());   // id -> { marker, trail, from, to, start }
+    const onSelectRef = useRef(onSelect);
+    useEffect(() => { onSelectRef.current = onSelect; });
+
+    // One animation loop for every marker
+    useEffect(() => {
+        let frame;
+        const tick = (now) => {
+            items.current.forEach((it) => {
+                const t = Math.min(1, (now - it.start) / GLIDE_MS);
+                const lat = it.from[0] + (it.to[0] - it.from[0]) * t;
+                const lng = it.from[1] + (it.to[1] - it.from[1]) * t;
+                it.marker.setLatLng([lat, lng]);
+            });
+            frame = requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
+        const all = items.current;
+        return () => {
+            cancelAnimationFrame(frame);
+            all.forEach((it) => { it.marker.remove(); it.trail?.remove(); });
+            all.clear();
+        };
+    }, [map]);
+
+    // Sync markers with the latest people list
+    useEffect(() => {
+        const seen = new Set();
+        const now = performance.now();
+        for (const p of people) {
+            seen.add(p.id);
+            const selected = p.id === selectedId;
+            let it = items.current.get(p.id);
+            if (!it) {
+                const marker = L.marker([p.lat, p.lng], { icon: personIcon(p.state, p.mode, p.headingDeg, selected || p.phone), keyboard: false })
+                    .on('click', () => onSelectRef.current?.(p.id))
+                    .addTo(map);
+                it = { marker, from: [p.lat, p.lng], to: [p.lat, p.lng], start: now };
+                items.current.set(p.id, it);
+            } else {
+                const cur = it.marker.getLatLng();
+                it.from = [cur.lat, cur.lng];
+                it.to = [p.lat, p.lng];
+                it.start = now;
+            }
+            it.marker.setIcon(personIcon(p.state, p.mode, p.headingDeg, selected || p.phone));
+            it.marker.setZIndexOffset(selected || p.phone ? 2000 : p.state === 'danger' ? 500 : 0);
+            // A real phone (mobile app) keeps its name on the map, so it stands out from the simulated people
+            it.marker.bindTooltip(p.phone ? `📱 ${p.name}` : `${p.name} · ${label(p)}`,
+                { direction: 'top', offset: [0, -10], permanent: !!p.phone });
+
+            const color = (PERSON_COLORS[p.state] || PERSON_COLORS.moving)[1];
+            if (showTrails && p.trail?.length > 1) {
+                const pts = p.trail.map(([lng, lat]) => [lat, lng]);
+                if (it.trail) it.trail.setLatLngs(pts);
+                else it.trail = L.polyline(pts, { color, weight: 2.5, opacity: 0.45, className: 'ddas-trail', interactive: false }).addTo(map);
+            } else if (it.trail) { it.trail.remove(); it.trail = null; }
+
+        }
+        // Remove people no longer in the (filtered) list
+        items.current.forEach((it, id) => {
+            if (!seen.has(id)) { it.marker.remove(); it.trail?.remove(); items.current.delete(id); }
+        });
+    }, [map, people, selectedId, showTrails]);
+
+    return null;
+}
+
+function label(p) {
+    if (p.state === 'safe') return `safe at ${p.shelterName || 'shelter'}`;
+    if (p.state === 'sos') return 'SOS — waiting for help';
+    const how = p.mode === 'drive' ? 'driving' : 'walking';
+    return `${p.state === 'danger' ? 'in danger zone, ' : ''}${how}${p.etaMin != null ? ` · ~${p.etaMin} min to shelter` : ''}`;
+}

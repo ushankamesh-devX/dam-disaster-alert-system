@@ -27,6 +27,10 @@ public interface DamRepository extends JpaRepository<Dam, Long>, JpaSpecificatio
 
     Page<Dam> findByStatus(Dam.DamStatus status, Pageable pageable);
 
+    List<Dam> findByStatusNot(Dam.DamStatus status);
+
+    Page<Dam> findByStatusNot(Dam.DamStatus status, Pageable pageable);
+
     List<Dam> findByOverallHazardStatus(Dam.HazardStatus hazardStatus);
 
     Page<Dam> findByOverallHazardStatus(Dam.HazardStatus hazardStatus, Pageable pageable);

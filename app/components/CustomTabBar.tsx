@@ -3,6 +3,7 @@ import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
+import { useAlerts } from '@/components/alerts/AlertsContext';
 
 const icons: Record<string, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
   index: 'view-dashboard-outline',
@@ -14,6 +15,7 @@ const icons: Record<string, React.ComponentProps<typeof MaterialCommunityIcons>[
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { unseen } = useAlerts();
 
   return (
     <View style={[styles.container, {
@@ -53,7 +55,10 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                   isFocused && styles.selectedIcon,
                   isEmergency && styles.emergencyIcon,
                 ]}>
-                  <MaterialCommunityIcons name={icons[route.name] ?? 'circle-outline'} size={isEmergency ? 28 : 25} color={color} />
+                  <MaterialCommunityIcons name={icons[route.name] ?? 'circle-outline'} size={isEmergency ? 28 : 25} color={isEmergency ? '#DC2626' : color} />
+                  {route.name === 'alerts' && unseen > 0 && (
+                    <View style={styles.badge}><Text style={styles.badgeText}>{unseen > 9 ? '9+' : unseen}</Text></View>
+                  )}
                 </View>
               </View>
               <Text
@@ -109,4 +114,10 @@ const styles = StyleSheet.create({
   },
   label: { width: '100%', marginTop: 4, fontSize: 11, lineHeight: 15, textAlign: 'center' },
   selectedLabel: { fontWeight: '700' },
+  badge: {
+    position: 'absolute', top: -2, right: 2, minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+    borderWidth: 2, borderColor: 'white',
+  },
+  badgeText: { color: 'white', fontSize: 10, fontWeight: '800' },
 });

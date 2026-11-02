@@ -1,8 +1,10 @@
 package com.ddas.api.dto.request.news;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class CreateNewsArticleRequest {
@@ -32,4 +34,8 @@ public class CreateNewsArticleRequest {
     private Long damId;
     private String status = "draft";
     private Boolean isFeatured = false;
+
+    /** Optional direct local binary file upload from PC/mobile */
+    @JsonIgnore
+    private MultipartFile file;
 }

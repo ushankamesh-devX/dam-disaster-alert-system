@@ -39,6 +39,7 @@ public class HazardAssessmentService {
     private final AlertTypeRepository           alertTypeRepository;
     private final AlertUserDeliveryRepository   alertUserDeliveryRepository;
     private final UserRepository                userRepository;
+    private final SmsControlService             smsControlService;
 
     // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -46,7 +47,8 @@ public class HazardAssessmentService {
      * "HIGH_WATER_LEVEL" alert type code — alert_types table-ට seed කරා insert.
      * Code එක නොතිබිය හොත් auto-fallback to id=1.
      */
-    private static final String ALERT_TYPE_CODE_HIGH_WATER = "HIGH_WATER_LEVEL";
+    private static final String ALERT_TYPE_CODE_HIGH_WATER = "EVACUATION_ORDER";
+    private static final String ALERT_TYPE_CODE_LEGACY = "HIGH_WATER_LEVEL";
 
     /** Sensor type code — water level sensors පමණක් check කෙරේ */
     private static final String SENSOR_TYPE_WATER_LEVEL = "WATER_LEVEL";
@@ -133,15 +135,18 @@ public class HazardAssessmentService {
                                         BigDecimal dangerLevel, DamCurrentStatus damStatus) {
         // alert_types table-ෙ HIGH_WATER_LEVEL type fetch — නොතිබිය හොත් id=1
         AlertType alertType = alertTypeRepository.findByCode(ALERT_TYPE_CODE_HIGH_WATER)
+                .or(() -> alertTypeRepository.findByCode(ALERT_TYPE_CODE_LEGACY))
                 .orElseGet(() -> alertTypeRepository.findAll().stream().findFirst()
                         .orElseThrow(() -> new IllegalStateException(
                                 "[HAZARD] No alert types found in database. Please seed alert_types table.")));
 
         String title = String.format("⚠️ High Water Level Alert — %s", dam.getName());
+        String time = java.time.LocalTime.now(java.time.ZoneId.of("Asia/Colombo"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
         String message = String.format(
-                "URGENT: Water level at %s dam has reached %.2f meters, exceeding the danger level of %.2f meters. " +
+                "URGENT (%s): Water level at %s dam has reached %.2f meters, exceeding the danger level of %.2f meters. " +
                 "Immediate action required. Please follow evacuation procedures if you are in a hazard zone.",
-                dam.getName(), currentLevel, dangerLevel
+                time, dam.getName(), currentLevel, dangerLevel
         );
 
         Alert alert = Alert.builder()
@@ -177,6 +182,22 @@ public class HazardAssessmentService {
      */
     @Transactional
     public void queueSmsDeliveries(Alert alert, Long damId) {
+        // SMS credits are limited: alerts never send SMS by themselves. An admin sends them by hand.
+        log.info("[SMS] Automatic SMS is off — alert id={} not queued (send it from the admin panel)", alert.getId());
+    }
+
+    /** Admin "Send SMS" on one alert: queue it for every registered user with a phone number. */
+    @Transactional
+    public int queueSmsForAlert(Long alertId) {
+        if (!smsControlService.isSendingAllowed()) {
+            throw new com.ddas.api.exception.BadRequestException("SMS sending is switched off. Turn it on first.");
+        }
+        Alert alert = alertRepository.findById(alertId)
+                .orElseThrow(() -> new com.ddas.api.exception.ResourceNotFoundException("Alert not found with id: " + alertId));
+        return queueSmsDeliveriesNow(alert);
+    }
+
+    private int queueSmsDeliveriesNow(Alert alert) {
         List<User> usersToNotify;
 
         if (alert.getRegionId() != null) {
@@ -223,6 +244,7 @@ public class HazardAssessmentService {
         }
 
         log.info("[HAZARD] SMS delivery queue: {} records created for alert id={}", queued, alert.getId());
+        return queued;
     }
 
     // ── Dam Status Update ──────────────────────────────────────────────────────
@@ -285,6 +307,12 @@ public class HazardAssessmentService {
      */
     private String composeSmsMessage(Alert alert, User user) {
         String name = user.getFullName() != null ? user.getFullName().split(" ")[0] : "Resident";
+        // Alerts written on the dashboard carry their own message; send that
+        if (alert.getTitle() == null || !alert.getTitle().contains("High Water Level")) {
+            String text = String.format("[DDAS ALERT] Dear %s, %s. %s Helpline: 117", name,
+                    alert.getTitle(), alert.getMessage() == null ? "" : alert.getMessage().trim());
+            return text.length() > 300 ? text.substring(0, 297) + "..." : text;
+        }
         return String.format(
                 "[DDAS ALERT] Dear %s, %s Danger level exceeded. Please evacuate immediately. Helpline: 1990",
                 name,

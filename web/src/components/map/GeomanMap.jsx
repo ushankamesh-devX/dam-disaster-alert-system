@@ -11,6 +11,8 @@ import DamHoverPopup from './DamHoverPopup';
 import GateHoverPopup from './GateHoverPopup';
 import HazardZoneHoverPopup from './HazardZoneHoverPopup';
 import SystemSafeLocationsService from '../../services/systemSafeLocations.service';
+import { MAP_OPTIONS, TILE_PROPS } from './mapDefaults';
+import { MapBehavior, DamJumpControl } from './MapControls';
 
 // Fix for default marker icons in React-Leaflet
 
@@ -382,7 +384,9 @@ function GeomanEffect({ readOnly, onMapChange, featureGroupRef, activeAreaColor,
                 }, 0);
             });
             map.on('layeradd', (e) => {
-                if (e.layer && e.layer.pm) {
+                // Hook each layer once: a cancelled delete re-adds the layer, which fires layeradd again
+                if (e.layer && e.layer.pm && !e.layer._ddasEditHooked) {
+                    e.layer._ddasEditHooked = true;
                     e.layer.on('pm:edit', (layerEvent) => {
                         callbacks.current.onMapChange();
                         if (callbacks.current.onShapeEdited) callbacks.current.onShapeEdited(layerEvent.target);
@@ -487,7 +491,8 @@ export default function GeomanMap({
     activeAreaColor = AREA_COLORS[0], // Default to Red
     fitBoundsOnLoad = true,
     onFeatureGroupReady = null,
-    onLayerClick = null   // Called with feature index when user clicks a layer
+    onLayerClick = null,  // Called with feature index when user clicks a layer
+    showDamJump = false   // "Go to dam" dropdown, for maps that cover several dams
 }) {
     const featureGroupRef = useRef(null);
     const mapRef = useRef(null);
@@ -520,6 +525,14 @@ export default function GeomanMap({
 
     const onMapChangeRef = useRef(onMapChange);
     useEffect(() => { onMapChangeRef.current = onMapChange; });
+
+    // Hover popups sit at a screen position; close them when the map zooms or pans away under them
+    const closeHoverPopups = useCallback(() => {
+        setHoveredSensor(null);
+        setHoveredDam(null);
+        setHoveredGate(null);
+        setHoveredZone(null);
+    }, []);
 
     // Gather all shapes and export as GeoJSON
     const handleMapChange = useCallback(() => {
@@ -557,20 +570,11 @@ export default function GeomanMap({
 
     // Load initial GeoJSON into the feature group
     useEffect(() => {
-        console.log('Load useEffect triggered:', {
-            featureGroupReady,
-            hasRef: !!featureGroupRef.current,
-            hasLoadedInitialData: hasLoadedInitialData.current,
-            hasInitialGeoJson: !!initialGeoJson
-        });
-
         // Skip if FeatureGroup not ready, already loaded, or no data
         if (!featureGroupReady || !featureGroupRef.current || hasLoadedInitialData.current || !initialGeoJson) return;
 
         // Mark as loaded to prevent re-loading on edits
         hasLoadedInitialData.current = true;
-
-        console.log('Loading initial GeoJSON into map...');
 
         try {
             let parsedGeoJson = typeof initialGeoJson === 'string'
@@ -721,26 +725,8 @@ export default function GeomanMap({
                             setZoneHoverPosition({ x: clientX, y: clientY });
                         });
                     }
-
-                    if (!readOnly && l.pm) {
-                        // When layer is edited, update its feature geometry
-                        l.on('pm:edit', () => {
-                            // Update the feature's geometry to match the edited layer
-                            if (l.feature && l.toGeoJSON) {
-                                const updatedGeoJSON = l.toGeoJSON();
-                                l.feature.geometry = updatedGeoJSON.geometry;
-                            }
-                            handleMapChange();
-                        });
-                        l.on('pm:dragend', () => {
-                            // Update the feature's geometry to match the dragged layer
-                            if (l.feature && l.toGeoJSON) {
-                                const updatedGeoJSON = l.toGeoJSON();
-                                l.feature.geometry = updatedGeoJSON.geometry;
-                            }
-                            handleMapChange();
-                        });
-                    }
+                    // Edit/drag listeners come from the map's 'layeradd' hook in GeomanEffect;
+                    // handleMapChange reads geometry from layer.toGeoJSON(), so it is always current.
                 });
 
                 // Auto-fit bounds if we loaded existing data
@@ -770,23 +756,21 @@ export default function GeomanMap({
 
     return (<>
         <MapContainer
+            {...MAP_OPTIONS}
             center={center}
             zoom={zoom}
             ref={mapRef}
             style={{ width: '100%', height: '100%', minHeight: '400px', borderRadius: '8px', zIndex: 0 }}
         >
-            <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <TileLayer {...TILE_PROPS} />
+            <MapBehavior onViewChangeStart={closeHoverPopups} />
+            {showDamJump && <DamJumpControl />}
             <ReferenceGeography geojson={referenceGeoJson} />
             <DamSafeLocations damId={safeLocationDamId} />
             {/* We store all drawn features inside this FeatureGroup */}
             <FeatureGroup ref={(ref) => {
-                console.log('FeatureGroup ref callback:', ref ? 'ref received' : 'ref is null');
                 featureGroupRef.current = ref;
                 if (ref && !featureGroupReady) {
-                    console.log('Setting featureGroupReady to true');
                     setFeatureGroupReady(true);
                 }
             }} />

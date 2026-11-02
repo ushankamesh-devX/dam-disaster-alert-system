@@ -2,7 +2,7 @@
 import json
 import random
 import math
-from seed_demo import OUT, records, sql, quote, dump_database
+from seed_demo import OUT, records, sql, quote, docker
 
 def hull(points):
     points=sorted(set(points))
@@ -37,7 +37,7 @@ def apply(manifest):
     rng=random.Random(20261005)
     spans={r['table']:r['ids'] for r in manifest['tables'] if r['ids']}
     if not (OUT/'before-geography.sql').exists():
-        backup=dump_database()
+        backup=docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF $MYSQL_DATABASE')
         (OUT/'before-geography.sql').write_bytes(backup)
     updates=[]; expected=[]
     def load(t):

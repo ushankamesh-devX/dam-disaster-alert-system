@@ -7,10 +7,13 @@ import DesignProvider from './theme/DesignProvider';
 import { tokens } from './theme/tokens';
 import { Suspense } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster as SonnerToaster } from '@/components/ui/sonner';
 
 export default function App() {
   return (
     <DesignProvider>
+    <TooltipProvider delayDuration={300}>
     <AuthProvider>
       <Suspense fallback={<Box role="status" sx={{ minHeight: '60vh', display: 'grid', placeContent: 'center', justifyItems: 'center', gap: 2 }}><CircularProgress size={32} /><Typography variant="body2">Loading page…</Typography></Box>}>
         <RouterProvider router={router} />
@@ -31,7 +34,10 @@ export default function App() {
           error: { iconTheme: { primary: tokens.error, secondary: tokens.surfaceContainerLowest } },
         }}
       />
+      {/* shadcn pages use sonner; older pages still use react-hot-toast above */}
+      <SonnerToaster position="top-right" richColors />
     </AuthProvider>
+    </TooltipProvider>
     </DesignProvider>
   );
 }

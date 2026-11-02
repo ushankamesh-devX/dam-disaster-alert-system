@@ -535,7 +535,7 @@ export default function MapDetailedPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-4">
+        <div className="flex flex-col h-full gap-3">
             {/* Header */}
             <div className="flex justify-between items-center shrink-0">
                 <div>
@@ -565,9 +565,9 @@ export default function MapDetailedPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-3 flex-1 min-h-0">
                 {/* Map Section */}
-                <Paper variant="outlined" className="lg:col-span-2 bg-white   border border-gray-200 p-4 flex flex-col min-h-[500px]">
+                <Paper variant="outlined" className="bg-white border border-gray-200 p-2 flex flex-col min-h-[480px]">
                     <div className="flex justify-between items-center mb-4">
                         <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800">Interactive Map</Typography>
                         {isLoadingData && (

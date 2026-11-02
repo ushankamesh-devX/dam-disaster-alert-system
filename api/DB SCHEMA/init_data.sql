@@ -3,12 +3,7 @@
 -- This script creates initial roles and permissions for the system
 -- ============================================================================
 
--- Apply migrations first. Run against the selected database (normally dam_disaster_db).
--- Safe to repeat: existing role/permission records and assignments are retained.
--- The API creates the first admin from DDAS_ADMIN_EMAIL / DDAS_ADMIN_PASSWORD.
--- This file deliberately creates no user accounts.
-SET NAMES utf8mb4;
-START TRANSACTION;
+USE ddas;
 
 -- ============================================================================
 -- 1. INSERT PERMISSIONS
@@ -39,8 +34,7 @@ INSERT INTO permissions (code, name, description, module, action, is_active) VAL
 
 -- Settings Management
 ('settings.view', 'View Settings', 'View system settings', 'settings', 'view', TRUE),
-('settings.manage', 'Manage Settings', 'Manage system settings', 'settings', 'manage', TRUE)
-ON DUPLICATE KEY UPDATE permissions.id=permissions.id;
+('settings.manage', 'Manage Settings', 'Manage system settings', 'settings', 'manage', TRUE);
 
 -- ============================================================================
 -- 2. INSERT ROLES
@@ -50,8 +44,7 @@ INSERT INTO roles (code, name, name_si, description, is_system_role, is_default,
 ('SUPER_ADMIN', 'Super Administrator', 'සුපිරි පරිපාලක', 'Full system access with all permissions', TRUE, FALSE, 100, '#e74c3c', TRUE),
 ('ADMIN', 'Administrator', 'පරිපාලක', 'System administrator with management permissions', TRUE, FALSE, 90, '#3498db', TRUE),
 ('DAM_OPERATOR', 'Dam Operator', 'වේලි ක්‍රියාකරු', 'Dam facility operator', TRUE, FALSE, 70, '#f39c12', TRUE),
-('NORMAL_USER', 'Normal User', 'සාමාන්‍ය පරිශීලක', 'Regular system user', TRUE, TRUE, 10, '#95a5a6', TRUE)
-ON DUPLICATE KEY UPDATE roles.id=roles.id;
+('NORMAL_USER', 'Normal User', 'සාමාන්‍ය පරිශීලක', 'Regular system user', TRUE, TRUE, 10, '#95a5a6', TRUE);
 
 -- ============================================================================
 -- 3. ASSIGN PERMISSIONS TO ROLES
@@ -62,8 +55,7 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.code = 'SUPER_ADMIN'
-ON DUPLICATE KEY UPDATE role_permissions.role_id=role_permissions.role_id;
+WHERE r.code = 'SUPER_ADMIN';
 
 -- Admin - Most permissions except some critical ones
 INSERT INTO role_permissions (role_id, permission_id)
@@ -77,8 +69,7 @@ AND p.code IN (
     'alerts.view', 'alerts.create', 'alerts.edit', 'alerts.delete',
     'reports.view', 'reports.create',
     'settings.view'
-)
-ON DUPLICATE KEY UPDATE role_permissions.role_id=role_permissions.role_id;
+);
 
 -- Dam Operator - Limited permissions
 INSERT INTO role_permissions (role_id, permission_id)
@@ -90,8 +81,7 @@ AND p.code IN (
     'dams.view', 'dams.edit',
     'alerts.view', 'alerts.create',
     'reports.view', 'reports.create'
-)
-ON DUPLICATE KEY UPDATE role_permissions.role_id=role_permissions.role_id;
+);
 
 -- Normal User - View only permissions
 INSERT INTO role_permissions (role_id, permission_id)
@@ -103,7 +93,65 @@ AND p.code IN (
     'dams.view',
     'alerts.view',
     'reports.view'
-)
-ON DUPLICATE KEY UPDATE role_permissions.role_id=role_permissions.role_id;
+);
 
-COMMIT;
+-- ============================================================================
+-- 4. CREATE INITIAL ADMIN USER (Optional - for testing)
+-- Password: Admin@123 (hashed with BCrypt)
+-- ============================================================================
+
+INSERT INTO users (
+    uuid,
+    full_name,
+    email,
+    phone_number,
+    password_hash,
+    role_id,
+    status,
+    language_preference,
+    notification_enabled,
+    email_verified_at
+) VALUES (
+    UUID(),
+    'System Administrator',
+    'admin@ddas.gov.lk',
+    '+94712345678',
+    '$2a$10$xN0dJqO5hHZQXwlkkFVqneiDxPnJGgXjKlQ8vG4dKxKlhHY9WKtSq', -- Admin@123
+    (SELECT id FROM roles WHERE code = 'SUPER_ADMIN'),
+    'active',
+    'en',
+    TRUE,
+    NOW()
+);
+
+-- ============================================================================
+-- Verification Queries
+-- ============================================================================
+
+-- Check created permissions
+SELECT COUNT(*) as 'Total Permissions' FROM permissions;
+
+-- Check created roles
+SELECT code, name, priority_level, is_active FROM roles ORDER BY priority_level DESC;
+
+-- Check role-permission assignments
+SELECT
+    r.name as role_name,
+    COUNT(rp.permission_id) as permission_count
+FROM roles r
+LEFT JOIN role_permissions rp ON r.id = rp.role_id
+GROUP BY r.id, r.name
+ORDER BY r.priority_level DESC;
+
+-- Check admin user
+SELECT
+    u.full_name,
+    u.email,
+    r.name as role,
+    u.status
+FROM users u
+JOIN roles r ON u.role_id = r.id
+WHERE u.email = 'admin@ddas.gov.lk';
+
+SELECT '✓ Database initialization completed successfully!' as 'Status';
+

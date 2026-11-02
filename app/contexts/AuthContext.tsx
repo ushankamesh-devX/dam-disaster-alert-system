@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login: async data => { const attempt = ++generation.current; await applyUser((await authService.login(data)).data.data.user, attempt); },
     register: async data => { const attempt = ++generation.current; await applyUser((await authService.register(data)).data.data.user, attempt); },
     completeOnboarding: async (damId, language) => {
-      const attempt = generation.current;
+      const attempt = ++generation.current;
       const response = await userService.updateProfile({ preferredDamId: damId, languagePreference: language });
       await applyUser(response.data.data, attempt);
     },

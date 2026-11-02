@@ -37,4 +37,27 @@ public interface DamHazardZoneRepository extends JpaRepository<DamHazardZone, Lo
     long countActiveZonesByDamId(@Param("damId") Long damId);
 
     boolean existsByDamIdAndZoneCode(Long damId, String zoneCode);
+
+    /** Zones people must leave right now: evacuation-level zones of every dam that is not safe. */
+    @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h, DamCurrentStatus s " +
+           "WHERE s.dam = z.dam AND z.isActive = true AND h.evacuationRequired = true " +
+           "AND s.hazardStatus <> com.ddas.api.entity.Dam.HazardStatus.safe")
+    List<DamHazardZone> findCurrentDangerZones();
+
+    /** Lower levels (no evacuation needed) of dams that are not safe: shown on the map as watch areas. */
+    @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h, DamCurrentStatus s " +
+           "WHERE s.dam = z.dam AND z.isActive = true AND h.evacuationRequired = false " +
+           "AND s.hazardStatus <> com.ddas.api.entity.Dam.HazardStatus.safe")
+    List<DamHazardZone> findCurrentWatchZones();
+
+    /** Zones of dams that are safe right now: shown faintly as a planning view. */
+    @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h, DamCurrentStatus s " +
+           "WHERE s.dam = z.dam AND z.isActive = true " +
+           "AND s.hazardStatus = com.ddas.api.entity.Dam.HazardStatus.safe")
+    List<DamHazardZone> findPlanningZones();
+
+    /** Every evacuation-level zone, whatever the dam's status; used to precompute offline route packs. */
+    @Query("SELECT z FROM DamHazardZone z JOIN FETCH z.hazardLevel h JOIN FETCH z.dam " +
+           "WHERE z.isActive = true AND h.evacuationRequired = true")
+    List<DamHazardZone> findAllEvacuationZones();
 }

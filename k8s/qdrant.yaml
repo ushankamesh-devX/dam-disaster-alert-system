@@ -1,0 +1,50 @@
+# Qdrant vector database for the RAG chat. Internal only: qdrant:6333.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: qdrant
+  namespace: ddas
+spec:
+  serviceName: qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qdrant
+  template:
+    metadata:
+      labels:
+        app: qdrant
+    spec:
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:v1.19.2
+          ports:
+            - { name: http, containerPort: 6333 }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 6333 }
+            periodSeconds: 15
+          resources:
+            requests: { memory: 256Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - { name: data, mountPath: /qdrant/storage }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: ddas
+spec:
+  selector:
+    app: qdrant
+  ports:
+    - { name: http, port: 6333 }

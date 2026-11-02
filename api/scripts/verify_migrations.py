@@ -41,7 +41,7 @@ def main():
     value=seed.records('SELECT operating_hours FROM system_safe_locations WHERE id=(SELECT MIN(id) FROM system_safe_locations)')[0]['operating_hours']
     seed.sql("ALTER TABLE system_safe_locations MODIFY operating_hours LONGTEXT NULL; UPDATE system_safe_locations SET operating_hours='invalid JSON' ORDER BY id LIMIT 1;")
     def digest():
-        return hashlib.sha256(seed.dump_database('--compact','--skip-add-locks')).digest()
+        return hashlib.sha256(seed.docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF --compact --skip-add-locks $MYSQL_DATABASE')).digest()
     snapshot=digest()
     result=subprocess.run([sys.executable,str(Path(__file__).with_name('migrate_schema.py'))],cwd=seed.ROOT,capture_output=True,text=True)
     assert result.returncode!=0 and 'invalid JSON' in result.stderr+result.stdout

@@ -659,7 +659,7 @@ export default function SystemSafeLocationsMapFuncPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] gap-6">
+        <div className="flex flex-col h-full gap-3">
             <div className="flex justify-between items-center shrink-0 sticky top-0 z-10 bg-white pt-2 pb-2 border-b border-gray-200">
                 <div>
                     <Typography component="h1" variant="h1" className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
@@ -712,8 +712,8 @@ export default function SystemSafeLocationsMapFuncPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-                <Paper variant="outlined" className="lg:col-span-2 bg-white   border border-gray-200 p-4 flex flex-col min-h-[500px]">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-3 flex-1 min-h-0">
+                <Paper variant="outlined" className="bg-white border border-gray-200 p-2 flex flex-col min-h-[480px]">
                     <Typography component="h2" variant="h2" className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-blue-600" />
                         All Safe Locations

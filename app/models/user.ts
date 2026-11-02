@@ -5,4 +5,5 @@ export interface UserProfile {
   languagePreference: string;
   preferredDamId: number | null;
   onboardingCompletedAt: string | null;
+  role?: { id?: number; code: string; name?: string } | null;
 }

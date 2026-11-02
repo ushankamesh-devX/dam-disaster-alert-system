@@ -76,7 +76,7 @@ docker compose -f api/docker-compose.yml up -d phpmyadmin
 | API health | http://localhost:8080/api/v1/health |
 | Spring health | http://localhost:8080/actuator/health |
 | phpMyAdmin (optional) | http://localhost:8081 |
-| MySQL from a desktop database client | `127.0.0.1:3306`, database `dam_disaster_db` |
+| MySQL from a desktop database client | `127.0.0.1:3307`, database `dam_disaster_db` |
 
 For phpMyAdmin, use server `mysql` if prompted and the MySQL user/password from
 `api/.env`. The Docker web app already proxies `/api/v1` to the local API;
@@ -192,7 +192,7 @@ and [Victoria Dam demo geography](api/scripts/VICTORIA-DEMO.md).
 
 - **Docker connection error:** start Docker Desktop, wait for the engine, and rerun setup.
 - **Port already in use:** stop the conflicting service. DDAS uses 80 (web),
-  8080 (API), 8081 (phpMyAdmin), 3306 (MySQL), 5173 (Vite), and 8082 (Expo preview).
+  8080 (API), 8081 (phpMyAdmin), 3307 (MySQL), 5173 (Vite), and 8082 (Expo preview).
 - **API schema validation failure:** rerun setup so migrations run before API startup.
   If migration fails, read its error and inspect the database logs; do not remove
   the database volume as a workaround.

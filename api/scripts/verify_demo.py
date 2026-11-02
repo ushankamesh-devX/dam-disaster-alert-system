@@ -25,7 +25,7 @@ def main():
             cwd=seed.ROOT,env=os.environ,check=True)
 
     def digest():
-        data=seed.dump_database('--compact','--no-create-info','--skip-add-locks')
+        data=seed.docker('export MYSQL_PWD=$MYSQL_PASSWORD; exec mysqldump --user=$MYSQL_USER --single-transaction --no-tablespaces --set-gtid-purged=OFF --compact --no-create-info --skip-add-locks $MYSQL_DATABASE')
         return hashlib.sha256(data).digest()
 
     run()

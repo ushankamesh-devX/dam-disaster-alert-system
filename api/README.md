@@ -41,7 +41,7 @@ collection. The older [bruno](bruno/README.md) collection covers general/admin A
 
 ### Access Locally
 - API: http://localhost:8080
-- Database: localhost:3306 (Docker)
+- Database: localhost:3307 (Docker)
 
 ### Seed the demo database
 

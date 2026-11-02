@@ -59,10 +59,8 @@ Versioned files under `scripts/migrations/` are recorded with SHA-256 checksums
 in `ddas_schema_migrations`. Checksums normalize line endings for Windows/Linux
 consistency; Git also keeps migration files as LF. An applied migration cannot
 be edited or removed.
-The checked-in contract covers 63 application tables and all 534 mapped columns
-from the 32 current Java entities. It checks unique keys, foreign keys and the
-indexes declared by Java entities. The demo dataset still covers the original
-59 tables; the four ML tables are created without invented operational records.
+The checked-in contract covers the 59 baseline tables and all 533 mapped columns
+from the 31 current Java entities. It also checks unique keys and foreign keys.
 
 Missing tables/columns are created; compatible string/decimal sizes are widened;
 enums and JSON are converted only after checking existing values. Nullability
@@ -80,19 +78,6 @@ does not drop or revert database structures. Historical migrations are unchanged
 V003 repairs the old seeder's invalid location-type references only for orphaned,
 manifest-owned synthetic safe locations with matching demo lookup codes and a
 verified demo user identity. Valid references and real records are retained.
-
-V009 adds the forecast composite unique key (`dam_id`, `as_of`, `horizon_hours`)
-and entity-declared indexes to the checked-in contract. The runner now creates
-contract tables absent from V001: `dam_forecasts`, `dam_overflow_configs`,
-`dam_status_history` and `dam_weather_data`. Existing duplicate forecasts stop
-the upgrade with an error; records are not automatically deleted or merged.
-Earlier migration files remain unchanged.
-
-Schema-only setup also runs the repeatable `DB SCHEMA/init_data.sql` role and
-permission initializer, so the first administrator can be created at API startup.
-That SQL uses the selected database and never creates a hardcoded login. It can
-also be run manually after migration. Standalone `migrate_schema.py` only handles
-schema changes; use `setup_demo.py --schema-only` for complete initialization.
 
 Private full backups are saved before schema changes to
 `api/local-data/<database>/before-schema-*.sql`. MySQL DDL can commit separately;
@@ -117,7 +102,7 @@ When entity mappings change, create a **new** migration contract, review it and
 commit it with the entity changes. Never overwrite a migration already shared:
 
 ```powershell
-python api/scripts/schema_contract.py --output api/scripts/migrations/V010__entity_contract.json
+python api/scripts/schema_contract.py --output api/scripts/migrations/V004__entity_contract.json
 ```
 
 A new contract handles additive/widening changes. A rename, backfill or coordinated
@@ -188,7 +173,7 @@ phase, demo row count and validation results.
 
 All telemetry, incidents, alerts, shelters and hazard contours are fictional.
 Alerts use simulation mode; push delivery examples are historical simulated
-records, SMS delivery is skipped and email delivery is disabled, sessions are expired and
+records, email/SMS delivery statuses are disabled, sessions are expired and
 device API keys are disabled. No notification service is called by this script.
 Report media metadata does not create uploaded files. Seeding tables does not
 add endpoints for modules that have not been implemented.
@@ -228,27 +213,12 @@ For deployment, apply schema updates without installing demo records:
 python api/scripts/setup_demo.py --schema-only
 ```
 
-The current `.github/workflows/ci-cd.yml` builds API, web and migration images
-with the same commit tag. On an explicitly requested deployment it copies the
-release's Kubernetes scripts to EC2, then runs `k8s/deploy.sh`. The deployment
-pauses the API, runs a migration Job through MySQL Router's primary port (6446),
-and starts the new API/web only after migrations and role initialization succeed.
-A deployment lock prevents concurrent upgrades. See [Kubernetes database setup](../../k8s/DATABASE.md).
-
-The migration Job stores pre-change dumps on the `db-migration-backups` PVC.
-Failure leaves the API stopped because MySQL DDL may already have committed.
-Inspect the failed Job before retrying; do not automatically restore an older
-application against a partially migrated schema. Backups are retained independently
-of Jobs and require disk-space monitoring and an off-node backup policy.
-
-Compose's optional MLflow service now waits for `mlflow-db-init` to complete.
-That initializer creates `mlflow_db` and grants the configured application user
-access, including on existing MySQL volumes. It preserves database contents and
-account passwords. MLflow owns its internal tables. Start it with:
-
-```powershell
-docker compose -f api/docker-compose.yml up -d --build mlflow
-```
+The existing DigitalOcean workflow now runs
+`python3 scripts/setup_demo.py --schema-only --database-only` after building and
+before starting the API. Migration failure stops deployment. Python 3 must be
+available on the deployment host; both `docker compose` and `docker-compose`
+are supported. This workflow change was reviewed locally; no live deployment
+was triggered during validation.
 
 Additional disposable-database migration checks:
 
@@ -260,42 +230,3 @@ This deliberately simulates older FK integer types, a missing FK, a smaller
 string column and invalid JSON in the test schema. It verifies record
 preservation during safe upgrades and unchanged database dumps after rejected
 JSON or modified-history migrations. Do not use it on operational databases.
-
-## Verification on 1 November 2026
-
-```powershell
-python -m unittest discover -s api/scripts -p 'test_*.py' -v
-```
-
-Checks cover contract drift, missing-table creation, repeatable initialization,
-schema-only role setup, forecast uniqueness, index reconciliation and legacy
-unsigned parent keys. These do not replace the disposable MySQL checks above.
-For container-level verification, build the migration image and run:
-
-```powershell
-docker build -f api/Dockerfile.migrations -t ddas-migrations:verification api
-python api/scripts/verify_container_setup.py
-```
-
-This creates an isolated MySQL container and network, checks fresh/repeat schema
-setup, MLflow database permissions and data preservation, then runs the full demo
-and migration checks. It removes the temporary containers/network on exit. Test
-backups remain in ignored `api/local-data/`. No existing application database is
-used. The October verification results above are historical.
-
-
-The isolated MySQL 8.0 verification passed both with `--host-runner` and with
-the successfully built migration image (Python 3.12): all 63
-application tables were created; repeat setup required no schema changes;
-roles were initialized without a default login; backups were persisted; MLflow
-provisioning preserved an existing test row and allowed application-user access.
-The complete 46,902-row demo seed passed all 147 foreign-key checks. Repeat seed
-and validation preserved the database contents. Legacy FK/string repairs,
-invalid-JSON rejection and edited-history rejection also passed. The temporary
-MySQL container and network were removed. No existing application database or
-live Kubernetes cluster was modified.
-
-The 19 offline tests, Compose configuration validation, shell syntax checks and
-GitHub workflow validation also passed. The CI build runs the same disposable
-container suite before permitting deployment. Live Kubernetes scheduling,
-MySQL 8.4 cluster behavior and PVC provisioning have not been exercised here.

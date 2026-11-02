@@ -98,6 +98,28 @@ services:
     networks:
       - ddas-network
 
+  # Simulated ESP32 nodes for the Kotmale/Victoria/Randenigala demo (synthetic readings).
+  # Two-minute demo storm: docker exec ddas-feeder python3 /app/scripts/ddas_demo.py flood --dam victoria
+  ddas-feeder:
+    image: python:3.12.7-alpine
+    container_name: ddas-feeder
+    restart: unless-stopped
+    working_dir: /app/scripts
+    command: ["python3", "/app/scripts/ddas_feeder.py"]
+    environment:
+      DDAS_API_URL: http://api:8080
+      DDAS_ADMIN_EMAIL: ${DDAS_ADMIN_EMAIL:-}
+      DDAS_ADMIN_PASSWORD: ${DDAS_ADMIN_PASSWORD:-}
+      DDAS_SIM_INTERVAL: ${DDAS_SIM_INTERVAL:-60}
+    volumes:
+      - ./scripts/ddas_feeder.py:/app/scripts/ddas_feeder.py:ro
+      - ./scripts/ddas_demo.py:/app/scripts/ddas_demo.py:ro
+      - ./scripts/cascade_model.py:/app/scripts/cascade_model.py:ro
+    depends_on:
+      - api
+    networks:
+      - ddas-network
+
   web:
     build:
       context: ../web
@@ -126,7 +148,8 @@ services:
       - ddas-network
 
   minio:
-    image: minio/minio:latest
+    # Community fork; MinIO stopped publishing official images in Oct 2025
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: ddas-minio
     restart: always
     command: server /data --console-address ":9090"
@@ -138,23 +161,6 @@ services:
       - "9090:9090"   # MinIO Web Console UI
     volumes:
       - minio-data:/data
-    networks:
-      - ddas-network
-
-  mlflow-db-init:
-    build:
-      context: .
-      dockerfile: Dockerfile.migrations
-    restart: "no"
-    command: ["--mlflow-only"]
-    environment:
-      DDAS_MYSQL_HOST: mysql
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      DDAS_MLFLOW_USER: ${MYSQL_USER}
-    depends_on:
-      mysql:
-        condition: service_healthy
     networks:
       - ddas-network
 
@@ -180,8 +186,6 @@ services:
       --port 5000
       --allowed-hosts "*"
     depends_on:
-      mlflow-db-init:
-        condition: service_completed_successfully
       mysql:
         condition: service_healthy
       minio:

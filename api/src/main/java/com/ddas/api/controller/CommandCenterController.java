@@ -54,10 +54,28 @@ public class CommandCenterController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Body: { teamUserId } (a unit) or { providerId } (a station: its unit with the shortest queue). A busy unit gets it in its queue. */
     @PostMapping("/sos/{id}/assign")
-    public ResponseEntity<Void> assign(@PathVariable Long id, @RequestBody Map<String, Long> body) {
-        service.assign(id, body.get("providerId"));
+    public ResponseEntity<Map<String, Object>> assign(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(teams.dispatch(id, longOrNull(body.get("teamUserId")), longOrNull(body.get("providerId"))));
+    }
+
+    /** Take a job back from a unit (to give it to another one). */
+    @DeleteMapping("/sos/{id}/teams/{teamUserId}")
+    public ResponseEntity<Void> unassign(@PathVariable Long id, @PathVariable Long teamUserId) {
+        teams.unassign(id, teamUserId);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Move a queued job up or down in a unit's queue. */
+    @PostMapping("/teams/{teamUserId}/queue/{sosId}/{direction}")
+    public ResponseEntity<Void> move(@PathVariable Long teamUserId, @PathVariable Long sosId, @PathVariable String direction) {
+        teams.move(teamUserId, sosId, direction);
+        return ResponseEntity.noContent().build();
+    }
+
+    private static Long longOrNull(Object v) {
+        return v == null || String.valueOf(v).isBlank() ? null : Long.valueOf(String.valueOf(v));
     }
 
     @PostMapping("/sos/{id}/resolve")

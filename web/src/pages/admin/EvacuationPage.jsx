@@ -348,7 +348,7 @@ export default function EvacuationPage() {
                                 onSelect={(x) => { setSelectedSos(x); setTeamFocus(null); setSelectedPersonId(null); }} onChanged={refreshAll} />
                         </TabsContent>
                         <TabsContent value="teams" className="min-h-0 overflow-y-auto">
-                            <TeamsPanel teams={teams} onChanged={refreshPeople}
+                            <TeamsPanel teams={teams} sos={sos} onChanged={() => { refreshPeople(); refreshAll(); }}
                                 onSelect={(t) => { setTeamFocus({ lat: t.lat, lng: t.lng, at: Date.now() }); setSelectedSos(null); setSelectedPersonId(null); }} />
                         </TabsContent>
                         <TabsContent value="people" className="min-h-0 overflow-y-auto">

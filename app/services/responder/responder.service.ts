@@ -9,6 +9,7 @@ export type Mission = {
   triggeredAt?: string; resolvedAt?: string | null; person: string; damName?: string | null;
   lat: number; lng: number; positionAgeSeconds?: number; teamStatus: TeamStatus;
   otherTeams: OtherTeam[]; backupRequested: boolean; resolutionNotes?: string | null;
+  queuePosition: number;   // 0 = current job, 1.. = queue, -1 = closed
 };
 
 export type Station = { id: number; name: string; type: string; label: string; lat: number; lng: number };
@@ -16,6 +17,7 @@ export type Station = { id: number; name: string; type: string; label: string; l
 export type TeamRoute = {
   route: { type: "LineString"; coordinates: [number, number][] }; distanceKm: number; etaMin: number;
   instructions: string[]; routingAvailable: boolean;
+  turns: { text: string; at: [number, number]; index: number }[];   // turn-by-turn: where each instruction starts
 };
 
 export type ChatMessage = { id: number; at: string; text: string; from: 'control' | 'team'; fromName: string; fromUserId?: number | null; toPerson: boolean };
@@ -24,11 +26,11 @@ export type InboxItem = { key: string; kind: 'broadcast' | 'mission'; atMs: numb
 
 /** Response team app (role RESPONDER): duty, position, missions, chat, inbox. */
 export const responderService = {
-  me: async (): Promise<{ station: Station; onDuty: boolean }> => (await axiosInstance.get("/responder/me")).data,
+  me: async (): Promise<{ station: Station; unit: string; onDuty: boolean }> => (await axiosInstance.get("/responder/me")).data,
   duty: (onDuty: boolean) => axiosInstance.post("/responder/duty", { onDuty }),
   location: (lat: number, lng: number, battery?: number) => axiosInstance.post("/responder/location", { lat, lng, battery }),
   missions: async (): Promise<Mission[]> => (await axiosInstance.get("/responder/missions")).data,
-  act: (id: number, action: "accept" | "arrived" | "resolve" | "backup", notes?: string) =>
+  act: (id: number, action: "accept" | "arrived" | "resolve" | "backup" | "handback", notes?: string) =>
     axiosInstance.post(`/responder/missions/${id}/${action}`, notes ? { notes } : {}),
   messages: async (id: number): Promise<ChatMessage[]> => (await axiosInstance.get(`/responder/missions/${id}/messages`)).data,
   send: (id: number, text: string, toPerson = false) => axiosInstance.post(`/responder/missions/${id}/messages`, { text, toPerson }),

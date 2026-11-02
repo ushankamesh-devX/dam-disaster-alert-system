@@ -27,7 +27,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ValhallaClient {
 
-    public record Route(double distanceKm, double timeMinutes, List<double[]> shape, List<String> instructions) {
+    /** turnIndex: for each instruction, the index of the shape point where it starts (for turn-by-turn). */
+    public record Route(double distanceKm, double timeMinutes, List<double[]> shape, List<String> instructions, List<Integer> turnIndex) {
     }
 
     // HTTP/1.1: Java's default HTTP/2 sends an h2c upgrade on plain http, which Valhalla's server rejects
@@ -117,12 +118,16 @@ public class ValhallaClient {
             JsonNode trip = objectMapper.readTree(response.body()).path("trip");
             JsonNode leg = trip.path("legs").path(0);
             List<String> instructions = new ArrayList<>();
-            leg.path("maneuvers").forEach(m -> instructions.add(m.path("instruction").asText()));
+            List<Integer> turnIndex = new ArrayList<>();
+            leg.path("maneuvers").forEach(m -> {
+                instructions.add(m.path("instruction").asText());
+                turnIndex.add(m.path("begin_shape_index").asInt(0));
+            });
             return Optional.of(new Route(
                     trip.path("summary").path("length").asDouble(),
                     trip.path("summary").path("time").asDouble() / 60.0,
                     GeoPolygons.decodePolyline6(leg.path("shape").asText()),
-                    instructions));
+                    instructions, turnIndex));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Optional.empty();

@@ -36,7 +36,7 @@ export type SosType = { code: string; name: string; defaultMessage?: string };
 export type ComingTeam = {
   userId: number; name: string; station: string; type: string; label: string;
   status: 'assigned' | 'on_the_way' | 'arrived' | 'rescued' | 'done';
-  lat?: number | null; lng?: number | null; km?: number; etaMin?: number; route?: [number, number][];
+  lat?: number | null; lng?: number | null; km?: number; etaMin?: number; route?: [number, number][]; queued?: boolean;
 };
 
 export type MySos = {

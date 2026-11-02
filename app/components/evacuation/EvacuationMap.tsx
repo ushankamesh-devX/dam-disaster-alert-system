@@ -14,6 +14,7 @@ type Props = {
   targetLabel?: string;
   teams?: { pos: LngLat; label: string; emoji?: string }[];   // response teams coming to help
   teamRoute?: LngLat[] | null;                                // road route of the team on the way
+  follow?: boolean;                                           // navigation: keep the map on my position
 };
 type LngLat = [number, number];
 
@@ -95,11 +96,12 @@ window.ddasRoute=function(r){routeL.clearLayers();if(!r)return;
     L.polyline(c,{color:'#fff',weight:2.5,dashArray:'1 9',lineCap:'round',className:'flow'}).addTo(routeL);}
   if(r.shelter){L.marker([r.shelter.lat,r.shelter.lng],{icon:icon(hill),zIndexOffset:900}).addTo(routeL)
     .bindTooltip(r.shelter.aboveFloodM!=null?'▲ '+r.shelter.aboveFloodM+' m':'Safe place',{permanent:true,direction:'bottom',offset:[0,12],className:'tag'});}
-  if(c.length>1)map.fitBounds(L.latLngBounds(c),{padding:[40,40],maxZoom:15});};
+  if(c.length>1&&!window.ddasFollowing)map.fitBounds(L.latLngBounds(c),{padding:[40,40],maxZoom:15});};
 window.ddasMe=function(p,sos){meL.clearLayers();if(!p)return;var ll=[p[1],p[0]];
   L.marker(ll,{icon:L.divIcon({html:'<div class="me'+(sos?' sos':'')+'"></div>',className:'pin',iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:1000}).addTo(meL);
   if(!centred){map.setView(ll,14);centred=true;}};
 window.ddasCentre=function(p){p&&map.setView([p[1],p[0]],15);};
+window.ddasFollow=function(p){window.ddasFollowing=true;p&&map.setView([p[1],p[0]],Math.max(map.getZoom(),16),{animate:true});};
 /* the SOS person (seen by a response team) and the response team (seen by the person) */
 var marksL=L.layerGroup().addTo(map);
 var sosSvg='<svg width="30" height="30" viewBox="0 0 24 24"><path d="M12 1.5 22 12 12 22.5 2 12Z" fill="#DC2626" stroke="#fff" stroke-width="1.6"/><rect x="11" y="6.5" width="2" height="7" rx="1" fill="#fff"/><circle cx="12" cy="16.5" r="1.3" fill="#fff"/></svg>';
@@ -113,7 +115,7 @@ post({type:'ready'});
 </script></body></html>`;
 
 /** Live evacuation map: zones, safe high ground, shelters, my position and my route. Long-press to place yourself (demo). */
-export function EvacuationMap({ status, me, route, sos, onPick, height = 340, target, targetLabel, teams, teamRoute }: Props) {
+export function EvacuationMap({ status, me, route, sos, onPick, height = 340, target, targetLabel, teams, teamRoute, follow }: Props) {
   const ref = useRef<WebView>(null);
   const [ready, setReady] = useState(false);
   const source = useMemo(() => ({ html: HTML }), []);
@@ -149,6 +151,11 @@ export function EvacuationMap({ status, me, route, sos, onPick, height = 340, ta
     if (ready) run(`window.ddasRoute(${JSON.stringify(route)})`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, route]);
+
+  useEffect(() => {
+    if (ready && follow && me) run(`window.ddasFollow(${JSON.stringify(me)})`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, follow, me?.[0], me?.[1]]);
 
   useEffect(() => {
     if (ready) run(`window.ddasMe(${JSON.stringify(me)}, ${sos})`);

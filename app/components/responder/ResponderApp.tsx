@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, Vibration, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, Vibration, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { ScreenLayout } from '@/components/ScreenLayout';
@@ -37,6 +37,8 @@ export function ResponderApp() {
   const [view, setView] = useState<'missions' | 'messages'>('missions');
   const [selected, setSelected] = useState<number | null>(null);
   const [incoming, setIncoming] = useState<Mission | null>(null);
+  const [incomingKind, setIncomingKind] = useState<'new' | 'queued' | 'next'>('new');
+  const currentId = useRef<number | null | undefined>(undefined);
   const [newMessage, setNewMessage] = useState<InboxItem | null>(null);
   const [locMode, setLocMode] = useState<'map' | 'gps'>('map');
   const [pos, setPos] = useState<LngLat | null>(null);
@@ -52,12 +54,21 @@ export function ResponderApp() {
         responderService.missions(), responderService.inbox().catch(() => null), evacuationService.status().catch(() => null)]);
       setMissions(list);
       if (st) setStatus(st);
-      const fresh = list.find((m) => OPEN.includes(m.status) && m.teamStatus === 'assigned' && !knownMissions.current?.has(m.id));
+      const fresh = list.find((m) => m.queuePosition >= 0 && m.teamStatus === 'assigned' && !knownMissions.current?.has(m.id));
+      const current = list.find((m) => m.queuePosition === 0);
       if (knownMissions.current && fresh) {
+        // A new job: it starts now, or it waits in the queue
+        setIncomingKind(fresh.queuePosition === 0 ? 'new' : 'queued');
         setIncoming(fresh);
         Vibration.vibrate([0, 900, 300, 900, 300, 900]);
+      } else if (currentId.current !== undefined && current && current.id !== currentId.current && current.teamStatus === 'assigned') {
+        // The last job was closed: the next one in the queue is up
+        setIncomingKind('next');
+        setIncoming(current);
+        Vibration.vibrate([0, 600, 300, 600]);
       }
       knownMissions.current = new Set(list.map((m) => m.id));
+      currentId.current = current?.id ?? null;
       if (box) {
         setInbox(box);
         const msg = box.find((m) => !knownInbox.current?.has(m.key));
@@ -116,7 +127,7 @@ export function ResponderApp() {
   const openCount = missions?.filter((m) => OPEN.includes(m.status)).length ?? 0;
 
   return (
-    <ScreenLayout title={station ? `${EMOJI[station.type] || '🚨'} ${station.label}` : 'Response team'} subtitle={station?.name ?? user?.fullName}>
+    <ScreenLayout title={station ? `${EMOJI[station.type] || '🚨'} ${station.label}` : 'Response unit'} subtitle={user?.fullName ?? station?.name}>
       {mission ? (
         <MissionView mission={mission} status={status} pos={pos} posRef={posRef} place={place} locMode={locMode}
           onBack={() => setSelected(null)} onChanged={load} />
@@ -155,7 +166,12 @@ export function ResponderApp() {
                   <Text style={styles.emptyText}>No missions. SOS calls dispatched to your station appear here.</Text>
                 </View>
               )}
-              {missions?.map((m) => <MissionCard key={m.id} m={m} pos={pos} onPress={() => setSelected(m.id)} />)}
+              {missions?.some((m) => m.queuePosition === 0) && <Text style={styles.section}>Current job</Text>}
+              {missions?.filter((m) => m.queuePosition === 0).map((m) => <MissionCard key={m.id} m={m} pos={pos} onPress={() => setSelected(m.id)} />)}
+              {missions?.some((m) => m.queuePosition > 0) && <Text style={styles.section}>Queue ({missions.filter((m) => m.queuePosition > 0).length})</Text>}
+              {missions?.filter((m) => m.queuePosition > 0).map((m) => <MissionCard key={m.id} m={m} pos={pos} onPress={() => setSelected(m.id)} />)}
+              {missions?.some((m) => m.queuePosition < 0) && <Text style={styles.section}>Closed</Text>}
+              {missions?.filter((m) => m.queuePosition < 0).map((m) => <MissionCard key={m.id} m={m} pos={pos} onPress={() => setSelected(m.id)} />)}
             </>
           ) : (
             <>
@@ -179,7 +195,7 @@ export function ResponderApp() {
         <View style={styles.popWrap}>
           <View style={styles.pop}>
             <MaterialCommunityIcons name="alarm-light" size={48} color="#DC2626" />
-            <Text style={styles.popTitle}>NEW SOS MISSION</Text>
+            <Text style={styles.popTitle}>{incomingKind === 'next' ? 'NEXT JOB' : incomingKind === 'queued' ? 'NEW JOB IN YOUR QUEUE' : 'NEW SOS JOB'}</Text>
             {incoming && <>
               <Text style={styles.popType}>{incoming.type}</Text>
               <Text style={styles.popLine}>{incoming.person}{incoming.damName ? ` · ${incoming.damName}` : ''}</Text>
@@ -187,7 +203,7 @@ export function ResponderApp() {
               {pos && <Text style={styles.popLine}>{(metres(pos, [incoming.lng, incoming.lat]) / 1000).toFixed(1)} km away</Text>}
             </>}
             <Pressable style={styles.popBtn} onPress={() => { setSelected(incoming?.id ?? null); setIncoming(null); }}>
-              <Text style={styles.popBtnText}>Open mission</Text>
+              <Text style={styles.popBtnText}>Open job</Text>
             </Pressable>
             <Pressable onPress={() => setIncoming(null)}><Text style={styles.later}>Later</Text></Pressable>
           </View>
@@ -221,7 +237,8 @@ function MissionCard({ m, pos, onPress }: { m: Mission; pos: LngLat | null; onPr
         <Text style={styles.cardLine}>{m.person}{m.damName ? ` · ${m.damName}` : ''}</Text>
         {!!m.message && <Text style={styles.cardLine} numberOfLines={2}>“{m.message}”</Text>}
         <Text style={styles.cardMeta}>
-          {open ? STEP_TEXT[m.teamStatus] : 'Closed'}{km != null && open ? ` · ${km.toFixed(1)} km` : ''} · {timeLabel(m.triggeredAt)}
+          {!open ? 'Closed' : m.queuePosition > 0 ? `In queue · job ${m.queuePosition + 1}` : STEP_TEXT[m.teamStatus]}
+          {km != null && open ? ` · ${km.toFixed(1)} km` : ''} · {timeLabel(m.triggeredAt)}
         </Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={24} color="#9CA3AF" />
@@ -283,10 +300,12 @@ function MissionView({ mission: m, status, pos, posRef, place, locMode, onBack, 
     return () => clearInterval(id);
   }, [locMode, m.teamStatus, place, posRef]);
 
-  const act = async (action: 'accept' | 'arrived' | 'resolve' | 'backup') => {
+  const act = async (action: 'accept' | 'arrived' | 'resolve' | 'backup' | 'handback', reason?: string) => {
     setBusy(true);
     try {
-      await responderService.act(m.id, action, action === 'resolve' ? note.trim() || undefined : undefined);
+      await responderService.act(m.id, action, action === 'resolve' ? note.trim() || undefined : reason);
+      if (action === 'accept') setNavigating(true);
+      if (action === 'handback') onBack();
       if (action === 'accept' && !route) await findRoute();
       if (action === 'backup') Alert.alert('Backup requested', 'The control room has been told.');
       await onChanged();
@@ -298,7 +317,40 @@ function MissionView({ mission: m, status, pos, posRef, place, locMode, onBack, 
   };
 
   const away = pos ? metres(pos, person) : null;
-  const near = away != null && away < 120;
+  const near = away != null && away < 100;
+  const current = m.queuePosition === 0;
+
+  // Navigation: follow the unit, next turn, re-route when off the road
+  const [navigating, setNavigating] = useState(false);
+  const nearestIndex = (() => {
+    const c = route?.route.coordinates;
+    if (!pos || !c?.length) return -1;
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i < c.length; i++) {
+      const d = metres(pos, c[i] as LngLat);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return bestD < 150 ? best : -2;   // -2 = off the route
+  })();
+  const nextTurn = route?.turns?.find((tn) => tn.index > nearestIndex) ?? null;
+  const toTurn = nextTurn && pos ? metres(pos, nextTurn.at as LngLat) : null;
+  const lastReroute = useRef(0);
+  useEffect(() => {
+    if (!navigating || nearestIndex !== -2 || Date.now() - lastReroute.current < 20_000) return;
+    lastReroute.current = Date.now();
+    findRoute();
+  }, [navigating, nearestIndex, findRoute]);
+  const told = useRef(false);
+  useEffect(() => {
+    if (near && m.teamStatus === 'on_the_way' && !told.current) { told.current = true; Vibration.vibrate([0, 300, 150, 300]); }
+  }, [near, m.teamStatus]);
+  const openMaps = () => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${person[1]},${person[0]}&travelmode=driving`)
+    .catch(() => Alert.alert('Maps not available', 'Use the route in the app.'));
+  const handBack = () => Alert.alert('Hand this job back?', 'The control room will give it to another unit.', [
+    { text: 'Cannot reach the person', onPress: () => act('handback', 'Cannot reach the person') },
+    { text: 'Need another kind of unit', onPress: () => act('handback', 'Need another kind of unit') },
+    { text: 'Cancel', style: 'cancel' },
+  ]);
 
   return (
     <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
@@ -322,7 +374,34 @@ function MissionView({ mission: m, status, pos, posRef, place, locMode, onBack, 
         </View>
       </View>
 
-      <EvacuationMap status={status} me={pos} route={route} sos={false} height={340} target={person} targetLabel={m.person} />
+      {navigating && open && m.teamStatus === 'on_the_way' && (
+        <View style={styles.turn}>
+          <MaterialCommunityIcons name="navigation-variant" size={26} color="#fff" />
+          <View style={{ flex: 1 }}>
+            {near ? <Text style={styles.turnText}>You have arrived. Tap Arrived.</Text>
+              : nearestIndex === -2 ? <Text style={styles.turnText}>Off the route: finding a new one…</Text>
+                : nextTurn ? <Text style={styles.turnText}>{toTurn != null ? `In ${toTurn < 1000 ? `${Math.round(toTurn / 10) * 10} m` : `${(toTurn / 1000).toFixed(1)} km`}: ` : ''}{nextTurn.text}</Text>
+                  : <Text style={styles.turnText}>Follow the route</Text>}
+            {away != null && <Text style={styles.turnSub}>{(away / 1000).toFixed(1)} km to the person{route ? ` · ~${Math.max(1, Math.round(route.etaMin * (away / 1000) / Math.max(route.distanceKm, 0.1)))} min` : ''}</Text>}
+          </View>
+        </View>
+      )}
+
+      <EvacuationMap status={status} me={pos} route={route} sos={false} height={navigating ? 420 : 340} target={person} targetLabel={m.person}
+        follow={navigating && m.teamStatus === 'on_the_way'} />
+
+      {open && current && m.teamStatus !== 'arrived' && (
+        <View style={styles.row}>
+          <Pressable onPress={() => setNavigating((v) => !v)} style={[styles.navBtn, navigating && styles.navBtnOn]}>
+            <MaterialCommunityIcons name="navigation-variant" size={18} color={navigating ? '#fff' : '#1D4ED8'} />
+            <Text style={[styles.navText, navigating && { color: '#fff' }]}>{navigating ? 'Navigating' : 'Navigate'}</Text>
+          </Pressable>
+          <Pressable onPress={openMaps} style={styles.navBtn}>
+            <MaterialCommunityIcons name="google-maps" size={18} color="#1D4ED8" />
+            <Text style={styles.navText}>Google Maps</Text>
+          </Pressable>
+        </View>
+      )}
 
       {route && open && (
         <View style={styles.info}>
@@ -332,7 +411,8 @@ function MissionView({ mission: m, status, pos, posRef, place, locMode, onBack, 
         </View>
       )}
 
-      {open && m.teamStatus === 'assigned' && <Big label="Accept · on the way" icon="car-emergency" color="#1D4ED8" busy={busy} onPress={() => act('accept')} />}
+      {open && m.teamStatus === 'assigned' && current && <Big label="Accept · on the way" icon="car-emergency" color="#1D4ED8" busy={busy} onPress={() => act('accept')} />}
+      {open && m.queuePosition > 0 && <Text style={styles.queued}>In your queue as job {m.queuePosition + 1}. It starts when your current job is done.</Text>}
       {open && m.teamStatus === 'on_the_way' && (
         <Big label={near ? 'Arrived at the person' : `Arrived${away != null ? ` (${(away / 1000).toFixed(1)} km left)` : ''}`}
           icon="map-marker-check" color={near ? '#15803D' : '#64748B'} busy={busy} onPress={() => act('arrived')} />
@@ -351,6 +431,9 @@ function MissionView({ mission: m, status, pos, posRef, place, locMode, onBack, 
         </Pressable>
       )}
       {open && m.backupRequested && <Text style={styles.backupDone}>⚠ Backup requested</Text>}
+      {open && m.teamStatus !== 'arrived' && (
+        <Pressable onPress={handBack} disabled={busy}><Text style={styles.handBack}>Hand this job back</Text></Pressable>
+      )}
       {!open && <Text style={styles.closed}>Mission closed{m.resolutionNotes ? `: ${m.resolutionNotes}` : ''}</Text>}
 
       <MissionChat sosId={m.id} open={open} />
@@ -444,6 +527,15 @@ const styles = StyleSheet.create({
   backup: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' },
   backupText: { color: '#B91C1C', fontWeight: '800' },
   backupDone: { textAlign: 'center', color: '#B91C1C', fontWeight: '700' },
+  handBack: { textAlign: 'center', color: '#6B7280', textDecorationLine: 'underline', paddingVertical: 4 },
+  queued: { textAlign: 'center', color: '#92400E', backgroundColor: '#FEF3C7', borderRadius: 12, padding: 10, fontWeight: '600' },
+  section: { fontSize: 12, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase', marginTop: 4 },
+  turn: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: '#1E3A8A', borderRadius: 16, padding: 12 },
+  turnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  turnSub: { color: '#BFDBFE', fontSize: 12, marginTop: 2 },
+  navBtn: { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 14, borderWidth: 1.5, borderColor: '#93C5FD', backgroundColor: '#EFF6FF' },
+  navBtnOn: { backgroundColor: '#1D4ED8', borderColor: '#1D4ED8' },
+  navText: { color: '#1D4ED8', fontWeight: '800' },
   input: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 12, minHeight: 56, textAlignVertical: 'top', backgroundColor: '#fff' },
   closed: { textAlign: 'center', color: '#15803D', fontWeight: '700' },
   back: { flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -51,8 +51,8 @@ function SosItem({ sos, selected, onSelect, onChanged }) {
                 <p className="mt-1 text-muted-foreground">#{sos.id} · {sos.person} · {ago(sos.triggeredAt)}{sos.battery != null ? ` · battery ${sos.battery}%` : ''}</p>
                 {sos.message && <p className="mt-0.5">“{sos.message}”</p>}
                 {sos.backupRequested && open && <p className="mt-0.5 font-semibold text-destructive">⚠ Team asked for backup</p>}
-                <TeamChips teams={sos.teams} />
             </button>
+            <TeamChips sosId={sos.id} teams={sos.teams} onChanged={open ? onChanged : undefined} />
             {open && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {sos.status === 'triggered' && (

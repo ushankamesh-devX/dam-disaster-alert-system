@@ -396,6 +396,7 @@ export function EvacuationFlow() {
             <Text key={tm.userId} style={[styles.line, { fontWeight: '700', color: '#1D4ED8' }]}>
               {TEAM_EMOJI[tm.type] || '🚨'} {tm.label} · {tm.station} · {TEAM_TEXT[tm.status] || tm.status}
               {tm.status === 'on_the_way' || tm.status === 'assigned' ? ` · ~${tm.etaMin} min · ${tm.km} km` : ''}
+              {tm.queued ? ' · finishing another rescue first' : ''}
             </Text>
           ))}
           {openSos && (openSos.messages ?? []).slice(-3).map((msg) => (

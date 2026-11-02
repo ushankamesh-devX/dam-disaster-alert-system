@@ -13,6 +13,12 @@ const CommandCenterService = {
     replay: async (minutes = 60) => (await apiClient.get(`${BASE}/replay`, { params: { minutes } })).data,
     acknowledge: (id) => apiClient.post(`${BASE}/sos/${id}/acknowledge`),
     assign: (id, providerId) => apiClient.post(`${BASE}/sos/${id}/assign`, { providerId }),
+    /** Dispatch one unit; a busy unit gets it in its queue. Returns { unit, queuePosition } */
+    assignUnit: async (id, teamUserId) => (await apiClient.post(`${BASE}/sos/${id}/assign`, { teamUserId })).data,
+    /** Take the job back from a unit. */
+    unassign: (id, teamUserId) => apiClient.delete(`${BASE}/sos/${id}/teams/${teamUserId}`),
+    /** Move a queued job: direction 'up' | 'down' */
+    moveJob: (teamUserId, sosId, direction) => apiClient.post(`${BASE}/teams/${teamUserId}/queue/${sosId}/${direction}`),
     resolve: (id, notes) => apiClient.post(`${BASE}/sos/${id}/resolve`, { notes }),
     /** Response teams: status, live position, current mission. */
     teams: async () => (await apiClient.get(`${BASE}/teams`)).data,

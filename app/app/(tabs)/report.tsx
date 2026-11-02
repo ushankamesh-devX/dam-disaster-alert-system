@@ -23,10 +23,12 @@ export default function ReportScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
 
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
+  const busyRef = useRef(false);
+  const previousSearchRef = useRef(searchQuery);
 
   const mapFeedItemToReport = (item: ReportFeedItem): Report => {
     const rawUrls = item.mediaUrls || [];
@@ -55,6 +57,10 @@ export default function ReportScreen() {
       const { isRefresh = false, isLoadMore = false } = options;
       const query = options.search !== undefined ? options.search : searchQuery;
       const filter = options.filter !== undefined ? options.filter : selectedFilter;
+      // FlatList may call onEndReached several times before React renders.
+      if (isLoadMore && busyRef.current) return;
+      busyRef.current = true;
+      const requestId = ++requestIdRef.current;
 
       if (isLoadMore) {
         setLoadingMore(true);
@@ -64,6 +70,7 @@ export default function ReportScreen() {
         setLoading(true);
         setError('');
       }
+      if (!isLoadMore) setHasMore(false);
 
       try {
         const response = await reportsService.getFeed({
@@ -72,6 +79,7 @@ export default function ReportScreen() {
           search: query.trim() || undefined,
           issueType: filter || undefined,
         });
+        if (requestId !== requestIdRef.current) return;
 
         const data = response.data?.data || response.data;
         const items: ReportFeedItem[] = Array.isArray(data?.content) ? data.content : [];
@@ -81,50 +89,48 @@ export default function ReportScreen() {
         if (pageToFetch === 0) {
           setReports(mapped);
         } else {
-          setReports((prev) => [...prev, ...mapped]);
+          setReports((prev) => [...prev, ...mapped.filter(item => !prev.some(existing => existing.id === item.id))]);
         }
 
         setPage(pageToFetch);
         setHasMore(pageToFetch + 1 < totalPages);
         setError('');
       } catch (err: any) {
+        if (requestId !== requestIdRef.current) return;
         console.error('Failed to load incident reports feed:', err);
-        if (pageToFetch === 0) {
-          setError(
-            err.response?.data?.message ||
-              err.message ||
-              'Unable to load incident reports. Please check your connection and try again.'
-          );
-        }
+        // A failed page must wait for an explicit retry, not onEndReached.
+        setHasMore(false);
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            'Unable to load incident reports. Please check your connection and try again.'
+        );
       } finally {
-        setLoading(false);
-        setRefreshing(false);
-        setLoadingMore(false);
+        if (requestId === requestIdRef.current) {
+          busyRef.current = false;
+          setLoading(false);
+          setRefreshing(false);
+          setLoadingMore(false);
+        }
       }
     },
     [searchQuery, selectedFilter]
   );
 
-  // Initial load and filter change
+  // One request per criteria change; invalidate older responses immediately.
   useEffect(() => {
-    loadFeed(0, { filter: selectedFilter, search: searchQuery });
-  }, [selectedFilter]);
-
-  // Debounced search query change
-  useEffect(() => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-    }
-    searchTimerRef.current = setTimeout(() => {
-      loadFeed(0, { search: searchQuery, filter: selectedFilter });
-    }, 400);
+    const searchChanged = previousSearchRef.current !== searchQuery;
+    previousSearchRef.current = searchQuery;
+    busyRef.current = true;
+    const timer = setTimeout(() => {
+      loadFeed(0);
+    }, searchChanged ? 400 : 0);
 
     return () => {
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-      }
+      clearTimeout(timer);
+      requestIdRef.current += 1;
     };
-  }, [searchQuery]);
+  }, [loadFeed, searchQuery]);
 
   const handleRefresh = () => {
     loadFeed(0, { isRefresh: true });
@@ -135,7 +141,7 @@ export default function ReportScreen() {
   };
 
   const handleLoadMore = () => {
-    if (!loading && !loadingMore && !refreshing && hasMore) {
+    if (!busyRef.current && !error && !loading && !loadingMore && !refreshing && hasMore) {
       loadFeed(page + 1, { isLoadMore: true });
     }
   };

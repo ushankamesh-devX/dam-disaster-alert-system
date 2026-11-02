@@ -9,11 +9,13 @@ import {
     Alert,
     Image,
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { IssueType, DamOption, MediaItem } from './types';
-import { ISSUE_TYPES, DAMS as FALLBACK_DAMS } from './mockData';
+import { ISSUE_TYPES } from './mockData';
 import { damService } from '@/services/dams/dam.service';
 import { reportsService, CreateReportPayload } from '@/services/reports/reports.service';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +28,10 @@ interface AddReportModalProps {
 
 export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalProps) {
     const { t } = useTranslation();
-    const [dams, setDams] = useState<DamOption[]>(FALLBACK_DAMS);
+    const [dams, setDams] = useState<DamOption[]>([]);
+    const [damsLoading, setDamsLoading] = useState(false);
+    const [damsError, setDamsError] = useState('');
+    const [damLoadAttempt, setDamLoadAttempt] = useState(0);
     const [selectedDam, setSelectedDam] = useState<DamOption | null>(null);
     const [selectedIssueType, setSelectedIssueType] = useState<IssueType | null>(null);
     const [description, setDescription] = useState('');
@@ -36,11 +41,21 @@ export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalPr
     const [uploadProgress, setUploadProgress] = useState<string>('');
 
     useEffect(() => {
+        if (!visible) return;
         let isMounted = true;
-        damService.getActive()
+        Promise.resolve().then(() => {
+            if (!isMounted) return null;
+            setDamsLoading(true);
+            setDamsError('');
+            setDams([]);
+            setSelectedDam(null);
+            return damService.getActive();
+        })
             .then(res => {
+                if (!isMounted || !res) return;
                 const rows: any[] = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-                if (isMounted && rows.length > 0) {
+                if (!Array.isArray(rows)) throw new Error('Invalid dam list');
+                if (isMounted) {
                     const mapped: DamOption[] = rows.map(d => ({
                         id: String(d.id),
                         name: d.name,
@@ -50,10 +65,11 @@ export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalPr
                 }
             })
             .catch(() => {
-                // Keep fallback dams on error
-            });
+                if (isMounted) setDamsError(t('report_dams_load_error', 'Unable to load dams. Please try again.'));
+            })
+            .finally(() => { if (isMounted) setDamsLoading(false); });
         return () => { isMounted = false; };
-    }, []);
+    }, [visible, damLoadAttempt, t]);
 
     const resetForm = () => {
         setSelectedDam(null);
@@ -72,6 +88,7 @@ export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalPr
     };
 
     const handleSubmit = async () => {
+        if (submitting) return;
         if (!selectedDam) {
             Alert.alert(t('error', 'Error'), t('please_select_dam', 'Please select a dam'));
             return;
@@ -170,7 +187,7 @@ export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalPr
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
                 const mediaType = asset.type === 'video' ? 'video' : 'image';
-                setMedia([...media, { uri: asset.uri, type: mediaType }]);
+                setMedia(current => [...current, { uri: asset.uri, type: mediaType }]);
             }
         } catch (error) {
             console.error('Error picking media:', error);
@@ -185,7 +202,7 @@ export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalPr
             transparent={true}
             onRequestClose={handleClose}
         >
-            <View className="flex-1 bg-black/50 justify-end">
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-black/50 justify-end">
                 <View className="bg-white rounded-t-3xl max-h-[90%]">
                     {/* Header */}
                     <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -195,15 +212,26 @@ export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalPr
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+                    <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                         {/* Dam Selection */}
                         <View className="mb-5">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
                                 {t('select_dam', 'Select Dam *')}
                             </Text>
+                            {damsLoading && <ActivityIndicator color="#455A64" style={{ marginBottom: 12 }} />}
+                            {damsError ? (
+                                <View className="mb-3">
+                                    <Text className="text-red-600 mb-2">{damsError}</Text>
+                                    <TouchableOpacity onPress={() => setDamLoadAttempt(value => value + 1)} accessibilityRole="button">
+                                        <Text className="text-blue-600 font-semibold">{t('retry', 'Retry')}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : !damsLoading && dams.length === 0 ? (
+                                <Text className="text-gray-500 mb-3">{t('report_no_dams', 'No active dams are available.')}</Text>
+                            ) : null}
                             <TouchableOpacity
                                 onPress={() => setShowDamPicker(!showDamPicker)}
-                                disabled={submitting}
+                                disabled={submitting || damsLoading || dams.length === 0}
                                 className="bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between border-2 border-gray-200"
                                 style={{
                                     borderColor: showDamPicker ? '#455A64' : '#E5E7EB',
@@ -454,7 +482,7 @@ export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalPr
                         </View>
                     </ScrollView>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

@@ -82,6 +82,16 @@ export function ReportsList({
     };
 
     const renderFooter = () => {
+        if (error && !loading && reports.length > 0) {
+            return (
+                <View className="py-4 px-4 items-center">
+                    <Text className="text-red-600 text-sm text-center mb-3">{error}</Text>
+                    <TouchableOpacity onPress={onRetry} accessibilityRole="button" className="bg-[#455A64] px-6 py-3 rounded-xl">
+                        <Text className="text-white font-semibold">{t('retry', 'Retry')}</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
         if (!loadingMore) return <View style={{ height: 100 }} />;
         return (
             <View className="py-4 items-center justify-center">
@@ -100,7 +110,7 @@ export function ReportsList({
             ListEmptyComponent={renderEmptyState}
             onRefresh={onRefresh}
             refreshing={refreshing}
-            onEndReached={onLoadMore}
+            onEndReached={hasMore && !loading && !refreshing && !loadingMore && !error ? onLoadMore : undefined}
             onEndReachedThreshold={0.4}
             ListFooterComponent={renderFooter}
         />

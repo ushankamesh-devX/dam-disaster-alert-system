@@ -16,6 +16,7 @@
     "test:auth": "node --test scripts/api-auth.test.cjs",
     "test:metro": "node --test scripts/metro-compat.test.cjs",
     "test:dashboard": "node --test scripts/dashboard.test.cjs",
+    "test:reports": "node --test scripts/reports.test.cjs",
     "test:assistant": "node --test scripts/assistant.test.cjs scripts/answer-format.test.cjs"
   },
   "dependencies": {

@@ -2,9 +2,11 @@ package com.ddas.api.controller;
 
 import com.ddas.api.dto.request.report.AssignReportRequest;
 import com.ddas.api.dto.request.report.UpdateReportStatusRequest;
+import com.ddas.api.dto.response.report.ReportFeedResponse;
 import com.ddas.api.dto.response.report.ReportListResponse;
 import com.ddas.api.dto.response.report.ReportResponse;
 import com.ddas.api.dto.response.report.ReportStatsResponse;
+import com.ddas.api.entity.User;
 import com.ddas.api.security.UserPrincipal;
 import com.ddas.api.service.ReportMediaStorageService;
 import com.ddas.api.service.ReportService;
@@ -41,7 +43,7 @@ public class ReportController {
     // ADMIN ENDPOINTS
     // =========================================================================
 
-    /** GET /api/v1/reports?page=0&size=15&status=&priority=&reportTypeId=&damId= */
+    /** GET /api/v1/reports?page=0&size=15&status=&priority=&reportTypeId=&type=&damId= */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('reports.view')")
     public ResponseEntity<Page<ReportListResponse>> getReports(
@@ -49,10 +51,12 @@ public class ReportController {
             @RequestParam(defaultValue = "15") int size,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String priority,
-            @RequestParam(required = false) Long reportTypeId,
+            @RequestParam(value = "reportTypeId", required = false) Long reportTypeId,
+            @RequestParam(value = "type", required = false) Long type,
             @RequestParam(required = false) Long damId) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(reportService.getReports(pageable, status, priority, reportTypeId, damId));
+        Long resolvedTypeId = reportTypeId != null ? reportTypeId : type;
+        return ResponseEntity.ok(reportService.getReports(pageable, status, priority, resolvedTypeId, damId));
     }
 
     /** GET /api/v1/reports/stats */
@@ -105,6 +109,7 @@ public class ReportController {
     /** POST /api/v1/reports (Multipart form upload) */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ReportResponse> createReport(
+            @RequestParam(value = "damId", required = false) Long damId,
             @RequestParam(value = "dam", required = false) String dam,
             @RequestParam(value = "damName", required = false) String damName,
             @RequestParam(value = "issueType", required = false) String issueType,
@@ -126,6 +131,7 @@ public class ReportController {
         String resolvedDamParam = dam != null && !dam.isBlank() ? dam : damName;
         ReportResponse response = reportService.createReport(
                 userPrincipal.getUser(),
+                damId,
                 resolvedDamParam,
                 issueType,
                 description,
@@ -137,6 +143,23 @@ public class ReportController {
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * GET /api/v1/reports/feed?page=0&size=15&search=&issueType=
+     * Returns reports with status reviewing, in_progress or resolved from everyone,
+     * plus the caller's own reports in any status. Safe fields only.
+     */
+    @GetMapping("/feed")
+    public ResponseEntity<Page<ReportFeedResponse>> getReportFeed(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String issueType,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        User caller = userPrincipal != null ? userPrincipal.getUser() : null;
+        return ResponseEntity.ok(reportService.getReportFeed(pageable, search, issueType, caller));
     }
 
     /** GET /api/v1/reports/mine */
@@ -156,13 +179,17 @@ public class ReportController {
     /** GET /api/v1/reports/media/{filename:.+} */
     @GetMapping("/media/{filename:.+}")
     public ResponseEntity<byte[]> getMedia(@PathVariable String filename) {
-        byte[] data = reportMediaStorageService.downloadMedia(filename);
-        String contentType = reportMediaStorageService.probeContentType(filename);
+        try {
+            byte[] data = reportMediaStorageService.downloadMedia(filename);
+            String contentType = reportMediaStorageService.probeContentType(filename);
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, contentType)
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
-                .body(data);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                    .body(data);
+        } catch (Exception e) {
+            log.warn("Report media '{}' not found or could not be loaded: {}", filename, e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
     }
 }
-

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration V010: Incident Reports Schema and Seed Data
+-- Migration V011: Incident Reports Schema and Seed Data
 -- Creates report_types, reports, and report_media tables if not present,
 -- and seeds the report types matching mobile IssueType options.
 -- ============================================================================
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS report_media (
     INDEX idx_rm_primary (report_id, is_primary)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Seed mobile IssueType values into report_types
+-- 4. Seed mobile IssueType values into report_types (idempotent with ON DUPLICATE KEY UPDATE)
 INSERT INTO report_types (code, name, description, icon, color, category, default_priority, is_active, display_order)
 VALUES
     ('structural', 'Structural Issue', 'Dam wall cracks, seepage, structural foundation concerns', 'alert-octagon', '#DC2626', 'structural', 'critical', TRUE, 1),

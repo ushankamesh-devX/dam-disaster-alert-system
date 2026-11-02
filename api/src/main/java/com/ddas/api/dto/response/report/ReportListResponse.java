@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
@@ -28,7 +30,8 @@ public class ReportListResponse {
     private String status;
     private Long assignedToUserId;
     private String assignedToName;
+    @Builder.Default
+    private List<String> mediaUrls = new ArrayList<>();
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

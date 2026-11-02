@@ -3,17 +3,33 @@ import { Circle, GeoJSON, Marker, Polyline, Popup, Tooltip } from 'react-leaflet
 import L from 'leaflet';
 import { Switch } from '@/components/ui/switch';
 import { serviceStyle } from './serviceStyles';
-import { assemblyIcon, serviceIcon, shelterIcon, sosIcon } from './mapIcons';
+import { assemblyIcon, serviceIcon, shelterIcon, sosIcon, teamIcon } from './mapIcons';
 
 // Map layers for the evacuation command center (people are in MovingPeopleLayer).
 
 export function SosLayer({ sos, onSelect }) {
-    return sos.map((s) => (
-        <Marker key={`s-${s.id}-${s.status}`} position={[Number(s.lat), Number(s.lng)]} icon={sosIcon(s.status)}
-            eventHandlers={{ click: () => onSelect?.(s) }} zIndexOffset={3000}>
-            <Tooltip>SOS · {s.type} · {s.status}</Tooltip>
-        </Marker>
-    ));
+    return sos.map((s) => {
+        const team = s.teamLat != null && s.teamLng != null && s.status !== 'resolved'
+            ? [Number(s.teamLat), Number(s.teamLng)] : null;
+        return (
+            <Fragment key={`s-${s.id}-${s.status}`}>
+                <Marker position={[Number(s.lat), Number(s.lng)]} icon={sosIcon(s.status)}
+                    eventHandlers={{ click: () => onSelect?.(s) }} zIndexOffset={3000}>
+                    <Tooltip>SOS · {s.type} · {s.status}</Tooltip>
+                </Marker>
+                {/* the demo team's phone position, with a dashed line to the person */}
+                {team && (
+                    <>
+                        <Polyline positions={[team, [Number(s.lat), Number(s.lng)]]} interactive={false}
+                            pathOptions={{ color: '#1D4ED8', weight: 2, dashArray: '5 6', opacity: 0.8 }} />
+                        <Marker position={team} icon={teamIcon()} zIndexOffset={2900}>
+                            <Tooltip>{s.assignedTo} · {s.teamStatus?.replace(/_/g, ' ')}</Tooltip>
+                        </Marker>
+                    </>
+                )}
+            </Fragment>
+        );
+    });
 }
 
 export function ServicesLayer({ services }) {

@@ -155,6 +155,7 @@ function buildHtml(
   zones: HazardZone[],
   options: MapRenderOptions,
   equipment: EquipmentPoint[] = [],
+  focused = false,
 ): string {
   const embed = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
   const locJson = embed(locations);
@@ -212,6 +213,7 @@ var markerDetails = [], zoneDetails = [];
 var allBounds = [];
 var SHOW_LOCATIONS = ${options.showLocations ? 'true' : 'false'};
 var SHOW_ZONES = ${options.showZones ? 'true' : 'false'};
+var FOCUSED = ${focused ? 'true' : 'false'};
 var SHOW_DAMS = ${options.showDams ? 'true' : 'false'};
 
 /* ── Helpers ── */
@@ -355,7 +357,7 @@ ZONES.forEach(function(z) {
     style: {color: stroke, weight: weight, fillColor: fill, fillOpacity: opacity, opacity: 0.9}
   });
   layer.bindPopup(popup, {maxWidth:240, maxHeight:160});
-  var labelPoint = geo.coordinates[0][0];
+  var labelPoint = geo.type === 'MultiPolygon' ? geo.coordinates[0][0][0] : geo.coordinates[0][0];
   try { var pos = JSON.parse(z.labelPosition); if (pos && Number.isFinite(pos.lat) && Number.isFinite(pos.lng)) labelPoint = [pos.lng,pos.lat]; } catch(e) {}
   var label = L.tooltip({permanent:false, direction:'right'}).setLatLng([labelPoint[1],labelPoint[0]])
     .setContent(escapeText(z.zoneName || z.hazardLevel && z.hazardLevel.name));
@@ -364,7 +366,9 @@ ZONES.forEach(function(z) {
 
   /* collect polygon bounds */
   try {
-    geo.coordinates[0].forEach(function(c){ allBounds.push([c[1], c[0]]); });
+    /* Polygon or MultiPolygon: use the drawn layer's box */
+    var b = layer.getBounds();
+    if (b.isValid()) { allBounds.push([b.getSouth(), b.getWest()]); allBounds.push([b.getNorth(), b.getEast()]); }
   } catch(e) {}
 });
 }
@@ -388,7 +392,12 @@ map.on('zoomend', updateDetail);
 setTimeout(function() {
   if (allBounds.length === 1) { map.setView(allBounds[0], 13); }
   else if (allBounds.length > 1) {
-    try { map.invalidateSize(); map.fitBounds(allBounds, {padding:[24,24], maxZoom:14}); } catch(e) {}
+    try {
+      map.invalidateSize();
+      map.fitBounds(allBounds, {padding:[24,24], maxZoom:14});
+      /* one dam shown: keep the view on its area so it opens close up and cannot drift to all of Sri Lanka */
+      if (FOCUSED) { var area = L.latLngBounds(allBounds); map.setMaxBounds(area.pad(0.6)); map.setMinZoom(Math.max(8, map.getZoom() - 2)); }
+    } catch(e) {}
   }
   updateDetail();
 }, 300);
@@ -427,7 +436,7 @@ export function LiveHazardMapView({
     fetchMapData(mode, options, selectedDamId)
       .then(({ locations, dams, zones, equipment }) => {
         if (cancelled) return;
-        setHtml(buildHtml(locations, dams, zones, options, equipment));
+        setHtml(buildHtml(locations, dams, zones, options, equipment, mode === 'zones' || !!selectedDamId));
         setState('ready');
       })
       .catch(() => { if (!cancelled) setState('error'); });

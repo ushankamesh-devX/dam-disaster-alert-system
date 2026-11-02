@@ -95,7 +95,11 @@ public class SafetyController {
     @GetMapping("/sos")
     public ResponseEntity<List<Map<String, Object>>> mySos(@AuthenticationPrincipal UserPrincipal me) {
         return ResponseEntity.ok(jdbc.queryForList(
-                "SELECT e.id, e.status, t.name type, e.triggered_at triggeredAt, e.response_notes responseNotes, e.resolved_at resolvedAt " +
+                "SELECT e.id, e.status, t.name type, e.triggered_at triggeredAt, e.response_notes responseNotes, e.resolved_at resolvedAt, " +
+                // the demo team coming to help: who, how far along, and where they are now
+                "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.assignedProviderName')) team, " +
+                "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.teamStatus')) teamStatus, " +
+                "JSON_EXTRACT(e.metadata, '$.teamLat') teamLat, JSON_EXTRACT(e.metadata, '$.teamLng') teamLng " +
                 "FROM sos_events e JOIN sos_event_types t ON t.id = e.sos_type_id WHERE e.user_id = ? ORDER BY e.id DESC LIMIT 10",
                 me.getUser().getId()));
     }

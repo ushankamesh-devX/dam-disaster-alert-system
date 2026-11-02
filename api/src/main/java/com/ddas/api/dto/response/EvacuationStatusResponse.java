@@ -21,6 +21,8 @@ public class EvacuationStatusResponse {
     /** Zones of dams that are safe right now: drawn faintly as a planning view. */
     private List<Zone> planningZones;
     private List<Shelter> shelters;
+    /** Each dam's downstream river and how long ago its release started (mobile water-flow view). */
+    private List<River> rivers;
     private List<Blocked> blockedRoads;
     /** Phones that reported a location in the last 6 hours. */
     private int activeDevices;
@@ -64,6 +66,22 @@ public class EvacuationStatusResponse {
         private String kind;
         /** Green safe-area outline for high-ground assembly points (GeoJSON). */
         private String boundaryGeojson;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class River {
+        private Long damId;
+        private String damName;
+        private Double damLat;
+        private Double damLng;
+        /** GeoJSON LineString / MultiLineString, [lng, lat]. */
+        private String geojson;
+        /** The dam is not safe: water is being released. */
+        private boolean active;
+        private Double minutesSinceRelease;
     }
 
     @Data

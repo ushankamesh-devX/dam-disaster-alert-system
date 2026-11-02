@@ -29,6 +29,12 @@ const SOS_TEXT: Record<string, string> = {
   resolved: 'Resolved',
 };
 
+const TEAM_TEXT: Record<string, string> = {
+  assigned: 'A response team has been assigned',
+  on_the_way: 'Help is on the way',
+  arrived: 'The response team has arrived',
+};
+
 const fmt = (n?: number | null, d = 1) => (n == null ? '—' : Number(n).toFixed(d));
 
 /**
@@ -145,6 +151,9 @@ export function EvacuationFlow() {
   // ── Sharing with the command center ────────────────────────────────────────
   const openSos = sos.find((s) => OPEN_SOS.includes(s.status));
   const sharing = phase === 'evacuating' || !!openSos;
+  // The demo response team coming to help (position from the team's phone)
+  const teamPos: LngLat | null = openSos && openSos.teamLat != null && openSos.teamLng != null
+    ? [Number(openSos.teamLng), Number(openSos.teamLat)] : null;
 
   useEffect(() => {
     if (!sharing) return;
@@ -259,6 +268,10 @@ export function EvacuationFlow() {
   const watch = pos && status && !danger ? zoneAt(status.watchZones, pos[1], pos[0]) : null;
   const planning = pos && status && !danger && !watch ? zoneAt(status.planningZones, pos[1], pos[0]) : null;
   const zoneHere = danger || watch || planning;
+  // Minutes until the released water reaches this zone (zone arrival time minus time since the release)
+  const river = danger ? status?.rivers?.find((r) => r.active && r.damName === danger.damName) : undefined;
+  const waterIn = danger?.floodEtaMin != null && river?.minutesSinceRelease != null
+    ? Math.round(danger.floodEtaMin - river.minutesSinceRelease) : null;
 
   const dam = useMemo(() => {
     if (zoneHere) return dams.find((d) => zoneHere.damName?.startsWith(d.name.replace(' Dam', ''))) ?? null;
@@ -292,7 +305,11 @@ export function EvacuationFlow() {
           <>
             <Text style={[styles.big, { color: LEVEL_COLOR[danger.hazardLevel] }]}>EVACUATE NOW</Text>
             <Text style={styles.line}>You are in {danger.name}</Text>
-            {danger.floodEtaMin != null && <Text style={styles.line}>Water arrives ~{danger.floodEtaMin} min after the release</Text>}
+            {waterIn != null
+              ? <Text style={[styles.line, { fontWeight: '800', color: waterIn <= 0 ? '#1D4ED8' : '#B91C1C' }]}>
+                  {waterIn <= 0 ? '🌊 Water has reached this area' : `🌊 Water reaches you in ~${waterIn} min`}
+                </Text>
+              : danger.floodEtaMin != null && <Text style={styles.line}>Water arrives ~{danger.floodEtaMin} min after the release</Text>}
           </>
         ) : watch ? (
           <>
@@ -326,7 +343,8 @@ export function EvacuationFlow() {
           onChange={(v) => { setMode(v as 'walk' | 'drive'); if (route && phase !== 'evacuating') findRoute(v as 'walk' | 'drive'); }} />
       </View>
 
-      <EvacuationMap status={status} me={pos} route={route} sos={!!openSos} onPick={onPick} />
+      <EvacuationMap status={status} me={pos} route={route} sos={!!openSos} onPick={onPick}
+        team={openSos ? teamPos : null} teamLabel={sos[0]?.team || 'Response team'} />
       {locMode === 'demo' && phase !== 'evacuating' && (
         <>
           <Text style={styles.hint}>Demo: tap a zone below, or long-press the map to stand anywhere.</Text>
@@ -364,8 +382,13 @@ export function EvacuationFlow() {
       {sos[0] && (
         <View style={[styles.card, { borderLeftWidth: 6, borderLeftColor: openSos ? '#DC2626' : '#64748B' }]}>
           <Text style={styles.label}>Your SOS · {sos[0].type}</Text>
-          <Text style={styles.big2}>{SOS_TEXT[sos[0].status] || sos[0].status}</Text>
-          {!!sos[0].responseNotes && <Text style={styles.line}>{sos[0].responseNotes}</Text>}
+          <Text style={styles.big2}>{TEAM_TEXT[sos[0].teamStatus || ''] && openSos ? TEAM_TEXT[sos[0].teamStatus || ''] : SOS_TEXT[sos[0].status] || sos[0].status}</Text>
+          {!!sos[0].team && openSos && (
+            <Text style={[styles.line, { fontWeight: '700', color: '#1D4ED8' }]}>
+              🚓 {sos[0].team}{teamPos && pos ? ` · ${(metres(pos, teamPos) / 1000).toFixed(1)} km away` : ''}
+            </Text>
+          )}
+          {!!sos[0].responseNotes && !sos[0].team && <Text style={styles.line}>{sos[0].responseNotes}</Text>}
         </View>
       )}
 

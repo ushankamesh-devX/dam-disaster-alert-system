@@ -35,6 +35,7 @@ public class EvacuationLiveService {
     private final EvacuationDeviceRepository deviceRepository;
     private final com.ddas.api.repository.DamHazardZoneRepository hazardZoneRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -97,12 +98,35 @@ public class EvacuationLiveService {
                 .dangerZones(zoneRows)
                 .watchZones(watchRows)
                 .planningZones(planningRows)
+                .rivers(rivers())
                 .shelters(shelters)
                 .blockedRoads(blocked)
                 .activeDevices(devices.size())
                 .devicesInDanger(inDanger)
                 .updatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    /** Each dam's downstream river, and how long ago the release started (for the water-flow animation). */
+    private List<EvacuationStatusResponse.River> rivers() {
+        return jdbc.queryForList(
+                "SELECT d.id, d.name, d.latitude, d.longitude, d.downstream_river_geojson geojson, " +
+                "COALESCE(s.hazard_status, 'safe') <> 'safe' active, " +
+                "TIMESTAMPDIFF(SECOND, s.last_hazard_assessment_at, NOW()) / 60.0 minutes " +
+                "FROM dams d LEFT JOIN dam_current_status s ON s.dam_id = d.id " +
+                "WHERE d.status <> 'decommissioned' AND d.downstream_river_geojson IS NOT NULL")
+                .stream().map(r -> {
+                    boolean active = r.get("active") instanceof Number n ? n.intValue() != 0 : Boolean.TRUE.equals(r.get("active"));
+                    return EvacuationStatusResponse.River.builder()
+                            .damId(((Number) r.get("id")).longValue())
+                            .damName(String.valueOf(r.get("name")))
+                            .damLat(r.get("latitude") == null ? null : ((Number) r.get("latitude")).doubleValue())
+                            .damLng(r.get("longitude") == null ? null : ((Number) r.get("longitude")).doubleValue())
+                            .geojson(String.valueOf(r.get("geojson")))
+                            .active(active)
+                            .minutesSinceRelease(active && r.get("minutes") != null ? ((Number) r.get("minutes")).doubleValue() : null)
+                            .build();
+                }).toList();
     }
 
     private static EvacuationStatusResponse.Zone zoneRow(com.ddas.api.entity.DamHazardZone zone) {

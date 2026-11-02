@@ -10,6 +10,7 @@ import {
   Animated,
   Dimensions,
   PanResponder,
+  Share,
 } from 'react-native';
 
 interface NewsDetailModalProps {
@@ -91,6 +92,17 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
   if (!news) return null;
 
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        title: news.title,
+        message: `${news.title}\n\n${news.description || news.fullContent}`,
+      });
+    } catch {
+      // ignore user cancel
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -144,7 +156,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               bounces={true}
             >
               {/* Image with rounded corners */}
-              <View className="relative mx-4 mt-4 rounded-2xl overflow-hidden">
+              <View className="relative mx-4 mt-4 rounded-2xl overflow-hidden bg-gray-200">
                 <Image
                   source={{ uri: news.image }}
                   className="w-full h-56"
@@ -163,17 +175,21 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   {news.title}
                 </Text>
                 
-                <View className="bg-gray-50 rounded-xl p-4 mb-4">
-                  <Text className="text-gray-700 text-base leading-7">
-                    {news.fullContent}
-                  </Text>
-                </View>
+                {news.description ? (
+                  <View className="bg-gray-50 rounded-xl p-4 mb-4">
+                    <Text className="text-gray-700 text-base leading-7 font-medium">
+                      {news.description}
+                    </Text>
+                  </View>
+                ) : null}
 
-                <View className="bg-blue-50 rounded-xl p-4 mb-4">
-                  <Text className="text-gray-700 text-base leading-7">
-                    {news.fullContent}
-                  </Text>
-                </View>
+                {news.fullContent && news.fullContent !== news.description ? (
+                  <View className="bg-blue-50/50 rounded-xl p-4 mb-4">
+                    <Text className="text-gray-700 text-base leading-7">
+                      {news.fullContent}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {/* Time stamp */}
                 <View className="flex-row items-center mt-2 mb-6">
@@ -191,9 +207,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               <View className="px-5 py-4 flex-row gap-3">
                 <TouchableOpacity 
                   className="flex-1 flex-row items-center justify-center gap-2 py-3.5 bg-blue-600 rounded-xl shadow-md active:bg-blue-700"
-                  onPress={() => {
-                    console.log('Share pressed');
-                  }}
+                  onPress={() => void handleShare()}
                   activeOpacity={0.8}
                 >
                   <Text className="text-white text-base font-semibold">Share Article</Text>

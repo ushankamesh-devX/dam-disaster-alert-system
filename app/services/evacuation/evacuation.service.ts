@@ -15,8 +15,13 @@ export type Shelter = {
   kind?: string | null; boundaryGeojson?: string | null;
 };
 
+export type River = {
+  damId: number; damName: string; damLat?: number | null; damLng?: number | null; geojson: string;
+  active: boolean; minutesSinceRelease?: number | null;
+};
+
 export type EvacStatus = {
-  dangerZones: Zone[]; watchZones: Zone[]; planningZones: Zone[]; shelters: Shelter[];
+  dangerZones: Zone[]; watchZones: Zone[]; planningZones: Zone[]; shelters: Shelter[]; rivers?: River[];
   blockedRoads: { id: number; name: string; boundaryGeojson: string }[];
 };
 
@@ -28,7 +33,10 @@ export type RouteResult = {
 };
 
 export type SosType = { code: string; name: string; defaultMessage?: string };
-export type MySos = { id: number; status: string; type: string; triggeredAt: string; responseNotes?: string | null; resolvedAt?: string | null };
+export type MySos = {
+  id: number; status: string; type: string; triggeredAt: string; responseNotes?: string | null; resolvedAt?: string | null;
+  team?: string | null; teamStatus?: string | null; teamLat?: number | string | null; teamLng?: number | string | null;
+};
 
 export const evacuationService = {
   status: async (): Promise<EvacStatus> => (await axiosInstance.get(publicUrl("/status"))).data,
@@ -111,6 +119,17 @@ export function interiorPoint(geojson: string): [number, number] | null {
     }
   }
   return best ?? [ring[0][0], ring[0][1]];
+}
+
+/** Flood front: minutes after release -> km down the river (same timing as the zones and the web map). */
+const FRONT: [number, number][] = [[0, 0], [15, 3], [40, 8], [80, 15], [140, 25], [210, 35]];
+export function frontKm(minutes: number) {
+  if (minutes <= 0) return 0;
+  for (let i = 1; i < FRONT.length; i++) {
+    const [t0, d0] = FRONT[i - 1], [t1, d1] = FRONT[i];
+    if (minutes <= t1) return d0 + ((d1 - d0) * (minutes - t0)) / (t1 - t0);
+  }
+  return FRONT[FRONT.length - 1][1];
 }
 
 export function metres(a: [number, number], b: [number, number]) {

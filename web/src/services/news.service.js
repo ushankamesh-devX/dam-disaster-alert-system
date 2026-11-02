@@ -61,13 +61,19 @@ export const getNewsArticleById = async (id) => {
 
 /** POST /news-articles → NewsArticleResponse (201) */
 export const createNewsArticle = async (payload) => {
-    const r = await apiClient.post('/news-articles', payload);
+    const isFormData = payload instanceof FormData;
+    const r = await apiClient.post('/news-articles', payload, {
+        headers: isFormData ? { 'Content-Type': undefined } : undefined,
+    });
     return r.data;
 };
 
 /** PUT /news-articles/{id} → NewsArticleResponse */
 export const updateNewsArticle = async (id, payload) => {
-    const r = await apiClient.put(`/news-articles/${id}`, payload);
+    const isFormData = payload instanceof FormData;
+    const r = await apiClient.put(`/news-articles/${id}`, payload, {
+        headers: isFormData ? { 'Content-Type': undefined } : undefined,
+    });
     return r.data;
 };
 
@@ -86,4 +92,14 @@ export const archiveNewsArticle = async (id) => {
 /** DELETE /news-articles/{id} → 204 (soft-delete) */
 export const deleteNewsArticle = async (id) => {
     await apiClient.delete(`/news-articles/${id}`);
+};
+
+/** POST /news-articles/upload-image (multipart/form-data) → { imageUrl: string } */
+export const uploadNewsImage = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const r = await apiClient.post('/news-articles/upload-image', formData, {
+        headers: { 'Content-Type': undefined },
+    });
+    return r.data;
 };

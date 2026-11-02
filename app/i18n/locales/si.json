@@ -86,5 +86,10 @@
     "video_permission_required": "වීඩියෝ පටිගත කිරීමට කැමරා අවසරය අවශ්‍ය වේ.",
     "gallery_permission_required": "මාධ්‍ය තෝරා ගැනීමට ගැලරි අවසරය අවශ්‍ය වේ.",
     "failed_to_pick_media": "මාධ්‍ය තෝරා ගැනීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
-    "search_reports_placeholder": "වාර්තා සොයන්න..."
+    "search_reports_placeholder": "වාර්තා සොයන්න...",
+    "loading_news": "පුවත් පූරණය වෙමින් පවතී...",
+    "no_news_found": "පුවත් හමු නොවීය",
+    "no_news_desc": "මෙම කාණ්ඩයේ පුවත් කිසිවක් නොමැත.",
+    "failed_to_load_news": "පුවත් පූරණය කිරීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+    "retry": "නැවත උත්සාහ කරන්න"
 }

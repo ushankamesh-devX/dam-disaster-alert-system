@@ -75,6 +75,17 @@ export function shelterIcon(occupancy, capacity, unusable) {
     });
 }
 
+/** Demo response team on its way (position from the team's phone). */
+export function teamIcon() {
+    return cached('t', () => L.divIcon({
+        className: 'ddas-service',
+        html: `<svg width="26" height="26" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))">
+            <circle cx="12" cy="12" r="10.5" fill="#1D4ED8" stroke="#fff" stroke-width="1.6"/>
+            <path d="${CAR}" fill="#fff" transform="translate(1.2 1.2) scale(.9)"/></svg>`,
+        iconSize: [26, 26], iconAnchor: [13, 13],
+    }));
+}
+
 /** High-ground assembly point: green mountain with a flag. */
 export function assemblyIcon() {
     return cached('a', () => L.divIcon({

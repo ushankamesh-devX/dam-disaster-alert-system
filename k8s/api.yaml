@@ -60,6 +60,13 @@ spec:
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: NOTIFY_SENDER_ID, optional: true } }
             - { name: DDAS_AI_BACKEND_URL, value: "http://ai:8000" }
             - { name: DDAS_ROUTING_VALHALLA_URL, value: "http://valhalla:8002" }
+            # News images are stored in MinIO and served through the API
+            - { name: MINIO_ENDPOINT, value: "http://minio:9000" }
+            - { name: MINIO_BUCKET_NAME, value: ddas-artifacts }
+            - name: MINIO_ROOT_USER
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: MINIO_ROOT_USER } }
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: ddas-secrets, key: MINIO_ROOT_PASSWORD } }
             - name: DDAS_AI_INCOMING_SERVICE_TOKEN
               valueFrom: { secretKeyRef: { name: ddas-secrets, key: DDAS_AI_INCOMING_SERVICE_TOKEN, optional: true } }
             - name: DDAS_AI_SPRING_SERVICE_TOKEN

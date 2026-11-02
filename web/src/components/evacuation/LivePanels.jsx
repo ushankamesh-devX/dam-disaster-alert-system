@@ -13,6 +13,9 @@ import {
 import CommandCenterService from '../../services/commandCenter.service';
 import { distanceKm, serviceStyle } from './serviceStyles';
 
+// Status reported by the demo team's phone (mobile app, role RESPONDER)
+const TEAM_TEXT = { on_the_way: 'on the way', arrived: 'arrived at the person', rescued: 'rescued' };
+
 const SOS_STATUS = {
     triggered: { label: 'New', className: 'bg-destructive text-white' },
     acknowledged: { label: 'Seen', className: 'bg-amber-500 text-white' },
@@ -55,6 +58,9 @@ function SosItem({ sos, services, selected, onSelect, onChanged }) {
                 <p className="mt-1 text-muted-foreground">{sos.person} · {ago(sos.triggeredAt)}{sos.battery != null ? ` · battery ${sos.battery}%` : ''}</p>
                 {sos.message && <p className="mt-0.5">“{sos.message}”</p>}
                 {sos.assignedTo && <p className="mt-0.5 text-blue-700">{sos.responseNotes || `Assigned to ${sos.assignedTo}`}</p>}
+                {sos.teamStatus && sos.teamStatus !== 'assigned' && (
+                    <p className="mt-0.5 font-medium text-blue-800">📱 Team: {TEAM_TEXT[sos.teamStatus] || sos.teamStatus}</p>
+                )}
             </button>
             {open && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">

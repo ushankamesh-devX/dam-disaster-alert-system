@@ -24,17 +24,30 @@ try {
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   let token: string | null = null;
   try {
-    // 1. Android notification channel (catch specifically in Expo Go)
+    // 1. Android notification channels (critical_alerts for WhatsApp-style Heads-Up / Popups)
     if (Platform.OS === 'android') {
       try {
+        await Notifications.setNotificationChannelAsync('critical_alerts', {
+          name: 'Critical Alerts',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 500, 250, 500],
+          lightColor: '#DC2626',
+          enableVibrate: true,
+          showBadge: true,
+          sound: 'default',
+        });
+
         await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
+          name: 'Default Alerts',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#DC2626',
+          enableVibrate: true,
+          showBadge: true,
+          sound: 'default',
         });
       } catch (channelErr) {
-        console.log('[PUSH] Notification channels not supported in Expo Go development mode');
+        console.log('[PUSH] Notification channels skipped in Expo Go dev mode');
       }
     }
 

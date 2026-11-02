@@ -1,5 +1,9 @@
 package com.ddas.api.service;
 
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
+import com.google.firebase.messaging.ApnsConfig;
+import com.google.firebase.messaging.Aps;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -13,6 +17,7 @@ import java.util.Map;
 
 /**
  * Sends push notifications via Firebase Cloud Messaging (FCM).
+ * Configured with HIGH priority and 'critical_alerts' channel for WhatsApp-style Heads-Up/Popup alerts.
  * <p>
  * All send operations are fire-and-forget from the caller's perspective:
  * failures are logged but never propagate, so they cannot roll back an
@@ -22,6 +27,7 @@ import java.util.Map;
 public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+    public static final String CRITICAL_ALERTS_CHANNEL_ID = "critical_alerts";
 
     /**
      * Sends a push notification to a specific device token <em>or</em> topic.
@@ -42,8 +48,34 @@ public class NotificationService {
                     .setBody(body)
                     .build();
 
+            // Android WhatsApp-style Heads-Up / Popup configuration
+            AndroidNotification androidNotification = AndroidNotification.builder()
+                    .setChannelId(CRITICAL_ALERTS_CHANNEL_ID)
+                    .setSound("default")
+                    .setDefaultSound(true)
+                    .setDefaultVibrateTimings(true)
+                    .setPriority(AndroidNotification.Priority.MAX)
+                    .build();
+
+            AndroidConfig androidConfig = AndroidConfig.builder()
+                    .setPriority(AndroidConfig.Priority.HIGH) // Wakes up device immediately & bypasses Doze
+                    .setNotification(androidNotification)
+                    .build();
+
+            // iOS Heads-Up Display Configuration
+            ApnsConfig apnsConfig = ApnsConfig.builder()
+                    .putHeader("apns-priority", "10")
+                    .setAps(Aps.builder()
+                            .setSound("default")
+                            .setBadge(1)
+                            .setContentAvailable(true)
+                            .build())
+                    .build();
+
             Message.Builder messageBuilder = Message.builder()
-                    .setNotification(notification);
+                    .setNotification(notification)
+                    .setAndroidConfig(androidConfig)
+                    .setApnsConfig(apnsConfig);
 
             // Route to topic or individual token
             if (topicOrToken != null && topicOrToken.startsWith("/topics/")) {
@@ -58,7 +90,7 @@ public class NotificationService {
             }
 
             String fcmMessageId = FirebaseMessaging.getInstance().send(messageBuilder.build());
-            log.info("FCM notification sent successfully. messageId={}, target={}",
+            log.info("FCM notification sent successfully. messageId={}, target={}, priority=HIGH",
                     fcmMessageId, topicOrToken);
 
         } catch (FirebaseMessagingException ex) {

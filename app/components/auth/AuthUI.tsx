@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
 export function AuthScaffold({ children }: { children: React.ReactNode }) {
-  return <SafeAreaView style={styles.page}><StatusBar style="dark" /><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><View style={styles.brand}><MaterialCommunityIcons name="shield-alert-outline" size={34} color="#0F766E" /><Text style={styles.brandName}>FloodWatch</Text></View>{children}</ScrollView></KeyboardAvoidingView></SafeAreaView>;
+  return <SafeAreaView style={styles.page}><StatusBar style="dark" /><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="always"><View style={styles.brand}><MaterialCommunityIcons name="shield-alert-outline" size={34} color="#0F766E" /><Text style={styles.brandName}>FloodWatch</Text></View>{children}</ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
 export function FormField({ label, ...props }: TextInputProps & { label: string }) {
   return <View style={{ marginBottom: 16 }}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} placeholderTextColor="#94A3B8" style={styles.input} {...props} /></View>;

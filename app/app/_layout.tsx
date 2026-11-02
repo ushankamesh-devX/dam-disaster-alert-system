@@ -22,6 +22,7 @@ try {
 } catch (e) {
   // Graceful fallback for environments where expo-notifications handler cannot attach
 }
+import { FloatingAssistant } from '@/components/ai/FloatingAssistant';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -36,7 +37,7 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack key={`${user?.id ?? 'signed-out'}:${user?.preferredDamId ?? 'setup'}`} screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="auth" />
         </Stack.Protected>
@@ -49,6 +50,7 @@ function RootNavigator() {
           <Stack.Screen name="onboarding" />
         </Stack.Protected>
       </Stack>
+      <FloatingAssistant key={`assistant:${user?.id ?? 'guest'}:${user?.preferredDamId ?? 'general'}`} />
       <StatusBar style="auto" />
     </ThemeProvider>
   );

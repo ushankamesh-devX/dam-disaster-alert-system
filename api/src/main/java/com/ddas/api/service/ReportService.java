@@ -2,10 +2,15 @@ package com.ddas.api.service;
 
 import com.ddas.api.dto.request.report.AssignReportRequest;
 import com.ddas.api.dto.request.report.UpdateReportStatusRequest;
+import com.ddas.api.dto.response.report.ReportFeedResponse;
 import com.ddas.api.dto.response.report.ReportListResponse;
 import com.ddas.api.dto.response.report.ReportResponse;
 import com.ddas.api.dto.response.report.ReportStatsResponse;
-import com.ddas.api.entity.*;
+import com.ddas.api.entity.Dam;
+import com.ddas.api.entity.Report;
+import com.ddas.api.entity.ReportMedia;
+import com.ddas.api.entity.ReportType;
+import com.ddas.api.entity.User;
 import com.ddas.api.exception.BadRequestException;
 import com.ddas.api.exception.ResourceNotFoundException;
 import com.ddas.api.mapper.ReportMapper;
@@ -170,6 +175,7 @@ public class ReportService {
     @Transactional
     public ReportResponse createReport(
             User reporter,
+            Long damId,
             String damParam,
             String issueTypeParam,
             String description,
@@ -187,11 +193,11 @@ public class ReportService {
             throw new BadRequestException("Description is required");
         }
 
-        Dam dam = resolveDam(damParam);
+        Dam dam = resolveDam(damId, damParam);
         ReportType reportType = resolveReportType(issueTypeParam);
 
-        String damName = dam != null ? dam.getName() : (damParam != null ? damParam : "Unknown Dam");
-        String typeName = reportType != null ? reportType.getName() : (issueTypeParam != null ? issueTypeParam : "General Issue");
+        String damName = dam != null ? dam.getName() : (damParam != null && !damParam.isBlank() ? damParam : "Dam Area");
+        String typeName = reportType != null ? reportType.getName() : (issueTypeParam != null && !issueTypeParam.isBlank() ? issueTypeParam : "General Issue");
         String title = typeName + " - " + damName;
 
         String uuid = UUID.randomUUID().toString();
@@ -248,21 +254,73 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
+    public Page<ReportFeedResponse> getReportFeed(Pageable pageable, String search, String issueType, User callerUser) {
+        Long callerUserId = callerUser != null ? callerUser.getId() : null;
+
+        Specification<Report> spec = (root, query, cb) -> {
+            List<Predicate> mainPredicates = new ArrayList<>();
+            mainPredicates.add(cb.isNull(root.get("deletedAt")));
+
+            // Accepted / reviewed reports for community, or caller's own reports in any status
+            Predicate publicStatuses = root.get("status").in(
+                    Report.ReportStatus.reviewing,
+                    Report.ReportStatus.in_progress,
+                    Report.ReportStatus.resolved
+            );
+
+            if (callerUserId != null) {
+                Predicate isCallerReport = cb.equal(root.get("user").get("id"), callerUserId);
+                mainPredicates.add(cb.or(publicStatuses, isCallerReport));
+            } else {
+                mainPredicates.add(publicStatuses);
+            }
+
+            // Optional issueType filter
+            if (issueType != null && !issueType.isBlank()) {
+                String trimmed = issueType.trim().toLowerCase();
+                try {
+                    Long typeId = Long.parseLong(trimmed);
+                    mainPredicates.add(cb.equal(root.get("reportType").get("id"), typeId));
+                } catch (NumberFormatException ignored) {
+                    mainPredicates.add(cb.equal(cb.lower(root.get("reportType").get("code")), trimmed));
+                }
+            }
+
+            // Optional search filter
+            if (search != null && !search.isBlank()) {
+                String searchPattern = "%" + search.trim().toLowerCase() + "%";
+                Predicate descMatch = cb.like(cb.lower(root.get("description")), searchPattern);
+                Predicate titleMatch = cb.like(cb.lower(root.get("title")), searchPattern);
+                Predicate damMatch = cb.like(cb.lower(root.get("dam").get("name")), searchPattern);
+                mainPredicates.add(cb.or(descMatch, titleMatch, damMatch));
+            }
+
+            return cb.and(mainPredicates.toArray(new Predicate[0]));
+        };
+
+        return reportRepository.findAll(spec, pageable)
+                .map(report -> reportMapper.toReportFeedResponse(report, callerUserId));
+    }
+
+    @Transactional(readOnly = true)
     public Page<ReportResponse> getMyReports(Long userId, Pageable pageable) {
         return reportRepository.findByUserIdAndDeletedAtIsNull(userId, pageable)
                 .map(reportMapper::toReportResponse);
     }
 
-    private Dam resolveDam(String damParam) {
+    private Dam resolveDam(Long damId, String damParam) {
+        if (damId != null) {
+            return damRepository.findById(damId).orElse(null);
+        }
+
         if (damParam == null || damParam.isBlank()) {
             return null;
         }
 
         try {
-            long damId = Long.parseLong(damParam.trim());
-            return damRepository.findById(damId).orElse(null);
+            long parsedId = Long.parseLong(damParam.trim());
+            return damRepository.findById(parsedId).orElse(null);
         } catch (NumberFormatException ignored) {
-            // Not a numeric ID, search by name
             Page<Dam> found = damRepository.searchDams(damParam.trim(), Pageable.ofSize(1));
             if (!found.isEmpty()) {
                 return found.getContent().get(0);
@@ -287,4 +345,3 @@ public class ReportService {
         }
     }
 }
-

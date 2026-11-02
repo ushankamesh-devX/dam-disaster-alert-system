@@ -178,6 +178,11 @@ public class MlInternalDataService {
         return new MlCursorPageResponse<>(dtoList, nextCursor);
     }
 
+    public MlDataListResponse<MlForecastResponse> getLatestDamForecasts(Long damId) {
+        return new MlDataListResponse<>(damForecastService.getLatestForecasts(damId).stream()
+                .map(this::mapForecastToResponse).toList());
+    }
+
     public MlCursorPageResponse<MlForecastResponse> getDamForecasts(
             Long damId, String fromStr, String toStr, String cursor, Integer limit
     ) {

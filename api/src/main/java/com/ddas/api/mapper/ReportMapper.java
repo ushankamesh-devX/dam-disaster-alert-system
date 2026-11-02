@@ -1,5 +1,6 @@
 package com.ddas.api.mapper;
 
+import com.ddas.api.dto.response.report.ReportFeedResponse;
 import com.ddas.api.dto.response.report.ReportListResponse;
 import com.ddas.api.dto.response.report.ReportMediaResponse;
 import com.ddas.api.dto.response.report.ReportResponse;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Component
@@ -90,6 +92,8 @@ public class ReportMapper {
             userId = report.getUser().getId();
         }
 
+        List<String> mediaUrls = extractMediaUrls(report);
+
         return ReportListResponse.builder()
                 .id(report.getId())
                 .reportNumber(report.getReportNumber())
@@ -106,6 +110,7 @@ public class ReportMapper {
                 .status(report.getStatus() != null ? report.getStatus().name() : null)
                 .assignedToUserId(report.getAssignedTo() != null ? report.getAssignedTo().getId() : null)
                 .assignedToName(report.getAssignedTo() != null ? report.getAssignedTo().getFullName() : null)
+                .mediaUrls(mediaUrls)
                 .createdAt(report.getCreatedAt())
                 .updatedAt(report.getUpdatedAt())
                 .build();
@@ -117,16 +122,24 @@ public class ReportMapper {
         }
 
         String userName = "Unknown";
+        String userEmail = null;
+        String userPhone = null;
         Long userId = null;
         if (Boolean.TRUE.equals(report.getIsAnonymous())) {
             userName = "Anonymous";
             if (report.getUser() != null) {
                 userId = report.getUser().getId();
+                userEmail = report.getUser().getEmail();
+                userPhone = report.getUser().getPhoneNumber();
             }
         } else if (report.getUser() != null) {
             userName = report.getUser().getFullName();
             userId = report.getUser().getId();
+            userEmail = report.getUser().getEmail();
+            userPhone = report.getUser().getPhoneNumber();
         }
+
+        List<String> mediaUrls = extractMediaUrls(report);
 
         return ReportResponse.builder()
                 .id(report.getId())
@@ -137,6 +150,8 @@ public class ReportMapper {
                 .isAnonymous(report.getIsAnonymous())
                 .userId(userId)
                 .userName(userName)
+                .userEmail(userEmail)
+                .userPhone(userPhone)
                 .damId(report.getDam() != null ? report.getDam().getId() : null)
                 .damName(report.getDam() != null ? report.getDam().getName() : null)
                 .reportTypeId(report.getReportType() != null ? report.getReportType().getId() : null)
@@ -154,9 +169,56 @@ public class ReportMapper {
                 .resolvedAt(report.getResolvedAt())
                 .rejectionReason(report.getRejectionReason())
                 .media(toReportMediaResponseList(report.getMediaList()))
+                .mediaUrls(mediaUrls)
                 .createdAt(report.getCreatedAt())
                 .updatedAt(report.getUpdatedAt())
                 .build();
     }
-}
 
+    public ReportFeedResponse toReportFeedResponse(Report report, Long currentUserId) {
+        if (report == null) {
+            return null;
+        }
+
+        boolean isMine = currentUserId != null
+                && report.getUser() != null
+                && currentUserId.equals(report.getUser().getId());
+
+        String reporterDisplayName;
+        if (isMine) {
+            reporterDisplayName = "You";
+        } else if (Boolean.TRUE.equals(report.getIsAnonymous())) {
+            reporterDisplayName = "Anonymous";
+        } else if (report.getUser() != null && report.getUser().getFullName() != null && !report.getUser().getFullName().isBlank()) {
+            reporterDisplayName = report.getUser().getFullName();
+        } else {
+            reporterDisplayName = "Resident";
+        }
+
+        List<String> mediaUrls = extractMediaUrls(report);
+
+        return ReportFeedResponse.builder()
+                .id(report.getId())
+                .damName(report.getDam() != null ? report.getDam().getName() : (report.getLocationDescription() != null ? report.getLocationDescription() : "Dam Area"))
+                .issueType(report.getReportType() != null ? report.getReportType().getCode() : "other")
+                .issueTypeName(report.getReportType() != null ? report.getReportType().getName() : "Other Incident")
+                .title(report.getTitle())
+                .description(report.getDescription())
+                .mediaUrls(mediaUrls)
+                .status(report.getStatus() != null ? report.getStatus().name() : "pending")
+                .createdAt(report.getCreatedAt())
+                .reporterDisplayName(reporterDisplayName)
+                .isMine(isMine)
+                .build();
+    }
+
+    private List<String> extractMediaUrls(Report report) {
+        if (report.getMediaList() == null || report.getMediaList().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return report.getMediaList().stream()
+                .map(ReportMedia::getFileUrl)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+}

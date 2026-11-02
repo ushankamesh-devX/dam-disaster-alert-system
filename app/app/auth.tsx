@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Keyboard, Pressable, Text, View } from 'react-native';
 import { AuthScaffold, FormField, FormError, PrimaryButton, styles } from '@/components/auth/AuthUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { authErrorMessage } from '@/services/auth/error-message';
@@ -21,6 +21,7 @@ export default function AuthScreen() {
     if (creating && name.trim().length < 2) return setError('Enter your full name (at least 2 characters).');
     if (creating && password.length < 8) return setError('Use a password with at least 8 characters.');
     if (creating && password !== confirmation) return setError('Your passwords do not match.');
+    Keyboard.dismiss();
     setError(''); setBusy(true);
     try {
       if (creating) await register({ fullName: name.trim(), email: email.trim(), password, languagePreference: 'en' });

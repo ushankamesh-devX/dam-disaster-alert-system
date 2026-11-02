@@ -86,5 +86,13 @@
     "video_permission_required": "වීඩියෝ පටිගත කිරීමට කැමරා අවසරය අවශ්‍ය වේ.",
     "gallery_permission_required": "මාධ්‍ය තෝරා ගැනීමට ගැලරි අවසරය අවශ්‍ය වේ.",
     "failed_to_pick_media": "මාධ්‍ය තෝරා ගැනීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
-    "search_reports_placeholder": "වාර්තා සොයන්න..."
+    "search_reports_placeholder": "වාර්තා සොයන්න...",
+    "loading_reports": "වාර්තා පූරණය වෙමින් පවතී...",
+    "no_reports_found": "වාර්තා හමු නොවීය",
+    "no_reports_desc": "ඔබගේ නිර්ණායකවලට ගැලපෙන වාර්තා නොමැත. ගැටළුවක් වාර්තා කිරීමට + බොත්තම ඔබන්න.",
+    "report_submitted_success_title": "වාර්තාව ඉදිරිපත් කරන ලදී",
+    "report_submitted_success_desc": "වාර්තාව ඉදිරිපත් කරන ලදී. පරිපාලක සමාලෝචනයෙන් පසු එය දිස්වනු ඇත.",
+    "submitting_report": "වාර්තාව ඉදිරිපත් කරමින්...",
+    "retry": "නැවත උත්සාහ කරන්න",
+    "you": "ඔබ"
 }

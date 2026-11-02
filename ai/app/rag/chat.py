@@ -88,7 +88,9 @@ class RAGChatEngine:
                 pass
         return None
 
-    def _fetch_live_telemetry_summary(self, target_dam_id: int) -> str:
+    def _fetch_live_telemetry_summary(
+        self, target_dam_id: int, forecast_snapshot: dict | None = None
+    ) -> str:
         """Fetches live operational metrics and thresholds for prompt grounding."""
         lines = []
         try:
@@ -116,16 +118,33 @@ class RAGChatEngine:
                     f"- Verified Spillway Threshold: {overflow.get('verifiedThresholdMeters') or 'Not verified'}m"
                 )
 
-            forecasts = self.tool_registry._get(f"dams/{target_dam_id}/forecasts")
-            items = forecasts if isinstance(forecasts, list) else []
-            if items:
+            snapshot = (
+                forecast_snapshot if forecast_snapshot is not None
+                else self.tool_registry.get_latest_forecasts(target_dam_id)
+            )
+            if snapshot["status"] == "unavailable":
+                lines.append(
+                    "FORECASTS: unavailable because the forecast data could not be retrieved. "
+                    "Do not treat this as an empty published run."
+                )
+            elif snapshot["status"] == "empty":
+                lines.append("FORECASTS: no published forecast is available for this dam.")
+            else:
+                def shown(value):
+                    return "unavailable" if value is None else str(value)
+
                 f_lines = [
-                    f"  * {f.get('horizonHours') or f.get('horizon')}h ahead: "
-                    f"{f.get('predictedWaterLevel') or f.get('waterLevelMeters')}m "
-                    f"(Overflow Risk: {f.get('overflowProbability')})"
-                    for f in items[:5]
+                    f"  * {shown(f.get('horizonHours'))}h ahead: "
+                    f"median {shown(f.get('levelP50'))} m; "
+                    f"P10-P90 range {shown(f.get('levelP10'))}-{shown(f.get('levelP90'))} m; "
+                    f"overflow probability (0-1): {shown(f.get('overflowProbability'))}; "
+                    f"probability reason: {shown(f.get('overflowProbabilityReason'))}; "
+                    f"issued: {shown(f.get('issuedAt'))}; target: {shown(f.get('targetTime'))}; "
+                    f"input reading: {shown(f.get('latestReadingAt'))}; "
+                    f"freshness: {shown(f.get('freshness'))}; demo: {shown(f.get('demoMode'))}"
+                    for f in snapshot["forecasts"]
                 ]
-                lines.append("ML CATBOOST WATER-LEVEL FORECAST HORIZONS:\n" + "\n".join(f_lines))
+                lines.append("PUBLISHED WATER-LEVEL FORECASTS:\n" + "\n".join(f_lines))
         except Exception as e:
             logger.debug("Failed fetching live telemetry summary for dam %s: %s", target_dam_id, e)
 
@@ -142,8 +161,12 @@ class RAGChatEngine:
         results: list[SearchResult] = self.retriever.search(query, dam_id=target_dam_id, top_k=3)
         now_str = datetime.now(UTC).isoformat()
 
+        forecast_requested = bool(re.search(
+            r"forecast|predict|overflow probability", query, re.IGNORECASE
+        ))
+
         # If no documents match and no LLM client is configured, return document fallback immediately
-        if not results and not self._genai_client:
+        if not results and not self._genai_client and not forecast_requested:
             answer = (
                 "No verified standard operating procedures, dam manuals, or emergency action plans "
                 "matching your inquiry were found in the active document repository."
@@ -174,11 +197,17 @@ class RAGChatEngine:
             synthesized_points.append(f"[{i}] {res.title} (v{res.version}):\n{res.text}")
 
         points_text = "\n\n".join(synthesized_points)
-        live_telemetry_text = self._fetch_live_telemetry_summary(target_dam_id) if target_dam_id else ""
+        forecast_snapshot = self.tool_registry.get_latest_forecasts(target_dam_id) if target_dam_id else None
+        live_telemetry_text = (
+            self._fetch_live_telemetry_summary(target_dam_id, forecast_snapshot) if target_dam_id else ""
+        )
 
         structured_telemetry = None
         structured_overflow = None
-        structured_forecasts = None
+        structured_forecasts = (
+            forecast_snapshot["forecasts"]
+            if forecast_snapshot and forecast_snapshot["status"] != "unavailable" else None
+        )
         structured_sensors = None
         structured_chart_data = None
         trend_summary_text = ""
@@ -192,10 +221,6 @@ class RAGChatEngine:
                 o_raw = self.tool_registry._get(f"dams/{target_dam_id}/overflow-config")
                 if isinstance(o_raw, dict) and "fullReservoirLevelMeters" in o_raw:
                     structured_overflow = o_raw
-
-                f_raw = self.tool_registry._get(f"dams/{target_dam_id}/forecasts")
-                if isinstance(f_raw, list) and f_raw:
-                    structured_forecasts = f_raw
 
                 if re.search(r"\bsensor|threshold|device|hardware|gauge|meter\b", query, re.IGNORECASE):
                     s_raw = self.tool_registry._get(f"dams/{target_dam_id}/sensors")
@@ -252,7 +277,11 @@ class RAGChatEngine:
                         "3. Clearly state specific values and measurement units (meters, cumecs, MCM, mm/hr).\n"
                         "4. If a question asks whether a dam is safe, compare the current water level against the Danger Level "
                         "and Full Reservoir Level (FRL).\n"
-                        "5. If information is not available in the context or tools, clearly state that."
+                        "5. If information is not available in the context or tools, clearly state that.\n"
+                        "6. Forecast median is levelP50, uncertainty is levelP10 to levelP90. "
+                        "Keep zero values; missing values are unknown. State issue/target times and "
+                        "input freshness. Demo forecasts are illustrative, never live warnings. "
+                        "A failed fetch is unavailable, not proof that no forecasts exist."
                     ),
                     tools=tools if tools else None,
                 )
@@ -330,7 +359,9 @@ class RAGChatEngine:
                         "and retrieve verified dam SOPs and emergency procedures. How can I assist you today?"
                     )
         else:
-            if points_text:
+            if forecast_requested and live_telemetry_text:
+                answer = f"Recorded data for Dam #{target_dam_id}:\n\n{live_telemetry_text}"
+            elif points_text:
                 answer = (
                     f"Based on active operational documentation for "
                     f"{'Dam #' + str(target_dam_id) if target_dam_id else 'all dams'}:\n\n"

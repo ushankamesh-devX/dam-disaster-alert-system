@@ -311,9 +311,13 @@ def initialize_rbac():
     source=re.sub(r'--[^\n]*', '', source)
     statements=[]
     for statement in source.split(';'):
-        if statement.strip().startswith('INSERT INTO'):
-            table=re.search(r'INSERT INTO (\w+)',statement).group(1)
-            statements.append(statement+f' ON DUPLICATE KEY UPDATE {table}.id={table}.id;')
+        stmt=statement.strip()
+        if stmt.startswith('INSERT INTO'):
+            if 'ON DUPLICATE KEY UPDATE' not in stmt:
+                table=re.search(r'INSERT INTO (\w+)',stmt).group(1)
+                col='role_id' if table=='role_permissions' else 'id'
+                stmt+=f' ON DUPLICATE KEY UPDATE {table}.{col}={table}.{col}'
+            statements.append(stmt+';')
     sql('START TRANSACTION;'+''.join(statements)+'COMMIT;')
 
 

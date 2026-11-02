@@ -1,3 +1,11 @@
+export interface UserRole {
+  id?: number;
+  code: string;
+  name?: string;
+  nameSi?: string;
+  description?: string;
+}
+
 export interface UserProfile {
   id: number;
   fullName: string;
@@ -5,4 +13,7 @@ export interface UserProfile {
   languagePreference: string;
   preferredDamId: number | null;
   onboardingCompletedAt: string | null;
+  role?: UserRole | string;
+  roleCode?: string;
 }
+

@@ -135,6 +135,8 @@ export default function EvacuationPage() {
     const [packs, setPacks] = useState([]);           // marked evacuation routes
     const [teams, setTeams] = useState([]);           // response teams: status, live position, mission
     const [teamFocus, setTeamFocus] = useState(null);
+    const [onlyPhones, setOnlyPhones] = useState(false);
+
 
     // People every 5 s (smooth movement); everything else every 10 s
     const refreshPeople = useCallback(async () => {
@@ -164,7 +166,6 @@ export default function EvacuationPage() {
     const shelters = status?.shelters || [];
     const blocked = status?.blockedRoads || [];
     // "Live phones only": just the real app users (e.g. Niduk), their SOS and the units on it; the scenario's people are hidden
-    const [onlyPhones, setOnlyPhones] = useState(false);
     const allSos = cc?.sos || [];
     const sos = useMemo(() => (onlyPhones ? allSos.filter((s) => s.phone === true || s.phone === 1) : allSos), [onlyPhones, allSos]);
     const shownTeams = useMemo(() => {
@@ -172,17 +173,19 @@ export default function EvacuationPage() {
         const onPhoneSos = new Set(sos.flatMap((s) => (s.teams || []).map((t) => t.userId)));
         return teams.filter((t) => t.live || onPhoneSos.has(t.userId));
     }, [onlyPhones, teams, sos]);
+    const openSos = sos.filter((s) => ['triggered', 'acknowledged', 'responding'].includes(s.status)).length;
     const services = cc?.services || [];
     const sm = cc?.summary || {};
     const zoneTiming = useMemo(() => new Map((analytics?.zones || []).map((z) => [z.id, z])), [analytics]);
     const stragglers = useMemo(() => analytics?.stragglers || [], [analytics]);
     const stragglerIds = useMemo(() => new Set(stragglers.map((s) => s.id)), [stragglers]);
-    const shown = useMemo(() => filterPeople(people, filter, stragglerIds), [people, filter, stragglerIds]);
+    const livePeople = useMemo(() => (onlyPhones ? people.filter((p) => p.phone) : people), [onlyPhones, people]);
+    const shown = useMemo(() => filterPeople(livePeople, filter, stragglerIds), [livePeople, filter, stragglerIds]);
     const selectedPerson = people.find((p) => p.id === selectedPersonId) || null;
 
     // Replay: positions from the recorded frame instead of live people
     const mapPeople = useMemo(() => {
-        if (!replayFrame) return layers.people ? (onlyPhones ? shown.filter((p) => p.phone) : shown) : [];
+        if (!replayFrame) return layers.people ? shown : [];
         const names = new Map(people.map((p) => [p.id, p.name]));
         return replayFrame.p.map(([id, lat, lng, safe]) => ({
             id, lat, lng, name: names.get(id) || `Person ${id}`, state: safe ? 'safe' : 'moving', mode: 'walk', headingDeg: 0, trail: [],
@@ -254,10 +257,11 @@ export default function EvacuationPage() {
                     </Badge>
                 </div>
                 <Stat label="zones active" value={zones.length} alert={zones.length > 0} />
-                <Stat label="in danger" value={sm.peopleInDanger ?? '–'} alert={sm.peopleInDanger > 0} />
-                <Stat label="on the way" value={people.filter((p) => p.state === 'moving').length} />
-                <Stat label="safe" value={sm.arrivedAtShelters ?? '–'} />
-                <Stat label="SOS open" value={sm.sosOpen ?? '–'} alert={sm.sosOpen > 0} />
+                <Stat label="in danger" value={onlyPhones ? livePeople.filter((p) => p.state === 'danger').length : sm.peopleInDanger ?? '–'}
+                    alert={(onlyPhones ? livePeople.filter((p) => p.state === 'danger').length : sm.peopleInDanger) > 0} />
+                <Stat label="on the way" value={livePeople.filter((p) => p.state === 'moving').length} />
+                <Stat label="safe" value={onlyPhones ? livePeople.filter((p) => p.state === 'safe').length : sm.arrivedAtShelters ?? '–'} />
+                <Stat label="SOS open" value={openSos} alert={openSos > 0} />
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 text-xs">
                     <Switch size="sm" checked={onlyPhones} onCheckedChange={setOnlyPhones} aria-label="Live phones only" />
                     Live phones only
@@ -348,7 +352,7 @@ export default function EvacuationPage() {
                     )}
                     <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-2">
                         <TabsList className="grid w-full grid-cols-7">
-                            <TabsTrigger value="sos" className="px-1 text-xs">SOS{sm.sosOpen ? ` ${sm.sosOpen}` : ''}</TabsTrigger>
+                            <TabsTrigger value="sos" className="px-1 text-xs">SOS{openSos ? ` ${openSos}` : ''}</TabsTrigger>
                             <TabsTrigger value="teams" className="px-1 text-xs">Teams</TabsTrigger>
                             <TabsTrigger value="people" className="px-1 text-xs">People</TabsTrigger>
                             <TabsTrigger value="zones" className="px-1 text-xs">Zones</TabsTrigger>
@@ -365,7 +369,7 @@ export default function EvacuationPage() {
                                 onSelect={(t) => { setTeamFocus({ lat: t.lat, lng: t.lng, at: Date.now() }); setSelectedSos(null); setSelectedPersonId(null); }} />
                         </TabsContent>
                         <TabsContent value="people" className="min-h-0 overflow-y-auto">
-                            <PeoplePanel people={people} shown={shown} filter={filter} onFilter={setFilter} zones={zones}
+                            <PeoplePanel people={livePeople} shown={shown} filter={filter} onFilter={setFilter} zones={zones}
                                 stragglers={stragglers} selectedId={selectedPersonId}
                                 onSelect={(id) => { selectPerson(id); setSelectedSos(null); }} />
                         </TabsContent>

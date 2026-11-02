@@ -22,8 +22,6 @@ const CommandCenterService = {
     sendMessage: (sosId, text) => apiClient.post(`${BASE}/sos/${sosId}/messages`, { text }),
     /** To every team, or one kind: police | hospital | fire_brigade. Returns { sent } */
     teamBroadcast: async (text, type) => (await apiClient.post(`${BASE}/teams/broadcast`, { text, type: type || null })).data,
-    autopilot: async () => (await apiClient.get(`${BASE}/teams/autopilot`)).data.on,
-    setAutopilot: async (on) => (await apiClient.put(`${BASE}/teams/autopilot`, { on })).data.on,
     /** End the real phones' sharing and SOS: { sessions, sos } */
     resetPhones: async () => (await apiClient.post(`${BASE}/phones/reset`)).data,
     /** Evacuation Order for a dam's zones; SMS only if the admin SMS switch is on. */

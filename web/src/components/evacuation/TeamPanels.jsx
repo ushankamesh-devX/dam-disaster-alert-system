@@ -6,7 +6,6 @@ import { Megaphone, Send, Star, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
@@ -175,17 +174,10 @@ export function SosChat({ sosId }) {
     );
 }
 
-/** Team control centre: every team, broadcast, autopilot. */
+/** Team control centre: every team and broadcast. Teams get jobs only when you dispatch them. */
 export function TeamsPanel({ teams, onSelect, onChanged }) {
-    const [auto, setAuto] = useState(false);
     const [text, setText] = useState('');
     const [type, setType] = useState('all');
-    useEffect(() => { CommandCenterService.autopilot().then(setAuto).catch(() => {}); }, []);
-
-    const toggleAuto = async (on) => {
-        try { setAuto(await CommandCenterService.setAutopilot(on)); toast.success(on ? 'Teams without a phone now drive by themselves' : 'Autopilot off'); onChanged(); }
-        catch (e) { toast.error(errorText(e)); }
-    };
     const broadcast = async () => {
         try {
             const r = await CommandCenterService.teamBroadcast(text.trim(), type === 'all' ? null : type);
@@ -202,10 +194,6 @@ export function TeamsPanel({ teams, onSelect, onChanged }) {
                     <Badge key={s} className={statusOf(s).className}>{statusOf(s).text} {counts[s] || 0}</Badge>
                 ))}
             </div>
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-2">
-                <span><span className="font-medium">Autopilot</span><br /><span className="text-xs text-muted-foreground">Teams nobody is using on a phone accept, drive and rescue by themselves.</span></span>
-                <Switch checked={auto} onCheckedChange={toggleAuto} aria-label="Team autopilot" />
-            </label>
             <div className="space-y-1.5 rounded-lg border p-2">
                 <p className="flex items-center gap-1.5 font-medium"><Megaphone className="size-4" /> Message to teams</p>
                 <Select value={type} onValueChange={setType}>
@@ -231,7 +219,7 @@ export function TeamsPanel({ teams, onSelect, onChanged }) {
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate font-medium">{t.station}</span>
                                 <span className="block text-xs text-muted-foreground">
-                                    {t.label}{t.mission ? ` · SOS #${t.mission.sosId}` : ''} · {t.live ? '📱 live' : t.auto ? 'autopilot' : `seen ${seen(t.lastSeenSeconds)}`}
+                                    {t.label}{t.mission ? ` · SOS #${t.mission.sosId}` : ''} · {t.live ? '📱 live' : `seen ${seen(t.lastSeenSeconds)}`}
                                     {t.battery != null ? ` · 🔋${t.battery}%` : ''}
                                 </span>
                             </span>

@@ -11,19 +11,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Response teams for the evacuation command center and the team app (role RESPONDER): dispatch with a
  * ranked choice, several teams per SOS, live team positions, mission chat, broadcasts, backup requests,
- * and an optional autopilot that drives teams nobody is using on a phone.
+ * Teams get jobs only when an operator dispatches them.
  *
  * Training system: teams are DDAS accounts linked to OpenStreetMap stations (seed_responders.py); the real
  * services are never contacted. No schema changes: state lives in the existing JSON metadata columns
@@ -36,10 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TeamService {
 
     private static final List<String> OPEN = List.of("triggered", "acknowledged", "responding");
-    private static final long LIVE_MS = 45_000;          // a phone that reported in the last 45 s drives itself
-    private static final double AUTO_SPEED_MPS = 15;     // autopilot driving speed (about 3x real life)
-    private static final long AUTO_ACCEPT_MS = 8_000;
-    private static final long AUTO_ON_SCENE_MS = 40_000;
+    private static final long LIVE_MS = 45_000;          // the team phone reported in the last 45 s
     private static final int INBOX_MAX = 20;
 
     private final JdbcTemplate jdbc;
@@ -47,10 +41,6 @@ public class TeamService {
     private final BlockedRoadRepository blockedRoadRepository;
     private final ObjectMapper objectMapper;
 
-    private final AtomicBoolean autopilot = new AtomicBoolean(false);
-    private final Map<String, Drive> drives = new ConcurrentHashMap<>();
-
-    private record Drive(List<double[]> path, int[] step) {}
 
     // ── JSON helpers ───────────────────────────────────────────────────────────
 
@@ -124,7 +114,7 @@ public class TeamService {
 
     private record Station(long id, String name, String type, double lat, double lng, long userId, String teamName, ObjectNode meta) {
         ObjectNode team() { return meta.has("team") && meta.get("team").isObject() ? (ObjectNode) meta.get("team") : meta.putObject("team"); }
-        boolean live() { return team().path("at").asLong(0) > System.currentTimeMillis() - LIVE_MS && !team().path("auto").asBoolean(false); }
+        boolean live() { return team().path("at").asLong(0) > System.currentTimeMillis() - LIVE_MS; }
         double[] pos() {
             ObjectNode t = team();
             return t.has("lat") && t.has("lng") ? new double[]{t.get("lat").asDouble(), t.get("lng").asDouble()} : new double[]{lat, lng};
@@ -174,11 +164,10 @@ public class TeamService {
             row.put("lat", p[0]);
             row.put("lng", p[1]);
             row.put("live", s.live());
-            row.put("auto", t.path("auto").asBoolean(false) && autopilot.get());
             long at = t.path("at").asLong(0);
             row.put("lastSeenSeconds", at == 0 ? null : (now - at) / 1000);
             row.put("battery", t.has("battery") ? t.get("battery").asInt() : null);
-            boolean onDuty = t.path("onDuty").asBoolean(false) || autopilot.get();
+            boolean onDuty = t.path("onDuty").asBoolean(false);
             Map<String, Object> mission = null;
             for (Map<String, Object> sos : open) {
                 JsonNode mine = teamsNode((ObjectNode) sos.get("meta")).get(String.valueOf(s.userId()));
@@ -341,7 +330,6 @@ public class TeamService {
                 jdbc.update("UPDATE sos_events SET status = 'resolved', resolved_at = NOW(), resolved_by = ?, resolution_notes = ? WHERE id = ?",
                         userId, notes == null || notes.isBlank() ? "Rescued by " + name : notes, sosId);
                 message(sosId, "team", userId, name, "Person rescued. Mission closed.", true);
-                drives.keySet().removeIf(k -> k.startsWith(sosId + ":"));
                 return;
             }
             default -> throw new BadRequestException("Unknown action: " + action);
@@ -359,7 +347,6 @@ public class TeamService {
         t.put("lng", lng);
         t.put("at", System.currentTimeMillis());
         t.put("onDuty", true);
-        t.put("auto", false);
         if (battery != null) t.put("battery", battery);
         saveStationMeta(s.id(), s.meta());
         moveOnMissions(userId, lat, lng);
@@ -548,92 +535,5 @@ public class TeamService {
             out.put("routingAvailable", false);
         });
         return out;
-    }
-
-    // ── Autopilot: teams nobody is using on a phone accept, drive and rescue by themselves ──
-
-    public boolean isAutopilot() {
-        return autopilot.get();
-    }
-
-    public void setAutopilot(boolean on) {
-        autopilot.set(on);
-        if (!on) drives.clear();
-        log.info("[TEAMS] Autopilot {}", on ? "ON" : "OFF");
-    }
-
-    @Scheduled(initialDelay = 20_000, fixedDelay = 3_000)
-    public void autopilotTick() {
-        if (!autopilot.get()) return;
-        try {
-            Map<Long, Station> byUser = new HashMap<>();
-            stations().forEach(s -> byUser.put(s.userId(), s));
-            long now = System.currentTimeMillis();
-            for (Map<String, Object> sos : openSos()) {
-                long sosId = ((Number) sos.get("id")).longValue();
-                double lat = num(sos.get("lat")), lng = num(sos.get("lng"));
-                ObjectNode meta = (ObjectNode) sos.get("meta");
-                for (var e : teamsNode(meta).properties()) {
-                    Station s = byUser.get(Long.valueOf(e.getKey()));
-                    if (s == null || s.live()) continue;          // a real phone drives this team
-                    ObjectNode t = (ObjectNode) e.getValue();
-                    String status = t.path("status").asText();
-                    String key = sosId + ":" + e.getKey();
-                    if ("assigned".equals(status) && now - t.path("assignedAt").asLong(now) > AUTO_ACCEPT_MS) {
-                        act(s.userId(), sosId, "accept", null);
-                    } else if ("on_the_way".equals(status)) {
-                        Drive d = drives.computeIfAbsent(key, k -> {
-                            double[] p = s.pos();
-                            List<double[]> path = valhallaClient.route(p[0], p[1], lat, lng, "auto", blockedAreas(lat, lng))
-                                    .map(ValhallaClient.Route::shape).orElse(List.of(new double[]{p[1], p[0]}, new double[]{lng, lat}));
-                            return new Drive(path, new int[]{0});
-                        });
-                        double[] here = advance(d, s.pos(), AUTO_SPEED_MPS * 3);
-                        autoPosition(s, here[0], here[1]);
-                        if (d.step()[0] >= d.path().size() - 1) {
-                            drives.remove(key);
-                            act(s.userId(), sosId, "arrived", null);
-                        }
-                    } else if ("arrived".equals(status) && now - t.path("arrivedAt").asLong(now) > AUTO_ON_SCENE_MS) {
-                        act(s.userId(), sosId, "resolve", null);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[TEAMS] Autopilot step failed: {}", e.getMessage());
-        }
-    }
-
-    /** Move along the path by `metres`; returns the new [lat, lng]. Path points are [lng, lat]. */
-    private static double[] advance(Drive d, double[] from, double metres) {
-        double lat = from[0], lng = from[1];
-        List<double[]> path = d.path();
-        while (metres > 0 && d.step()[0] < path.size() - 1) {
-            double[] next = path.get(d.step()[0] + 1);
-            double dist = GeoPolygons.distanceKm(lat, lng, next[1], next[0]) * 1000;
-            if (dist <= metres) {
-                lat = next[1];
-                lng = next[0];
-                d.step()[0]++;
-                metres -= dist;
-            } else {
-                double f = metres / dist;
-                lat += (next[1] - lat) * f;
-                lng += (next[0] - lng) * f;
-                metres = 0;
-            }
-        }
-        return new double[]{lat, lng};
-    }
-
-    private void autoPosition(Station s, double lat, double lng) {
-        ObjectNode t = s.team();
-        t.put("lat", lat);
-        t.put("lng", lng);
-        t.put("at", System.currentTimeMillis());
-        t.put("onDuty", true);
-        t.put("auto", true);
-        saveStationMeta(s.id(), s.meta());
-        moveOnMissions(s.userId(), lat, lng);
     }
 }

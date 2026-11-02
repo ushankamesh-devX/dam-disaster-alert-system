@@ -108,17 +108,6 @@ public class CommandCenterController {
                 type == null ? null : String.valueOf(type), "Control room")));
     }
 
-    /** Teams nobody uses on a phone accept, drive and rescue by themselves. */
-    @GetMapping("/teams/autopilot")
-    public ResponseEntity<Map<String, Boolean>> autopilot() {
-        return ResponseEntity.ok(Map.of("on", teams.isAutopilot()));
-    }
-
-    @PutMapping("/teams/autopilot")
-    public ResponseEntity<Map<String, Boolean>> setAutopilot(@RequestBody Map<String, Boolean> body) {
-        teams.setAutopilot(Boolean.TRUE.equals(body.get("on")));
-        return autopilot();
-    }
 
     /** Body: { damId, title, message } — raises an Evacuation Order for that dam's zones. */
     @PostMapping("/broadcast")

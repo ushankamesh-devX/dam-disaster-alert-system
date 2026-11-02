@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Modal,
     View,
@@ -7,34 +7,53 @@ import {
     TouchableOpacity,
     ScrollView,
     Alert,
-    Platform,
     Image,
+    ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { IssueType, DamOption, MediaItem } from './types';
-import { ISSUE_TYPES, DAMS } from './mockData';
+import { ISSUE_TYPES, DAMS as FALLBACK_DAMS } from './mockData';
+import { damService } from '@/services/dams/dam.service';
+import { reportsService, CreateReportPayload } from '@/services/reports/reports.service';
+import { useTranslation } from 'react-i18next';
 
 interface AddReportModalProps {
     visible: boolean;
     onClose: () => void;
-    onSubmit: (report: {
-        damName: string;
-        issueType: IssueType;
-        description: string;
-        media?: MediaItem[];
-    }) => void;
+    onSuccess: () => void;
 }
 
-import { useTranslation } from 'react-i18next';
-
-export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalProps) {
+export function AddReportModal({ visible, onClose, onSuccess }: AddReportModalProps) {
     const { t } = useTranslation();
+    const [dams, setDams] = useState<DamOption[]>(FALLBACK_DAMS);
     const [selectedDam, setSelectedDam] = useState<DamOption | null>(null);
     const [selectedIssueType, setSelectedIssueType] = useState<IssueType | null>(null);
     const [description, setDescription] = useState('');
     const [showDamPicker, setShowDamPicker] = useState(false);
     const [media, setMedia] = useState<MediaItem[]>([]);
+    const [submitting, setSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<string>('');
+
+    useEffect(() => {
+        let isMounted = true;
+        damService.getActive()
+            .then(res => {
+                const rows: any[] = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+                if (isMounted && rows.length > 0) {
+                    const mapped: DamOption[] = rows.map(d => ({
+                        id: String(d.id),
+                        name: d.name,
+                        location: d.regionName || d.code || 'Sri Lanka',
+                    }));
+                    setDams(mapped);
+                }
+            })
+            .catch(() => {
+                // Keep fallback dams on error
+            });
+        return () => { isMounted = false; };
+    }, []);
 
     const resetForm = () => {
         setSelectedDam(null);
@@ -42,35 +61,64 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
         setDescription('');
         setMedia([]);
         setShowDamPicker(false);
+        setSubmitting(false);
+        setUploadProgress('');
     };
 
     const handleClose = () => {
+        if (submitting) return;
         resetForm();
         onClose();
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!selectedDam) {
-            Alert.alert(t('error'), t('please_select_dam'));
+            Alert.alert(t('error', 'Error'), t('please_select_dam', 'Please select a dam'));
             return;
         }
         if (!selectedIssueType) {
-            Alert.alert(t('error'), t('please_select_issue_type'));
+            Alert.alert(t('error', 'Error'), t('please_select_issue_type', 'Please select an issue type'));
             return;
         }
         if (!description.trim()) {
-            Alert.alert(t('error'), t('please_enter_description'));
+            Alert.alert(t('error', 'Error'), t('please_enter_description', 'Please enter a description'));
             return;
         }
 
-        onSubmit({
+        setSubmitting(true);
+        setUploadProgress(t('submitting_report', 'Submitting report...'));
+
+        const payload: CreateReportPayload = {
+            damId: Number(selectedDam.id) || undefined,
             damName: selectedDam.name,
             issueType: selectedIssueType,
             description: description.trim(),
             media: media.length > 0 ? media : undefined,
-        });
+        };
 
-        resetForm();
+        try {
+            await reportsService.createReport(payload, (event) => {
+                if (event.total && event.total > 0) {
+                    const percent = Math.round((event.loaded * 100) / event.total);
+                    setUploadProgress(`${percent}%`);
+                }
+            });
+
+            resetForm();
+            onClose();
+            onSuccess();
+
+            Alert.alert(
+                t('report_submitted_success_title', 'Report Submitted'),
+                t('report_submitted_success_desc', 'Report submitted. It will appear after admin review.')
+            );
+        } catch (err: any) {
+            const message = err?.response?.data?.message || err?.message || 'Failed to submit report. Please try again.';
+            Alert.alert(t('error', 'Error'), message);
+        } finally {
+            setSubmitting(false);
+            setUploadProgress('');
+        }
     };
 
     const handleMediaPicker = async (source: 'camera' | 'gallery' | 'video') => {
@@ -78,14 +126,12 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
             let result;
 
             if (source === 'camera') {
-                // Request camera permissions
                 const { status } = await ImagePicker.requestCameraPermissionsAsync();
                 if (status !== 'granted') {
-                    Alert.alert(t('permission_denied'), t('camera_permission_required'));
+                    Alert.alert(t('permission_denied', 'Permission Denied'), t('camera_permission_required', 'Camera permission is required to take photos.'));
                     return;
                 }
 
-                // Launch camera for photos
                 result = await ImagePicker.launchCameraAsync({
                     mediaTypes: ImagePicker.MediaTypeOptions.Images,
                     allowsEditing: true,
@@ -93,29 +139,25 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                     quality: 0.8,
                 });
             } else if (source === 'video') {
-                // Request camera permissions for video
                 const { status } = await ImagePicker.requestCameraPermissionsAsync();
                 if (status !== 'granted') {
-                    Alert.alert(t('permission_denied'), t('video_permission_required'));
+                    Alert.alert(t('permission_denied', 'Permission Denied'), t('video_permission_required', 'Camera permission is required to record videos.'));
                     return;
                 }
 
-                // Launch camera for video
                 result = await ImagePicker.launchCameraAsync({
                     mediaTypes: ImagePicker.MediaTypeOptions.Videos,
                     allowsEditing: true,
                     quality: 0.8,
-                    videoMaxDuration: 60, // 60 seconds max
+                    videoMaxDuration: 60,
                 });
             } else {
-                // Request media library permissions
                 const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
                 if (status !== 'granted') {
-                    Alert.alert(t('permission_denied'), t('gallery_permission_required'));
+                    Alert.alert(t('permission_denied', 'Permission Denied'), t('gallery_permission_required', 'Gallery permission is required to select media.'));
                     return;
                 }
 
-                // Launch image picker for both images and videos
                 result = await ImagePicker.launchImageLibraryAsync({
                     mediaTypes: ImagePicker.MediaTypeOptions.All,
                     allowsEditing: true,
@@ -132,7 +174,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
             }
         } catch (error) {
             console.error('Error picking media:', error);
-            Alert.alert(t('error'), t('failed_to_pick_media'));
+            Alert.alert(t('error', 'Error'), t('failed_to_pick_media', 'Failed to pick media. Please try again.'));
         }
     };
 
@@ -147,8 +189,8 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                 <View className="bg-white rounded-t-3xl max-h-[90%]">
                     {/* Header */}
                     <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
-                        <Text className="text-xl font-bold text-gray-900">{t('report_issue_modal_title')}</Text>
-                        <TouchableOpacity onPress={handleClose}>
+                        <Text className="text-xl font-bold text-gray-900">{t('report_issue_modal_title', 'Report Issue')}</Text>
+                        <TouchableOpacity onPress={handleClose} disabled={submitting}>
                             <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
                         </TouchableOpacity>
                     </View>
@@ -157,10 +199,11 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Dam Selection */}
                         <View className="mb-5">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                {t('select_dam')}
+                                {t('select_dam', 'Select Dam *')}
                             </Text>
                             <TouchableOpacity
                                 onPress={() => setShowDamPicker(!showDamPicker)}
+                                disabled={submitting}
                                 className="bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between border-2 border-gray-200"
                                 style={{
                                     borderColor: showDamPicker ? '#455A64' : '#E5E7EB',
@@ -168,7 +211,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                             >
                                 <View className="flex-1">
                                     <Text className={selectedDam ? 'text-gray-900 font-medium' : 'text-gray-400'}>
-                                        {selectedDam ? selectedDam.name : t('choose_a_dam')}
+                                        {selectedDam ? selectedDam.name : t('choose_a_dam', 'Choose a dam')}
                                     </Text>
                                     {selectedDam && (
                                         <Text className="text-gray-500 text-xs mt-0.5">
@@ -196,19 +239,18 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                     }}
                                 >
                                     <ScrollView
-                                        style={{ maxHeight: 250 }}
+                                        style={{ maxHeight: 220 }}
                                         nestedScrollEnabled={true}
                                         showsVerticalScrollIndicator={true}
                                     >
-                                        {DAMS.map((dam, index) => (
+                                        {dams.map((dam, index) => (
                                             <TouchableOpacity
                                                 key={dam.id}
                                                 onPress={() => {
                                                     setSelectedDam(dam);
                                                     setShowDamPicker(false);
                                                 }}
-                                                className={`px-4 py-3.5 ${index < DAMS.length - 1 ? 'border-b border-gray-100' : ''
-                                                    } ${selectedDam?.id === dam.id ? 'bg-blue-50' : 'bg-white'}`}
+                                                className={`px-4 py-3.5 ${index < dams.length - 1 ? 'border-b border-gray-100' : ''} ${selectedDam?.id === dam.id ? 'bg-blue-50' : 'bg-white'}`}
                                             >
                                                 <View className="flex-row items-center">
                                                     {selectedDam?.id === dam.id && (
@@ -238,19 +280,20 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Issue Type Selection */}
                         <View className="mb-5">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                {t('issue_type')}
+                                {t('issue_type', 'Issue Type *')}
                             </Text>
                             <View className="flex-row flex-wrap">
                                 {ISSUE_TYPES.map((issueType) => (
                                     <TouchableOpacity
                                         key={issueType.value}
+                                        disabled={submitting}
                                         onPress={() => setSelectedIssueType(issueType.value)}
                                         className="mr-2 mb-2 px-4 py-2.5 rounded-xl flex-row items-center"
                                         style={{
                                             backgroundColor:
                                                 selectedIssueType === issueType.value
                                                     ? issueType.color
-                                                    : `${issueType.color} 15`,
+                                                    : `${issueType.color}15`,
                                             borderWidth: 2,
                                             borderColor:
                                                 selectedIssueType === issueType.value
@@ -272,7 +315,6 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                                     selectedIssueType === issueType.value ? 'white' : issueType.color,
                                             }}
                                         >
-                                            {/* Ideally translate issue type labels too, but mock data driven */}
                                             {issueType.label}
                                         </Text>
                                     </TouchableOpacity>
@@ -283,17 +325,18 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Description */}
                         <View className="mb-5">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                {t('description')}
+                                {t('description', 'Description *')}
                             </Text>
                             <TextInput
                                 className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 text-base"
-                                placeholder={t('describe_issue_placeholder')}
+                                placeholder={t('describe_issue_placeholder', 'Describe the issue in detail...')}
                                 placeholderTextColor="#9CA3AF"
                                 multiline
                                 numberOfLines={4}
                                 textAlignVertical="top"
                                 value={description}
                                 onChangeText={setDescription}
+                                editable={!submitting}
                                 style={{ minHeight: 100 }}
                             />
                         </View>
@@ -301,7 +344,7 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                         {/* Media Upload */}
                         <View className="mb-6">
                             <Text className="text-gray-700 font-semibold mb-2 text-base">
-                                {t('add_media_optional')}
+                                {t('add_media_optional', 'Add Photos/Videos (Optional)')}
                             </Text>
 
                             {/* Media Preview - Horizontal Scroll */}
@@ -319,29 +362,29 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
                                                     style={{ width: 120, height: 120 }}
                                                     resizeMode="cover"
                                                 />
-                                                {/* Video Play Icon Overlay */}
                                                 {item.type === 'video' && (
                                                     <View className="absolute inset-0 items-center justify-center bg-black/30">
                                                         <MaterialCommunityIcons name="play-circle" size={40} color="white" />
                                                     </View>
                                                 )}
-                                                {/* Remove Button */}
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        const newMedia = media.filter((_, i) => i !== index);
-                                                        setMedia(newMedia);
-                                                    }}
-                                                    className="absolute top-1 right-1 bg-red-500 rounded-full p-1.5"
-                                                    style={{
-                                                        shadowColor: '#000',
-                                                        shadowOffset: { width: 0, height: 2 },
-                                                        shadowOpacity: 0.3,
-                                                        shadowRadius: 3,
-                                                        elevation: 5,
-                                                    }}
-                                                >
-                                                    <MaterialCommunityIcons name="close" size={16} color="white" />
-                                                </TouchableOpacity>
+                                                {!submitting && (
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            const newMedia = media.filter((_, i) => i !== index);
+                                                            setMedia(newMedia);
+                                                        }}
+                                                        className="absolute top-1 right-1 bg-red-500 rounded-full p-1.5"
+                                                        style={{
+                                                            shadowColor: '#000',
+                                                            shadowOffset: { width: 0, height: 2 },
+                                                            shadowOpacity: 0.3,
+                                                            shadowRadius: 3,
+                                                            elevation: 5,
+                                                        }}
+                                                    >
+                                                        <MaterialCommunityIcons name="close" size={16} color="white" />
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
                                         </View>
                                     ))}
@@ -350,47 +393,63 @@ export function AddReportModal({ visible, onClose, onSubmit }: AddReportModalPro
 
                             {/* Upload Buttons */}
                             <View className="gap-2">
-                                {/* Top Row - Photo and Video */}
                                 <View className="flex-row gap-2">
                                     <TouchableOpacity
                                         onPress={() => handleMediaPicker('camera')}
+                                        disabled={submitting}
                                         className="flex-1 bg-blue-50 rounded-xl py-3.5 flex-row items-center justify-center"
                                     >
                                         <MaterialCommunityIcons name="camera" size={20} color="#3B82F6" />
-                                        <Text className="ml-2 text-blue-600 font-semibold">{t('photo')}</Text>
+                                        <Text className="ml-2 text-blue-600 font-semibold">{t('photo', 'Photo')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         onPress={() => handleMediaPicker('video')}
+                                        disabled={submitting}
                                         className="flex-1 bg-red-50 rounded-xl py-3.5 flex-row items-center justify-center"
                                     >
                                         <MaterialCommunityIcons name="video" size={20} color="#EF4444" />
-                                        <Text className="ml-2 text-red-600 font-semibold">{t('video')}</Text>
+                                        <Text className="ml-2 text-red-600 font-semibold">{t('video', 'Video')}</Text>
                                     </TouchableOpacity>
                                 </View>
-                                {/* Bottom Row - Gallery */}
                                 <TouchableOpacity
                                     onPress={() => handleMediaPicker('gallery')}
+                                    disabled={submitting}
                                     className="bg-purple-50 rounded-xl py-3.5 flex-row items-center justify-center"
                                 >
                                     <MaterialCommunityIcons name="folder-image" size={20} color="#7C3AED" />
-                                    <Text className="ml-2 text-purple-600 font-semibold">{t('gallery')}</Text>
+                                    <Text className="ml-2 text-purple-600 font-semibold">{t('gallery', 'Gallery')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
 
+                        {/* Upload Status / Progress Indicator */}
+                        {submitting && (
+                            <View className="flex-row items-center justify-center mb-4 p-3 bg-gray-50 rounded-xl">
+                                <ActivityIndicator size="small" color="#455A64" />
+                                <Text className="ml-3 text-sm text-gray-700 font-medium">
+                                    {uploadProgress || t('submitting_report', 'Submitting report...')}
+                                </Text>
+                            </View>
+                        )}
+
                         {/* Action Buttons */}
-                        <View className="flex-row mb-4">
+                        <View className="flex-row mb-6">
                             <TouchableOpacity
                                 onPress={handleClose}
+                                disabled={submitting}
                                 className="flex-1 mr-2 bg-gray-100 rounded-xl py-4 items-center"
                             >
-                                <Text className="text-gray-700 font-semibold text-base">{t('cancel')}</Text>
+                                <Text className="text-gray-700 font-semibold text-base">{t('cancel', 'Cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={handleSubmit}
-                                className="flex-1 ml-2 bg-[#455A64] rounded-xl py-4 items-center"
+                                disabled={submitting}
+                                className={`flex-1 ml-2 rounded-xl py-4 items-center flex-row justify-center ${submitting ? 'bg-[#78909C]' : 'bg-[#455A64]'}`}
                             >
-                                <Text className="text-white font-semibold text-base">{t('submit_report')}</Text>
+                                {submitting && <ActivityIndicator size="small" color="white" style={{ marginRight: 8 }} />}
+                                <Text className="text-white font-semibold text-base">
+                                    {submitting ? t('submitting_report', 'Submitting...') : t('submit_report', 'Submit Report')}
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </ScrollView>

@@ -15,7 +15,8 @@ export interface Report {
     mediaUris?: string[]; // Deprecated - keeping for backward compatibility
     media?: MediaItem[];
     timestamp: Date;
-    status: 'pending' | 'reviewing' | 'resolved';
+    status: 'pending' | 'reviewing' | 'in_progress' | 'resolved' | string;
+    isMine?: boolean;
 }
 
 export interface IssueTypeOption {

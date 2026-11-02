@@ -81,6 +81,11 @@ services:
       MQTT_CLIENT_ID: ddas-api-server
       MQTT_USERNAME: ${MQTT_USERNAME:-}
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      # MinIO Artifact & Media Storage
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET_NAME: ddas-artifacts
     ports:
       - "8080:8080"
     depends_on:
@@ -88,6 +93,8 @@ services:
         condition: service_healthy
       mosquitto:
         condition: service_healthy
+      minio:
+        condition: service_started
     networks:
       - ddas-network
 

@@ -4,12 +4,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useSegments } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { askAssistant, type AiChatResponse } from '@/services/ai/ai.service';
+import { askAssistant, getAssistantErrorMessage, type AiChatResponse } from '@/services/ai/ai.service';
 import { damService } from '@/services/dams/dam.service';
 import { AnswerMarkdown } from './AnswerMarkdown';
 import { AnswerData } from './AnswerData';
 
-interface Exchange { id: number; question: string; answer?: AiChatResponse; failed?: boolean; }
+interface Exchange { id: number; question: string; answer?: AiChatResponse; failed?: string; }
 const suggestions = ['Explain my dam’s latest status', 'What does the water level mean?', 'Explain the forecast in simple words'];
 
 function Answer({ result }: { result: AiChatResponse }) {
@@ -73,8 +73,8 @@ export function FloatingAssistant() {
     try {
       const result = await askAssistant(trimmed, damId, controller.signal);
       if (!controller.signal.aborted) setExchanges(items => items.map(item => item.id === id ? { ...item, answer: result } : item));
-    } catch {
-      if (!controller.signal.aborted) setExchanges(items => items.map(item => item.id === id ? { ...item, failed: true } : item));
+    } catch (error) {
+      if (!controller.signal.aborted) setExchanges(items => items.map(item => item.id === id ? { ...item, failed: getAssistantErrorMessage(error) } : item));
     } finally {
       if (!controller.signal.aborted) { request.current = null; setBusy(false); }
     }
@@ -103,7 +103,7 @@ export function FloatingAssistant() {
               {exchanges.map(item => <View key={item.id} style={{ gap: 10 }}>
                 <View style={styles.question}><Text selectable style={styles.questionText}>{item.question}</Text></View>
                 {item.answer ? <Answer result={item.answer} /> : item.failed ? <View style={styles.answer}>
-                  <Text accessibilityRole="alert" style={styles.answerText}>Couldn’t get an answer. Check your connection or try again shortly.</Text>
+                  <Text accessibilityRole="alert" style={styles.answerText}>{item.failed}</Text>
                   <Pressable disabled={busy} accessibilityRole="button" onPress={() => void send(item.question, item.id)} style={[styles.sourceButton, busy && styles.disabled]}><MaterialCommunityIcons name="refresh" size={18} color="#0F766E" /><Text style={styles.link}>Try again</Text></Pressable>
                 </View> : <View accessibilityLiveRegion="polite" style={styles.thinking}><ActivityIndicator size="small" color="#0F766E" /><Text style={styles.context}>Looking into your question…</Text></View>}
               </View>)}

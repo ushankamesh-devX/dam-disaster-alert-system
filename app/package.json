@@ -14,6 +14,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test:auth": "node --test scripts/api-auth.test.cjs",
+    "test:auth-navigation": "node --test scripts/auth-navigation.test.cjs",
     "test:metro": "node --test scripts/metro-compat.test.cjs",
     "test:dashboard": "node --test scripts/dashboard.test.cjs",
     "test:reports": "node --test scripts/reports.test.cjs",

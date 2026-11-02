@@ -23,7 +23,7 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack key={`${user?.id ?? 'signed-out'}:${user?.preferredDamId ?? 'setup'}`} screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="auth" />
         </Stack.Protected>

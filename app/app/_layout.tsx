@@ -8,6 +8,7 @@ import '../i18n/i18n'; // Initialize i18n
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { FloatingAssistant } from '@/components/ai/FloatingAssistant';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -22,7 +23,7 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack key={user?.id ?? 'signed-out'} screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="auth" />
         </Stack.Protected>
@@ -30,12 +31,12 @@ function RootNavigator() {
           <Stack.Protected guard={ready}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="settings" />
-            <Stack.Screen name="assistant" />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack.Protected>
           <Stack.Screen name="onboarding" />
         </Stack.Protected>
       </Stack>
+      <FloatingAssistant key={`assistant:${user?.id ?? 'guest'}:${user?.preferredDamId ?? 'general'}`} />
       <StatusBar style="auto" />
     </ThemeProvider>
   );

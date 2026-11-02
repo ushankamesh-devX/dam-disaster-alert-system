@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AuthScaffold, FormError, PrimaryButton, styles } from '@/components/auth/AuthUI';
@@ -18,7 +18,7 @@ export default function OnboardingScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
-
+  const [saved, setSaved] = useState(false);
   useEffect(() => {
     let cancelled = false;
     damService.getActive().then(response => {
@@ -28,21 +28,17 @@ export default function OnboardingScreen() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [attempt]);
-
+  useEffect(() => {
+    if (saved && user?.preferredDamId === selected && user?.onboardingCompletedAt) router.replace('/(tabs)');
+  }, [saved, selected, user?.preferredDamId, user?.onboardingCompletedAt, router]);
   const save = async () => {
     if (busy || !selected) return;
-    setBusy(true);
-    setError('');
-    try {
-      await completeOnboarding(selected, language);
-      router.replace('/(tabs)');
-    } catch (failure) {
-      setError(authErrorMessage(failure));
-    } finally {
-      setBusy(false);
-    }
+    Keyboard.dismiss();
+    setBusy(true); setError('');
+    try { await completeOnboarding(selected, language); setSaved(true); }
+    catch (failure) { setError(authErrorMessage(failure)); }
+    finally { setBusy(false); }
   };
-
   return <AuthScaffold>
     <Text style={styles.title}>{user?.onboardingCompletedAt ? 'Your preferences' : 'Make it yours'}</Text>
     <Text style={styles.subtitle}>Choose your language and the dam you want to follow. You can change these in Settings.</Text>

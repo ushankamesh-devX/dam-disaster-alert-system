@@ -37,6 +37,24 @@ class DamToolRegistry:
             logger.warning("Spring data call to %s failed: %s", path, e)
             return {"error": f"Failed to fetch data from Spring API ({path}): {e}"}
 
+    def get_latest_forecasts(self, dam_id: int) -> dict:
+        """Read the latest published run, never the first page of saved history."""
+        raw = self._get(f"dams/{dam_id}/forecasts/latest")
+        if isinstance(raw, dict) and "error" in raw:
+            return {"dam_id": dam_id, "status": "unavailable", "error": raw["error"]}
+        if not isinstance(raw, list) or any(
+            not isinstance(row, dict) or row.get("damId") != dam_id for row in raw
+        ):
+            return {
+                "dam_id": dam_id, "status": "unavailable",
+                "error": "Invalid forecast response for the selected dam",
+            }
+        published = [row for row in raw if row.get("isPublished") is True]
+        return {
+            "dam_id": dam_id, "status": "available" if published else "empty",
+            "forecasts": sorted(published, key=lambda row: row.get("horizonHours", 0)),
+        }
+
     def get_tool_functions(self) -> list:
         """Returns clean callable tool functions for Gemini AFC (Automatic Function Calling)."""
 
@@ -87,28 +105,40 @@ class DamToolRegistry:
             }
 
         def get_dam_forecasts(dam_id: int, limit: int = 5) -> dict:
-            """Fetches machine learning water level predictions and overflow probabilities across multiple forward horizons (e.g. 6h, 12h, 24h, 48h, 72h)."""
-            raw = self._get(f"dams/{dam_id}/forecasts", params={"limit": limit})
-            if isinstance(raw, dict) and "error" in raw:
-                return raw
-            items = raw if isinstance(raw, list) else []
+            """Fetches latest published water-level predictions, uncertainty, overflow probability and input freshness. Horizons are returned as stored, not assumed."""
+            snapshot = self.get_latest_forecasts(dam_id)
+            if snapshot["status"] == "unavailable":
+                return snapshot
+            items = snapshot["forecasts"][:max(1, min(limit, 50))]
             if not items:
                 return {
                     "dam_id": dam_id,
-                    "status": f"No active forecast records published yet for Dam #{dam_id}",
+                    "status": "empty",
+                    "message": f"No forecast records published yet for Dam #{dam_id}",
+                    "forecast_count": 0,
                     "forecasts": [],
                 }
             forecasts = []
             for f in items:
                 forecasts.append({
-                    "horizon_hours": f.get("horizonHours") or f.get("horizon"),
-                    "predicted_water_level_m": f.get("predictedWaterLevel") or f.get("waterLevelMeters"),
-                    "lower_bound_m": f.get("lowerQuantileLevel"),
-                    "upper_bound_m": f.get("upperQuantileLevel"),
+                    "horizon_hours": f.get("horizonHours"),
+                    "predicted_water_level_m": f.get("levelP50"),
+                    "lower_bound_m": f.get("levelP10"),
+                    "upper_bound_m": f.get("levelP90"),
                     "overflow_probability": f.get("overflowProbability"),
-                    "forecast_generated_at": f.get("createdAt") or f.get("forecastTimestamp"),
+                    "forecast_generated_at": f.get("issuedAt"),
+                    "as_of": f.get("asOf"),
+                    "target_time": f.get("targetTime"),
+                    "latest_reading_at": f.get("latestReadingAt"),
+                    "freshness": f.get("freshness"),
+                    "demo_mode": f.get("demoMode"),
+                    "overflow_probability_reason": f.get("overflowProbabilityReason"),
+                    "overflow_threshold_meters": f.get("overflowThresholdMeters"),
                 })
-            return {"dam_id": dam_id, "forecast_count": len(forecasts), "forecasts": forecasts}
+            return {
+                "dam_id": dam_id, "status": "available",
+                "forecast_count": len(forecasts), "forecasts": forecasts,
+            }
 
         def get_dam_overflow_config(dam_id: int) -> dict:
             """Fetches official dam elevation limits including Full Reservoir Level (FRL), Danger Level, crest elevation, and verified spillway limits."""

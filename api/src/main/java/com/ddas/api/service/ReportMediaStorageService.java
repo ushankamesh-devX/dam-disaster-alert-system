@@ -24,6 +24,19 @@ import java.util.*;
 @Service
 public class ReportMediaStorageService {
 
+    static {
+        // Defensive configuration to allow restricted headers in runtime environments if needed
+        try {
+            String restricted = System.getProperty("jdk.httpclient.allowRestrictedHeaders");
+            if (restricted == null || restricted.isBlank()) {
+                System.setProperty("jdk.httpclient.allowRestrictedHeaders", "host,connection,content-length,expect");
+            } else if (!restricted.toLowerCase().contains("host")) {
+                System.setProperty("jdk.httpclient.allowRestrictedHeaders", restricted + ",host,connection,content-length,expect");
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/jpeg",
             "image/jpg",
@@ -41,17 +54,25 @@ public class ReportMediaStorageService {
     private final HttpClient httpClient;
 
     public ReportMediaStorageService(
-            @Value("${minio.endpoint:http://localhost:9000}") String minioEndpoint,
-            @Value("${minio.access-key:minioadmin}") String accessKey,
-            @Value("${minio.secret-key:minioadmin}") String secretKey,
-            @Value("${minio.bucket-name:ddas-artifacts}") String bucketName) {
-        this.minioEndpoint = minioEndpoint.endsWith("/") ? minioEndpoint.substring(0, minioEndpoint.length() - 1) : minioEndpoint;
-        this.accessKey = accessKey;
-        this.secretKey = secretKey;
-        this.bucketName = bucketName;
+            @Value("${minio.endpoint:${MINIO_ENDPOINT:http://minio:9000}}") String minioEndpoint,
+            @Value("${minio.access-key:${MINIO_ACCESS_KEY:${MINIO_ROOT_USER:minioadmin}}}") String accessKey,
+            @Value("${minio.secret-key:${MINIO_SECRET_KEY:${MINIO_ROOT_PASSWORD:minioadmin}}}") String secretKey,
+            @Value("${minio.bucket-name:${MINIO_BUCKET_NAME:ddas-artifacts}}") String bucketName) {
+        String endpoint = minioEndpoint != null ? minioEndpoint.trim() : "http://minio:9000";
+        if (endpoint.endsWith("/")) {
+            endpoint = endpoint.substring(0, endpoint.length() - 1);
+        }
+        this.minioEndpoint = endpoint;
+        this.accessKey = accessKey != null ? accessKey.trim() : "minioadmin";
+        this.secretKey = secretKey != null ? secretKey.trim() : "minioadmin";
+        this.bucketName = bucketName != null ? bucketName.trim() : "ddas-artifacts";
         this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
+
+        log.info("ReportMediaStorageService initialized with endpoint='{}', bucket='{}', accessKey='{}'",
+                this.minioEndpoint, this.bucketName, this.accessKey);
     }
 
     public record MediaUploadResult(String fileName, String relativeUrl, String contentType, long size) {}
@@ -84,8 +105,10 @@ public class ReportMediaStorageService {
             log.info("Successfully uploaded report media to MinIO bucket '{}', object: '{}'", bucketName, objectName);
             return new MediaUploadResult(uniqueFileName, relativeUrl, contentType, file.getSize());
         } catch (Exception e) {
-            log.error("Failed to upload report media '{}' to MinIO: {}", uniqueFileName, e.getMessage(), e);
-            throw new RuntimeException("MinIO upload failed: " + e.getMessage(), e);
+            String detailedError = extractErrorMessage(e);
+            log.error("Failed to upload report media '{}' to MinIO [endpoint={}, bucket={}]: {}",
+                    uniqueFileName, minioEndpoint, bucketName, detailedError, e);
+            throw new RuntimeException("MinIO upload failed: " + detailedError, e);
         }
     }
 
@@ -94,8 +117,10 @@ public class ReportMediaStorageService {
         try {
             return getObject(objectName);
         } catch (Exception e) {
-            log.error("Failed to download report media '{}' from MinIO: {}", objectName, e.getMessage(), e);
-            throw new RuntimeException("Could not read media from storage: " + e.getMessage(), e);
+            String detailedError = extractErrorMessage(e);
+            log.error("Failed to download report media '{}' from MinIO [endpoint={}, bucket={}]: {}",
+                    objectName, minioEndpoint, bucketName, detailedError, e);
+            throw new RuntimeException("Could not read media from storage: " + detailedError, e);
         }
     }
 
@@ -116,11 +141,31 @@ public class ReportMediaStorageService {
         return clean.length() > 100 ? clean.substring(clean.length() - 100) : clean;
     }
 
+    private String extractErrorMessage(Throwable t) {
+        if (t == null) {
+            return "Unknown error";
+        }
+        Throwable root = t;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String rootName = root.getClass().getSimpleName();
+        String rootMsg = root.getMessage();
+        if (rootMsg != null && !rootMsg.isBlank() && !"null".equalsIgnoreCase(rootMsg.trim())) {
+            return rootName + ": " + rootMsg.trim();
+        }
+        String topMsg = t.getMessage();
+        if (topMsg != null && !topMsg.isBlank() && !"null".equalsIgnoreCase(topMsg.trim())) {
+            return rootName + " (" + t.getClass().getSimpleName() + ": " + topMsg.trim() + ")";
+        }
+        return rootName + " (at " + minioEndpoint + ")";
+    }
+
     // =========================================================================
     // S3 REST API & AWS Signature Version 4
     // =========================================================================
 
-    private void ensureBucketExists() {
+    private void ensureBucketExists() throws Exception {
         try {
             String path = "/" + bucketName;
             HttpRequest headReq = buildS3Request("HEAD", path, null, "application/octet-stream");
@@ -132,9 +177,13 @@ public class ReportMediaStorageService {
                 if (putResp.statusCode() >= 300 && putResp.statusCode() != 409) {
                     throw new IOException("Failed to create bucket '" + bucketName + "', status: " + putResp.statusCode() + ", body: " + putResp.body());
                 }
+            } else if (headResp.statusCode() == 403) {
+                throw new IOException("MinIO access denied (status 403) for bucket '" + bucketName + "'. Check credentials or permissions.");
             }
         } catch (Exception e) {
-            log.warn("Notice checking/creating bucket '{}': {}", bucketName, e.getMessage());
+            log.error("Failed checking/creating bucket '{}' at endpoint '{}': {}",
+                    bucketName, minioEndpoint, extractErrorMessage(e), e);
+            throw e;
         }
     }
 
@@ -155,12 +204,13 @@ public class ReportMediaStorageService {
             throw new IOException("Object not found in MinIO: " + objectName);
         }
         if (response.statusCode() >= 300) {
-            throw new IOException("MinIO GET returned status " + response.statusCode());
+            String errorBody = new String(response.body(), StandardCharsets.UTF_8);
+            throw new IOException("MinIO GET returned status " + response.statusCode() + ": " + errorBody);
         }
         return response.body();
     }
 
-    private HttpRequest buildS3Request(String method, String canonicalUri, byte[] payload, String contentType) throws Exception {
+    HttpRequest buildS3Request(String method, String canonicalUri, byte[] payload, String contentType) throws Exception {
         URI endpointUri = URI.create(minioEndpoint);
         String host = endpointUri.getHost();
         if (endpointUri.getPort() != -1 && endpointUri.getPort() != 80 && endpointUri.getPort() != 443) {
@@ -174,6 +224,9 @@ public class ReportMediaStorageService {
         byte[] body = payload != null ? payload : new byte[0];
         String payloadHash = toHex(sha256(body));
 
+        // Note: host is included in canonical/signed headers calculation for AWS SigV4,
+        // but NOT set manually via builder.header("Host", host) because java.net.http.HttpRequest.Builder
+        // treats "Host" as a restricted header. HttpClient populates Host automatically from the target URI.
         Map<String, String> headers = new TreeMap<>();
         headers.put("host", host);
         headers.put("x-amz-content-sha256", payloadHash);
@@ -216,7 +269,6 @@ public class ReportMediaStorageService {
 
         URI requestUri = URI.create(minioEndpoint + canonicalUri);
         HttpRequest.Builder builder = HttpRequest.newBuilder(requestUri)
-                .header("Host", host)
                 .header("x-amz-date", amzDate)
                 .header("x-amz-content-sha256", payloadHash)
                 .header("Authorization", authorizationHeader);
@@ -262,4 +314,3 @@ public class ReportMediaStorageService {
         return sb.toString();
     }
 }
-

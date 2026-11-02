@@ -91,5 +91,12 @@
     "no_news_found": "No news articles found",
     "no_news_desc": "There are no articles available in this category.",
     "failed_to_load_news": "Unable to load news articles. Please check your connection and try again.",
-    "retry": "Retry"
+    "loading_reports": "Loading reports...",
+    "no_reports_found": "No Reports Found",
+    "no_reports_desc": "There are no active reports matching your criteria. Tap the + button to report an issue.",
+    "report_submitted_success_title": "Report Submitted",
+    "report_submitted_success_desc": "Report submitted. It will appear after admin review.",
+    "submitting_report": "Submitting report...",
+    "retry": "Retry",
+    "you": "You"
 }

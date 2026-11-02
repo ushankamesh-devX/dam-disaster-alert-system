@@ -29,5 +29,7 @@ services:
       DDAS_AI_ML_ARTIFACTS_DIR: /service/artifacts/ml
     volumes:
       - ai-artifacts:/service/artifacts
+      # Local code edits use the installed image dependencies without rebuilding.
+      - ../ai/app:/service/app:ro
 volumes:
   ai-artifacts:

@@ -24,6 +24,7 @@ export default function TabLayout() {
           name="index"
           options={{
             title: 'Dashboard',
+            tabBarLabel: 'Home',
           }}
         />
         <Tabs.Screen
@@ -36,6 +37,7 @@ export default function TabLayout() {
           name="emergency"
           options={{
             title: 'Emergency Contact',
+            tabBarLabel: 'Emergency',
           }}
         />
         <Tabs.Screen
@@ -48,6 +50,7 @@ export default function TabLayout() {
           name="report"
           options={{
             title: 'Report Issues',
+            tabBarLabel: 'Reports',
           }}
         />
         <Tabs.Screen

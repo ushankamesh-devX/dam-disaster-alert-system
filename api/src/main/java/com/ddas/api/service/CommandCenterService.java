@@ -65,6 +65,8 @@ public class CommandCenterService {
                 "SELECT e.id, e.status, e.latitude lat, e.longitude lng, e.custom_message message, e.triggered_at triggeredAt, " +
                 "e.acknowledged_at acknowledgedAt, e.responding_at respondingAt, e.resolved_at resolvedAt, e.battery_level battery, " +
                 "e.response_notes responseNotes, e.response_time_seconds responseSeconds, t.name type, u.full_name person, d.name damName, " +
+                // a real phone (mobile app user), not a simulated resident of the scenario
+                "u.email NOT LIKE '%@scenario.ddas.local' phone, " +
                 "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.assignedProviderName')) assignedTo, e.metadata " +
                 "FROM sos_events e JOIN sos_event_types t ON t.id = e.sos_type_id JOIN users u ON u.id = e.user_id " +
                 "LEFT JOIN dams d ON d.id = e.dam_id " +

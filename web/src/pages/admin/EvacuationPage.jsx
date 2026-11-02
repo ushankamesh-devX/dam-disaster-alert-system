@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import 'leaflet/dist/leaflet.css';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
@@ -162,7 +163,15 @@ export default function EvacuationPage() {
     const zones = status?.dangerZones || [];
     const shelters = status?.shelters || [];
     const blocked = status?.blockedRoads || [];
-    const sos = cc?.sos || [];
+    // "Live phones only": just the real app users (e.g. Niduk), their SOS and the units on it; the scenario's people are hidden
+    const [onlyPhones, setOnlyPhones] = useState(false);
+    const allSos = cc?.sos || [];
+    const sos = useMemo(() => (onlyPhones ? allSos.filter((s) => s.phone === true || s.phone === 1) : allSos), [onlyPhones, allSos]);
+    const shownTeams = useMemo(() => {
+        if (!onlyPhones) return teams;
+        const onPhoneSos = new Set(sos.flatMap((s) => (s.teams || []).map((t) => t.userId)));
+        return teams.filter((t) => t.live || onPhoneSos.has(t.userId));
+    }, [onlyPhones, teams, sos]);
     const services = cc?.services || [];
     const sm = cc?.summary || {};
     const zoneTiming = useMemo(() => new Map((analytics?.zones || []).map((z) => [z.id, z])), [analytics]);
@@ -173,7 +182,7 @@ export default function EvacuationPage() {
 
     // Replay: positions from the recorded frame instead of live people
     const mapPeople = useMemo(() => {
-        if (!replayFrame) return layers.people ? shown : [];
+        if (!replayFrame) return layers.people ? (onlyPhones ? shown.filter((p) => p.phone) : shown) : [];
         const names = new Map(people.map((p) => [p.id, p.name]));
         return replayFrame.p.map(([id, lat, lng, safe]) => ({
             id, lat, lng, name: names.get(id) || `Person ${id}`, state: safe ? 'safe' : 'moving', mode: 'walk', headingDeg: 0, trail: [],
@@ -249,6 +258,10 @@ export default function EvacuationPage() {
                 <Stat label="on the way" value={people.filter((p) => p.state === 'moving').length} />
                 <Stat label="safe" value={sm.arrivedAtShelters ?? '–'} />
                 <Stat label="SOS open" value={sm.sosOpen ?? '–'} alert={sm.sosOpen > 0} />
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 text-xs">
+                    <Switch size="sm" checked={onlyPhones} onCheckedChange={setOnlyPhones} aria-label="Live phones only" />
+                    Live phones only
+                </label>
                 <Stat label="shelter places left" value={sm.capacity != null ? spaceLeft : '–'} />
                 <div className="ml-auto flex items-center gap-2">
                     <Button asChild size="sm" variant="outline"><Link to="/admin/evacuation/report"><FileText /> Incident report</Link></Button>
@@ -303,7 +316,7 @@ export default function EvacuationPage() {
                         {layers.shelters && <ShelterLayer shelters={shelters} forecast={analytics?.shelters} />}
                         <MovingPeopleLayer people={mapPeople} selectedId={selectedPersonId}
                             onSelect={selectPerson} showTrails={layers.trails && !replayFrame} />
-                        {layers.teams && !replayFrame && <TeamsLayer teams={teams} />}
+                        {layers.teams && !replayFrame && <TeamsLayer teams={shownTeams} />}
                         {layers.sos && !replayFrame && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTeamFocus(null); setTab('sos'); }} />}
 
                         {personLine && <Polyline positions={personLine} pathOptions={{ color: '#7C3AED', weight: 5, opacity: 0.85, className: 'ddas-flow' }} />}
@@ -348,7 +361,7 @@ export default function EvacuationPage() {
                                 onSelect={(x) => { setSelectedSos(x); setTeamFocus(null); setSelectedPersonId(null); }} onChanged={refreshAll} />
                         </TabsContent>
                         <TabsContent value="teams" className="min-h-0 overflow-y-auto">
-                            <TeamsPanel teams={teams} sos={sos} onChanged={() => { refreshPeople(); refreshAll(); }}
+                            <TeamsPanel teams={shownTeams} sos={sos} onChanged={() => { refreshPeople(); refreshAll(); }}
                                 onSelect={(t) => { setTeamFocus({ lat: t.lat, lng: t.lng, at: Date.now() }); setSelectedSos(null); setSelectedPersonId(null); }} />
                         </TabsContent>
                         <TabsContent value="people" className="min-h-0 overflow-y-auto">

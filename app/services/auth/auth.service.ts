@@ -1,5 +1,6 @@
 import { axiosInstance, ENDPOINTS, tokenStorage } from "../api";
 import type { UserProfile } from '@/models/user';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AuthResult { success: boolean; data: { token: string; user: UserProfile } }
 
@@ -8,6 +9,11 @@ async function authenticate(path: string, data: LoginPayload | RegisterPayload) 
   const token = response.data.data?.token;
   if (!token || !response.data.data.user) throw new Error('The server returned an incomplete sign-in response.');
   await tokenStorage.set(token);
+  try {
+    await AsyncStorage.setItem('token', token);
+  } catch (err) {
+    console.log('[AUTH] Token storage sync warning:', err);
+  }
   return response;
 }
 
@@ -32,6 +38,12 @@ export const authService = {
 
   logout: async () => {
     await tokenStorage.clear();
+    try {
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('userRole');
+    } catch (err) {
+      console.log('[AUTH] Storage clear warning:', err);
+    }
   },
 
   test: () => axiosInstance.get(ENDPOINTS.AUTH.TEST),

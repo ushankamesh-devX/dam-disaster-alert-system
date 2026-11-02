@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "lk.ddas.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -31,6 +32,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#DC2626",
+          "defaultChannel": "critical_alerts"
+        }
+      ],
       [
         "expo-splash-screen",
         {

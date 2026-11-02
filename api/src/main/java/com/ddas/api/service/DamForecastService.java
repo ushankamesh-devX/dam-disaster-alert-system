@@ -215,19 +215,18 @@ public class DamForecastService {
     }
 
     public Map<String, Object> evaluateRealVsPredicted(Long damId, Integer horizonHours) {
-        final Long targetDamId;
-        if (damId == null) {
+        Long targetDamId = damId;
+        if (targetDamId == null) {
             targetDamId = damRepository.findAll().stream()
-                    .filter(d -> d.getStatus() == Dam.DamStatus.operational)
+                    .filter(d -> Boolean.TRUE.equals(d.getIsMlEnabled()))
                     .map(Dam::getId)
                     .findFirst()
                     .orElse(2L);
-        } else {
-            targetDamId = damId;
         }
+        final Long finalDamId = targetDamId;
 
-        Dam dam = damRepository.findById(targetDamId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dam not found: " + targetDamId));
+        Dam dam = damRepository.findById(finalDamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dam not found: " + finalDamId));
 
         Sensor waterLevelSensor = sensorRepository.findByDamId(targetDamId).stream()
                 .filter(s -> s.getSensorType() != null && "WATER_LEVEL".equalsIgnoreCase(s.getSensorType().getCode()))

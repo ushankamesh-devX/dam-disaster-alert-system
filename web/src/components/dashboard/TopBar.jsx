@@ -19,6 +19,14 @@ export default function TopBar({ onMenuClick }) {
       <Tooltip title="Toggle navigation"><IconButton onClick={onMenuClick} edge="start" aria-label="Toggle navigation"><MenuRounded /></IconButton></Tooltip>
       <Typography variant="body1" sx={{ textTransform: 'capitalize', fontWeight: 600 }}>{section === 'mapFunc' ? 'Map editor' : section === 'system safe locations test' ? 'Safe locations' : section}</Typography>
       <Box sx={{ flex: 1 }} />
+      <button 
+        onClick={() => navigate('/admin/alerts')} 
+        className="bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+        title="Broadcast Emergency Alert"
+      >
+        <span>🚨</span>
+        <span>Broadcast Alert</span>
+      </button>
       <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'right' }}><Typography variant="body2" fontWeight={600}>{user?.fullName || 'Account'}</Typography><Typography variant="caption" color="text.secondary">{user?.role?.name || user?.role?.code?.replaceAll('_', ' ') || 'DDAS'}</Typography></Box>
       <Tooltip title="Account menu"><IconButton onClick={e => setAnchor(e.currentTarget)} aria-label="Account menu" aria-controls={anchor ? 'account-menu' : undefined} aria-haspopup="true" aria-expanded={!!anchor}><Avatar sx={{ width: 36, height: 36, bgcolor: 'var(--md-primary-container)', color: 'var(--md-on-primary-container)', fontSize: 14 }}>{initials}</Avatar></IconButton></Tooltip>
       <Menu id="account-menu" anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} slotProps={{ paper: { sx: { minWidth: 220, borderRadius: 3, mt: 1 } } }}>

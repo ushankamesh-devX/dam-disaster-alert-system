@@ -13,7 +13,7 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent" ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -42,14 +42,14 @@ services:
     container_name: ddas-mqtt-broker
     restart: always
     ports:
-      - "1883:1883"   # MQTT TCP  — ESP32 devices connect here
-      - "9001:9001"   # MQTT WebSocket — Web dashboard subscribes here
+      - "1883:1883" # MQTT TCP  — ESP32 devices connect here
+      - "9001:9001" # MQTT WebSocket — Web dashboard subscribes here
     volumes:
       - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     healthcheck:
-      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "ddas/system/healthcheck", "-m", "ping", "-q", "1"]
+      test: [ "CMD", "mosquitto_pub", "-h", "localhost", "-t", "ddas/system/healthcheck", "-m", "ping", "-q", "1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -118,15 +118,15 @@ services:
     container_name: ddas-qdrant
     restart: always
     ports:
-      - "6333:6333"   # HTTP REST API
-      - "6334:6334"   # gRPC API
+      - "6333:6333" # HTTP REST API
+      - "6334:6334" # gRPC API
     volumes:
       - qdrant-data:/qdrant/storage
     networks:
       - ddas-network
 
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: ddas-minio
     restart: always
     command: server /data --console-address ":9090"
@@ -134,8 +134,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
-      - "9000:9000"   # S3 API
-      - "9090:9090"   # MinIO Web Console UI
+      - "9000:9000" # S3 API
+      - "9090:9090" # MinIO Web Console UI
     volumes:
       - minio-data:/data
     networks:
@@ -173,12 +173,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       MLFLOW_S3_IGNORE_TLS: "true"
     command: >
-      --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/mlflow_db
-      --default-artifact-root s3://ddas-artifacts/mlflow
-      --artifacts-destination s3://ddas-artifacts/mlflow
-      --host 0.0.0.0
-      --port 5000
-      --allowed-hosts "*"
+      --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/mlflow_db --default-artifact-root s3://ddas-artifacts/mlflow --artifacts-destination s3://ddas-artifacts/mlflow --host 0.0.0.0 --port 5000 --allowed-hosts "*"
     depends_on:
       mlflow-db-init:
         condition: service_completed_successfully

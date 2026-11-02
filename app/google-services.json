@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "113021441966",
+    "project_id": "dam-disaster-alert",
+    "storage_bucket": "dam-disaster-alert.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:113021441966:android:ddasdisasteralertfcm01",
+        "android_client_info": {
+          "package_name": "lk.ddas.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDASDisasterAlertFirebaseApiKey"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

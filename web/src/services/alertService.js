@@ -26,10 +26,15 @@ export const getAllActiveAlerts = async () => {
     return response.data?.data || response.data || [];
 };
 
-/** All alerts regardless of status (search with empty params). */
+/** All alerts regardless of status. */
 export const getAllAlerts = async () => {
-    const response = await apiClient.get('/alerts/search');
-    return response.data?.data || response.data || [];
+    try {
+        const response = await apiClient.get('/alerts');
+        return response.data?.data || response.data || [];
+    } catch {
+        const response = await apiClient.get('/alerts/search');
+        return response.data?.data || response.data || [];
+    }
 };
 
 /** Search / filter alerts by optional status, severity, regionId. */

@@ -8,6 +8,20 @@ import '../i18n/i18n'; // Initialize i18n
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import * as Notifications from 'expo-notifications';
+
+// Ensure notifications show as heads-up popups with sound even when app is open in foreground
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch (e) {
+  // Graceful fallback for environments where expo-notifications handler cannot attach
+}
 import { FloatingAssistant } from '@/components/ai/FloatingAssistant';
 
 export const unstable_settings = {

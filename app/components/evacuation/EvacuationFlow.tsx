@@ -30,10 +30,13 @@ const SOS_TEXT: Record<string, string> = {
 };
 
 const TEAM_TEXT: Record<string, string> = {
-  assigned: 'A response team has been assigned',
-  on_the_way: 'Help is on the way',
-  arrived: 'The response team has arrived',
+  assigned: 'Dispatched',
+  on_the_way: 'On the way',
+  arrived: 'With you now',
+  rescued: 'Rescued you',
+  done: 'Done',
 };
+const TEAM_EMOJI: Record<string, string> = { police: '🚓', hospital: '🚑', fire_brigade: '🚒' };
 
 const fmt = (n?: number | null, d = 1) => (n == null ? '—' : Number(n).toFixed(d));
 
@@ -152,8 +155,12 @@ export function EvacuationFlow() {
   const openSos = sos.find((s) => OPEN_SOS.includes(s.status));
   const sharing = phase === 'evacuating' || !!openSos;
   // The demo response team coming to help (position from the team's phone)
-  const teamPos: LngLat | null = openSos && openSos.teamLat != null && openSos.teamLng != null
-    ? [Number(openSos.teamLng), Number(openSos.teamLat)] : null;
+  const coming = openSos?.teams ?? [];
+  const teamMarks = coming.filter((tm) => tm.lat != null && tm.lng != null && tm.status !== 'done')
+    .map((tm) => ({ pos: [Number(tm.lng), Number(tm.lat)] as LngLat, label: `${tm.label} · ${TEAM_TEXT[tm.status] || tm.status}`, emoji: TEAM_EMOJI[tm.type] }));
+  const teamRoute = (coming.find((tm) => tm.status === 'on_the_way' && tm.route)?.route ?? null) as LngLat[] | null;
+  const anyComing = coming.some((tm) => tm.status === 'on_the_way');
+  const anyHere = coming.some((tm) => tm.status === 'arrived');
 
   useEffect(() => {
     if (!sharing) return;
@@ -344,7 +351,7 @@ export function EvacuationFlow() {
       </View>
 
       <EvacuationMap status={status} me={pos} route={route} sos={!!openSos} onPick={onPick}
-        team={openSos ? teamPos : null} teamLabel={sos[0]?.team || 'Response team'} />
+        teams={teamMarks} teamRoute={teamRoute} />
       {locMode === 'demo' && phase !== 'evacuating' && (
         <>
           <Text style={styles.hint}>Demo: tap a zone below, or long-press the map to stand anywhere.</Text>
@@ -382,13 +389,19 @@ export function EvacuationFlow() {
       {sos[0] && (
         <View style={[styles.card, { borderLeftWidth: 6, borderLeftColor: openSos ? '#DC2626' : '#64748B' }]}>
           <Text style={styles.label}>Your SOS · {sos[0].type}</Text>
-          <Text style={styles.big2}>{TEAM_TEXT[sos[0].teamStatus || ''] && openSos ? TEAM_TEXT[sos[0].teamStatus || ''] : SOS_TEXT[sos[0].status] || sos[0].status}</Text>
-          {!!sos[0].team && openSos && (
-            <Text style={[styles.line, { fontWeight: '700', color: '#1D4ED8' }]}>
-              🚓 {sos[0].team}{teamPos && pos ? ` · ${(metres(pos, teamPos) / 1000).toFixed(1)} km away` : ''}
+          <Text style={styles.big2}>
+            {openSos && anyHere ? 'The response team is with you' : openSos && anyComing ? 'Help is on the way' : SOS_TEXT[sos[0].status] || sos[0].status}
+          </Text>
+          {openSos && coming.map((tm) => (
+            <Text key={tm.userId} style={[styles.line, { fontWeight: '700', color: '#1D4ED8' }]}>
+              {TEAM_EMOJI[tm.type] || '🚨'} {tm.label} · {tm.station} · {TEAM_TEXT[tm.status] || tm.status}
+              {tm.status === 'on_the_way' || tm.status === 'assigned' ? ` · ~${tm.etaMin} min · ${tm.km} km` : ''}
             </Text>
-          )}
-          {!!sos[0].responseNotes && !sos[0].team && <Text style={styles.line}>{sos[0].responseNotes}</Text>}
+          ))}
+          {openSos && (openSos.messages ?? []).slice(-3).map((msg) => (
+            <View key={msg.id} style={styles.teamMsg}><Text style={styles.teamMsgText}>💬 {msg.fromName}: {msg.text}</Text></View>
+          ))}
+          {!!sos[0].responseNotes && !coming.length && <Text style={styles.line}>{sos[0].responseNotes}</Text>}
         </View>
       )}
 
@@ -478,6 +491,8 @@ const styles = StyleSheet.create({
   toggleOn: { backgroundColor: '#455A64' },
   toggleText: { fontSize: 12, fontWeight: '600', color: '#374151' },
   hint: { fontSize: 11, color: '#6B7280', textAlign: 'center', marginTop: -4 },
+  teamMsg: { backgroundColor: '#EFF6FF', borderRadius: 10, padding: 8, marginTop: 4 },
+  teamMsgText: { fontSize: 13, color: '#1E3A8A' },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, backgroundColor: '#fff' },
   chipText: { fontSize: 12, fontWeight: '700' },
   arrived: { textAlign: 'center', color: '#15803D', fontWeight: '700' },

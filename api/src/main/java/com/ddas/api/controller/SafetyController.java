@@ -26,6 +26,7 @@ import java.util.UUID;
 public class SafetyController {
 
     private final JdbcTemplate jdbc;
+    private final com.ddas.api.service.TeamService teams;
 
     @GetMapping("/sos-types")
     public ResponseEntity<List<Map<String, Object>>> sosTypes() {
@@ -94,14 +95,25 @@ public class SafetyController {
     /** The person's own SOS calls, newest first, so the app can show "help is on the way". */
     @GetMapping("/sos")
     public ResponseEntity<List<Map<String, Object>>> mySos(@AuthenticationPrincipal UserPrincipal me) {
-        return ResponseEntity.ok(jdbc.queryForList(
+        List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT e.id, e.status, t.name type, e.triggered_at triggeredAt, e.response_notes responseNotes, e.resolved_at resolvedAt, " +
-                // the demo team coming to help: who, how far along, and where they are now
-                "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.assignedProviderName')) team, " +
-                "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.teamStatus')) teamStatus, " +
-                "JSON_EXTRACT(e.metadata, '$.teamLat') teamLat, JSON_EXTRACT(e.metadata, '$.teamLng') teamLng " +
+                "e.latitude lat, e.longitude lng " +
                 "FROM sos_events e JOIN sos_event_types t ON t.id = e.sos_type_id WHERE e.user_id = ? ORDER BY e.id DESC LIMIT 10",
-                me.getUser().getId()));
+                me.getUser().getId());
+        // The newest open SOS: the teams coming (road distance and time) and what they told the person
+        rows.stream().filter(r -> List.of("triggered", "acknowledged", "responding").contains(String.valueOf(r.get("status"))))
+                .findFirst().ifPresent(r -> {
+                    long id = ((Number) r.get("id")).longValue();
+                    Long session = activeSession(me.getUser().getId());
+                    double lat = ((Number) r.get("lat")).doubleValue(), lng = ((Number) r.get("lng")).doubleValue();
+                    if (session != null) {
+                        Map<String, Object> s = jdbc.queryForMap("SELECT last_latitude lat, last_longitude lng FROM location_sharing_sessions WHERE id = ?", session);
+                        if (s.get("lat") != null) { lat = ((Number) s.get("lat")).doubleValue(); lng = ((Number) s.get("lng")).doubleValue(); }
+                    }
+                    r.put("teams", teams.comingTo(id, lat, lng));
+                    r.put("messages", teams.toPerson(id));
+                });
+        return ResponseEntity.ok(rows);
     }
 
     private Long activeSession(Long userId) {

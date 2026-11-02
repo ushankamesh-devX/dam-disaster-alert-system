@@ -14,6 +14,16 @@ const CommandCenterService = {
     acknowledge: (id) => apiClient.post(`${BASE}/sos/${id}/acknowledge`),
     assign: (id, providerId) => apiClient.post(`${BASE}/sos/${id}/assign`, { providerId }),
     resolve: (id, notes) => apiClient.post(`${BASE}/sos/${id}/resolve`, { notes }),
+    /** Response teams: status, live position, current mission. */
+    teams: async () => (await apiClient.get(`${BASE}/teams`)).data,
+    /** Teams ranked for one SOS (right kind, free, road time); best one has recommended: true. */
+    recommend: async (sosId) => (await apiClient.get(`${BASE}/sos/${sosId}/teams`)).data,
+    messages: async (sosId) => (await apiClient.get(`${BASE}/sos/${sosId}/messages`)).data,
+    sendMessage: (sosId, text) => apiClient.post(`${BASE}/sos/${sosId}/messages`, { text }),
+    /** To every team, or one kind: police | hospital | fire_brigade. Returns { sent } */
+    teamBroadcast: async (text, type) => (await apiClient.post(`${BASE}/teams/broadcast`, { text, type: type || null })).data,
+    autopilot: async () => (await apiClient.get(`${BASE}/teams/autopilot`)).data.on,
+    setAutopilot: async (on) => (await apiClient.put(`${BASE}/teams/autopilot`, { on })).data.on,
     /** End the real phones' sharing and SOS: { sessions, sos } */
     resetPhones: async () => (await apiClient.post(`${BASE}/phones/reset`)).data,
     /** Evacuation Order for a dam's zones; SMS only if the admin SMS switch is on. */

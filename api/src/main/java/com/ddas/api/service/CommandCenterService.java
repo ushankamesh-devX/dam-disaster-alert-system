@@ -32,6 +32,7 @@ public class CommandCenterService {
     private final EvacuationRouteService routeService;
     private final AlertService alertService;
     private final AlertTypeRepository alertTypeRepository;
+    private final TeamService teamService;
 
     @Transactional(readOnly = true)
     public Map<String, Object> snapshot() {
@@ -64,13 +65,17 @@ public class CommandCenterService {
                 "SELECT e.id, e.status, e.latitude lat, e.longitude lng, e.custom_message message, e.triggered_at triggeredAt, " +
                 "e.acknowledged_at acknowledgedAt, e.responding_at respondingAt, e.resolved_at resolvedAt, e.battery_level battery, " +
                 "e.response_notes responseNotes, e.response_time_seconds responseSeconds, t.name type, u.full_name person, d.name damName, " +
-                "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.assignedProviderName')) assignedTo, " +
-                "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.teamStatus')) teamStatus, " +
-                "JSON_EXTRACT(e.metadata, '$.teamLat') teamLat, JSON_EXTRACT(e.metadata, '$.teamLng') teamLng " +
+                "JSON_UNQUOTE(JSON_EXTRACT(e.metadata, '$.assignedProviderName')) assignedTo, e.metadata, " +
                 "FROM sos_events e JOIN sos_event_types t ON t.id = e.sos_type_id JOIN users u ON u.id = e.user_id " +
                 "LEFT JOIN dams d ON d.id = e.dam_id " +
                 "WHERE e.status IN ('triggered','acknowledged','responding') OR e.resolved_at > NOW() - INTERVAL 30 MINUTE " +
                 "ORDER BY FIELD(e.status,'triggered','acknowledged','responding','resolved'), e.triggered_at DESC LIMIT 100");
+        // the teams on each SOS (several can go to one), and whether one asked for backup
+        sos.forEach(s -> {
+            Object meta = s.remove("metadata");
+            s.put("teams", teamService.teamList(meta));
+            s.put("backupRequested", teamService.backupRequested(meta));
+        });
         long sosOpen = sos.stream().filter(s -> OPEN_SOS.contains(String.valueOf(s.get("status")))).count();
 
         // ── Emergency services and shelters ─────────────────────────────────────
@@ -142,21 +147,8 @@ public class CommandCenterService {
 
     @Transactional
     public void assign(Long sosId, Long providerId) {
-        Map<String, Object> provider = jdbc.queryForList(
-                "SELECT id, name, CAST(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.responderUserId')) AS UNSIGNED) team " +
-                "FROM emergency_service_providers WHERE id = ?", providerId).stream().findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Service provider not found: " + providerId));
-        String name = String.valueOf(provider.get("name"));
-        // The station's demo team account (seed_responders.py) gets the mission on its phone
-        Long team = provider.get("team") instanceof Number n && n.longValue() > 0 ? n.longValue() : null;
-        update(sosId, "UPDATE sos_events SET status = 'responding', responding_at = COALESCE(responding_at, NOW()), " +
-                "acknowledged_at = COALESCE(acknowledged_at, NOW()), response_notes = ?, " +
-                "response_time_seconds = COALESCE(response_time_seconds, TIMESTAMPDIFF(SECOND, triggered_at, NOW())), " +
-                "metadata = JSON_SET(COALESCE(metadata, JSON_OBJECT()), '$.assignedProviderId', ?, '$.assignedProviderName', ?, '$.teamStatus', 'assigned'), " +
-                "assigned_responder_id = ? " +
-                "WHERE id = ? AND status IN ('triggered','acknowledged','responding')",
-                // Demo system: an internal record only; the real service is never contacted
-                "Simulated responder team near " + name, providerId, name, team, sosId);
+        // The station's team account gets the mission on its phone (TeamService)
+        teamService.dispatch(sosId, providerId);
     }
 
     @Transactional

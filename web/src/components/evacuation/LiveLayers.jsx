@@ -3,33 +3,17 @@ import { Circle, GeoJSON, Marker, Polyline, Popup, Tooltip } from 'react-leaflet
 import L from 'leaflet';
 import { Switch } from '@/components/ui/switch';
 import { serviceStyle } from './serviceStyles';
-import { assemblyIcon, serviceIcon, shelterIcon, sosIcon, teamIcon } from './mapIcons';
+import { assemblyIcon, serviceIcon, shelterIcon, sosIcon } from './mapIcons';
 
 // Map layers for the evacuation command center (people are in MovingPeopleLayer).
 
 export function SosLayer({ sos, onSelect }) {
-    return sos.map((s) => {
-        const team = s.teamLat != null && s.teamLng != null && s.status !== 'resolved'
-            ? [Number(s.teamLat), Number(s.teamLng)] : null;
-        return (
-            <Fragment key={`s-${s.id}-${s.status}`}>
-                <Marker position={[Number(s.lat), Number(s.lng)]} icon={sosIcon(s.status)}
-                    eventHandlers={{ click: () => onSelect?.(s) }} zIndexOffset={3000}>
-                    <Tooltip>SOS · {s.type} · {s.status}</Tooltip>
-                </Marker>
-                {/* the demo team's phone position, with a dashed line to the person */}
-                {team && (
-                    <>
-                        <Polyline positions={[team, [Number(s.lat), Number(s.lng)]]} interactive={false}
-                            pathOptions={{ color: '#1D4ED8', weight: 2, dashArray: '5 6', opacity: 0.8 }} />
-                        <Marker position={team} icon={teamIcon()} zIndexOffset={2900}>
-                            <Tooltip>{s.assignedTo} · {s.teamStatus?.replace(/_/g, ' ')}</Tooltip>
-                        </Marker>
-                    </>
-                )}
-            </Fragment>
-        );
-    });
+    return sos.map((s) => (
+        <Marker key={`s-${s.id}-${s.status}`} position={[Number(s.lat), Number(s.lng)]} icon={sosIcon(s.status)}
+            eventHandlers={{ click: () => onSelect?.(s) }} zIndexOffset={3000}>
+            <Tooltip>SOS #{s.id} · {s.type} · {s.status}</Tooltip>
+        </Marker>
+    ));
 }
 
 export function ServicesLayer({ services }) {
@@ -40,7 +24,7 @@ export function ServicesLayer({ services }) {
                 <Popup>
                     <strong>{s.name}</strong><br />
                     {style.label}{s.address ? ` · ${s.address}` : ''}<br />
-                    <span style={{ color: '#64748b' }}>Location from OpenStreetMap · not connected to DDAS</span>
+                    <span style={{ color: '#64748b' }}>Location from OpenStreetMap</span>
                 </Popup>
             </Marker>
         );
@@ -117,7 +101,7 @@ export function BottleneckLayer({ bottlenecks }) {
 
 const LAYERS = [
     ['zones', 'Danger zones'], ['water', 'Water flow'], ['safe', 'Safe high ground'], ['routes', 'Evacuation routes'],
-    ['river', 'River timing labels'], ['people', 'People'], ['trails', 'Movement trails'], ['sos', 'SOS'], ['shelters', 'Shelters'], ['services', 'Police & hospitals'],
+    ['river', 'River timing labels'], ['people', 'People'], ['trails', 'Movement trails'], ['sos', 'SOS'], ['shelters', 'Shelters'], ['services', 'Stations'], ['teams', 'Response teams'],
     ['bottlenecks', 'Crowded roads'], ['blocked', 'Blocked roads'],
 ];
 

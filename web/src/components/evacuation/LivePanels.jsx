@@ -11,15 +11,12 @@ import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import CommandCenterService from '../../services/commandCenter.service';
-import { distanceKm, serviceStyle } from './serviceStyles';
-
-// Status reported by the demo team's phone (mobile app, role RESPONDER)
-const TEAM_TEXT = { on_the_way: 'on the way', arrived: 'arrived at the person', rescued: 'rescued' };
+import { DispatchDialog, DispatchRecommended, SosChat, TeamChips } from './TeamPanels';
 
 const SOS_STATUS = {
     triggered: { label: 'New', className: 'bg-destructive text-white' },
     acknowledged: { label: 'Seen', className: 'bg-amber-500 text-white' },
-    responding: { label: 'Help on the way', className: 'bg-blue-600 text-white' },
+    responding: { label: 'Team dispatched', className: 'bg-blue-600 text-white' },
     resolved: { label: 'Resolved', className: 'bg-success text-white' },
 };
 
@@ -33,14 +30,10 @@ function errorText(e) {
     return e?.response?.data?.message || e?.message || 'Something went wrong';
 }
 
-/** One SOS with its actions. Nearest services first in the assign list. */
-function SosItem({ sos, services, selected, onSelect, onChanged }) {
+/** One SOS with its actions: dispatch (recommended or chosen), team status, team channel. */
+function SosItem({ sos, selected, onSelect, onChanged }) {
     const [busy, setBusy] = useState(false);
     const st = SOS_STATUS[sos.status] || { label: sos.status, className: '' };
-    const here = { lat: Number(sos.lat), lng: Number(sos.lng) };
-    const nearest = [...services]
-        .map((s) => ({ ...s, km: distanceKm(here, { lat: Number(s.lat), lng: Number(s.lng) }) }))
-        .sort((a, b) => a.km - b.km).slice(0, 6);
     const open = ['triggered', 'acknowledged', 'responding'].includes(sos.status);
 
     const act = async (fn, done) => {
@@ -49,18 +42,16 @@ function SosItem({ sos, services, selected, onSelect, onChanged }) {
     };
 
     return (
-        <li className={`rounded-lg border p-3 ${selected ? 'border-primary ring-1 ring-primary' : ''}`}>
+        <li className={`rounded-lg border p-3 ${selected ? 'border-primary ring-1 ring-primary' : ''} ${sos.backupRequested && open ? 'border-destructive bg-destructive/5' : ''}`}>
             <button type="button" className="w-full text-left" onClick={() => onSelect(sos)}>
                 <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5 font-medium"><Siren className="size-4 text-destructive" aria-hidden />{sos.type}</span>
                     <Badge className={st.className}>{st.label}</Badge>
                 </div>
-                <p className="mt-1 text-muted-foreground">{sos.person} · {ago(sos.triggeredAt)}{sos.battery != null ? ` · battery ${sos.battery}%` : ''}</p>
+                <p className="mt-1 text-muted-foreground">#{sos.id} · {sos.person} · {ago(sos.triggeredAt)}{sos.battery != null ? ` · battery ${sos.battery}%` : ''}</p>
                 {sos.message && <p className="mt-0.5">“{sos.message}”</p>}
-                {sos.assignedTo && <p className="mt-0.5 text-blue-700">{sos.responseNotes || `Assigned to ${sos.assignedTo}`}</p>}
-                {sos.teamStatus && sos.teamStatus !== 'assigned' && (
-                    <p className="mt-0.5 font-medium text-blue-800">📱 Team: {TEAM_TEXT[sos.teamStatus] || sos.teamStatus}</p>
-                )}
+                {sos.backupRequested && open && <p className="mt-0.5 font-semibold text-destructive">⚠ Team asked for backup</p>}
+                <TeamChips teams={sos.teams} />
             </button>
             {open && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -70,38 +61,27 @@ function SosItem({ sos, services, selected, onSelect, onChanged }) {
                             <UserCheck /> Acknowledge
                         </Button>
                     )}
-                    <Select disabled={busy || nearest.length === 0}
-                        onValueChange={(id) => act(() => CommandCenterService.assign(sos.id, Number(id)), 'Simulated team assigned (nothing is sent to the real service)')}>
-                        <SelectTrigger size="sm" className="h-8 w-48" aria-label="Assign a simulated responder team">
-                            <SelectValue placeholder="Assign team (simulated)…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {nearest.map((s) => (
-                                <SelectItem key={s.id} value={String(s.id)}>
-                                    Team near {serviceStyle(s.type).label.toLowerCase()} · {s.name} ({s.km.toFixed(1)} km)
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    {!sos.teams?.length && <DispatchRecommended sos={sos} onChanged={onChanged} disabled={busy} />}
+                    <DispatchDialog sos={sos} onChanged={onChanged} />
                     <Button size="sm" variant="ghost" disabled={busy}
                         onClick={() => act(() => CommandCenterService.resolve(sos.id, ''), 'SOS resolved')}>
                         <CheckCircle2 /> Resolve
                     </Button>
                 </div>
             )}
+            {selected && sos.teams?.length > 0 && <SosChat sosId={sos.id} />}
         </li>
     );
 }
 
-export function SosQueue({ sos, services, selectedId, onSelect, onChanged }) {
+export function SosQueue({ sos, selectedId, onSelect, onChanged }) {
     if (sos.length === 0) {
         return <p className="py-6 text-center text-muted-foreground">No SOS calls. People who need help appear here.</p>;
     }
     return (
         <ul className="space-y-2">
-            <li className="text-xs text-muted-foreground">Demo system: teams are simulated. Police and hospitals are map locations only and are never contacted.</li>
             {sos.map((s) => (
-                <SosItem key={s.id} sos={s} services={services} selected={s.id === selectedId} onSelect={onSelect} onChanged={onChanged} />
+                <SosItem key={s.id} sos={s} selected={s.id === selectedId} onSelect={onSelect} onChanged={onChanged} />
             ))}
         </ul>
     );

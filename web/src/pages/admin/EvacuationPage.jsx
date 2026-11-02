@@ -25,6 +25,7 @@ import RiverFloodLayer from '../../components/evacuation/RiverFloodLayer';
 import ZonesLayer from '../../components/evacuation/ZonesLayer';
 import WaterFlowLayer from '../../components/evacuation/WaterFlowLayer';
 import ScenarioPanel from '../../components/evacuation/ScenarioPanel';
+import { TeamsLayer, TeamsPanel } from '../../components/evacuation/TeamPanels';
 import { FLOODED_STYLE, LEVEL_STYLE } from '../../components/evacuation/zoneStyles';
 
 function parseGeo(text) {
@@ -114,7 +115,7 @@ export default function EvacuationPage() {
     const [error, setError] = useState('');
     const [layers, setLayers] = useState({
         zones: true, water: true, safe: true, routes: true, river: false, people: true, trails: false, sos: true, shelters: true,
-        services: true, bottlenecks: true, blocked: true,
+        services: true, teams: true, bottlenecks: true, blocked: true,
     });
     const [tab, setTab] = useState('sos');
     const [filter, setFilter] = useState(EMPTY_FILTER);
@@ -131,10 +132,13 @@ export default function EvacuationPage() {
     const [testResult, setTestResult] = useState(null);
     const [packsMsg, setPacksMsg] = useState('');
     const [packs, setPacks] = useState([]);           // marked evacuation routes
+    const [teams, setTeams] = useState([]);           // response teams: status, live position, mission
+    const [teamFocus, setTeamFocus] = useState(null);
 
     // People every 5 s (smooth movement); everything else every 10 s
     const refreshPeople = useCallback(async () => {
         try { setPeople(await CommandCenterService.people()); setLive(true); } catch { setLive(false); }
+        CommandCenterService.teams().then(setTeams).catch(() => {});
     }, []);
     const refreshAll = useCallback(async () => {
         const [snap, st, an] = await Promise.allSettled([
@@ -189,6 +193,7 @@ export default function EvacuationPage() {
 
     const selectPerson = useCallback((id) => {
         setSelectedPersonId(id);
+        setTeamFocus(null);
         setPersonRoute(null);
         setFollowRoute(false);
         setTab('people');
@@ -225,7 +230,7 @@ export default function EvacuationPage() {
     const testLine = testResult?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
     const personLine = personRoute?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
     const spaceLeft = Math.max(0, Number(sm.capacity || 0) - Number(sm.occupancy || 0));
-    const flyTarget = selectedSos ? [Number(selectedSos.lat), Number(selectedSos.lng)]
+    const flyTarget = teamFocus ? [teamFocus.lat, teamFocus.lng] : selectedSos ? [Number(selectedSos.lat), Number(selectedSos.lng)]
         : selectedPerson ? [selectedPerson.lat, selectedPerson.lng] : null;
 
     return (
@@ -298,7 +303,8 @@ export default function EvacuationPage() {
                         {layers.shelters && <ShelterLayer shelters={shelters} forecast={analytics?.shelters} />}
                         <MovingPeopleLayer people={mapPeople} selectedId={selectedPersonId}
                             onSelect={selectPerson} showTrails={layers.trails && !replayFrame} />
-                        {layers.sos && !replayFrame && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTab('sos'); }} />}
+                        {layers.teams && !replayFrame && <TeamsLayer teams={teams} />}
+                        {layers.sos && !replayFrame && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTeamFocus(null); setTab('sos'); }} />}
 
                         {personLine && <Polyline positions={personLine} pathOptions={{ color: '#7C3AED', weight: 5, opacity: 0.85, className: 'ddas-flow' }} />}
                         {testResult?.from && <CircleMarker center={testResult.from} radius={6} pathOptions={{ color: '#1D4ED8', fillOpacity: 1 }} />}
@@ -317,7 +323,7 @@ export default function EvacuationPage() {
                         <Legend colour="#22C55E" round={false} label="Safe high ground" />
                         <Legend colour="#15803D" label="Assembly point / evacuation route" />
                         <Legend colour="#EF4444" label="Crowded road" />
-                        <span>Shield / cross = police / hospital (map only)</span>
+                        <span>Shield / cross / flame = police / hospital / fire station · 🚓 🚑 🚒 = response teams</span>
                     </div>
                 </Card>
 
@@ -328,8 +334,9 @@ export default function EvacuationPage() {
                             onClose={() => { setSelectedPersonId(null); setPersonRoute(null); setFollowRoute(false); }} />
                     )}
                     <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-2">
-                        <TabsList className="grid w-full grid-cols-6">
+                        <TabsList className="grid w-full grid-cols-7">
                             <TabsTrigger value="sos" className="px-1 text-xs">SOS{sm.sosOpen ? ` ${sm.sosOpen}` : ''}</TabsTrigger>
+                            <TabsTrigger value="teams" className="px-1 text-xs">Teams</TabsTrigger>
                             <TabsTrigger value="people" className="px-1 text-xs">People</TabsTrigger>
                             <TabsTrigger value="zones" className="px-1 text-xs">Zones</TabsTrigger>
                             <TabsTrigger value="shelters" className="px-1 text-xs">Shelters</TabsTrigger>
@@ -338,7 +345,11 @@ export default function EvacuationPage() {
                         </TabsList>
                         <TabsContent value="sos" className="min-h-0 overflow-y-auto text-sm">
                             <SosQueue sos={sos} services={services} selectedId={selectedSos?.id}
-                                onSelect={(x) => { setSelectedSos(x); setSelectedPersonId(null); }} onChanged={refreshAll} />
+                                onSelect={(x) => { setSelectedSos(x); setTeamFocus(null); setSelectedPersonId(null); }} onChanged={refreshAll} />
+                        </TabsContent>
+                        <TabsContent value="teams" className="min-h-0 overflow-y-auto">
+                            <TeamsPanel teams={teams} onChanged={refreshPeople}
+                                onSelect={(t) => { setTeamFocus({ lat: t.lat, lng: t.lng, at: Date.now() }); setSelectedSos(null); setSelectedPersonId(null); }} />
                         </TabsContent>
                         <TabsContent value="people" className="min-h-0 overflow-y-auto">
                             <PeoplePanel people={people} shown={shown} filter={filter} onFilter={setFilter} zones={zones}

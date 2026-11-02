@@ -99,6 +99,8 @@ export default function AppSidebar() {
                         <UserMenu />
                     </SidebarMenuItem>
                 </SidebarMenu>
+                {/* Response teams are DDAS team accounts; the real services are never contacted */}
+                <p className="px-2 text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">Training system</p>
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

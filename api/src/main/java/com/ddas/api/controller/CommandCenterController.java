@@ -4,6 +4,7 @@ import com.ddas.api.dto.response.AlertResponseDTO;
 import com.ddas.api.security.UserPrincipal;
 import com.ddas.api.service.CommandCenterService;
 import com.ddas.api.service.EvacuationAnalyticsService;
+import com.ddas.api.service.TeamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,6 +23,7 @@ public class CommandCenterController {
 
     private final CommandCenterService service;
     private final EvacuationAnalyticsService analytics;
+    private final TeamService teams;
 
     @GetMapping("/snapshot")
     public ResponseEntity<Map<String, Object>> snapshot() {
@@ -72,6 +74,53 @@ public class CommandCenterController {
         return ResponseEntity.ok(service.resetPhones(me.getUser().getId()));
     }
 
+    // ── Response teams ─────────────────────────────────────────────────────────
+
+    /** Every team: status, live position, current mission. */
+    @GetMapping("/teams")
+    public ResponseEntity<List<Map<String, Object>>> teams() {
+        return ResponseEntity.ok(teams.teams());
+    }
+
+    /** Teams ranked for this SOS (right kind, free, road time); the best is marked recommended. */
+    @GetMapping("/sos/{id}/teams")
+    public ResponseEntity<List<Map<String, Object>>> recommend(@PathVariable Long id) {
+        return ResponseEntity.ok(teams.recommend(id));
+    }
+
+    @GetMapping("/sos/{id}/messages")
+    public ResponseEntity<List<Map<String, Object>>> messages(@PathVariable Long id) {
+        return ResponseEntity.ok(teams.messages(id));
+    }
+
+    /** Body: { text } — to the teams on this SOS. */
+    @PostMapping("/sos/{id}/messages")
+    public ResponseEntity<Void> send(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        teams.message(id, "control", null, "Control room", String.valueOf(body.getOrDefault("text", "")), false);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Body: { text, type? } — to every team, or one kind (police / hospital / fire_brigade). */
+    @PostMapping("/teams/broadcast")
+    public ResponseEntity<Map<String, Integer>> teamBroadcast(@RequestBody Map<String, Object> body) {
+        Object type = body.get("type");
+        return ResponseEntity.ok(Map.of("sent", teams.broadcast(String.valueOf(body.getOrDefault("text", "")),
+                type == null ? null : String.valueOf(type), "Control room")));
+    }
+
+    /** Teams nobody uses on a phone accept, drive and rescue by themselves. */
+    @GetMapping("/teams/autopilot")
+    public ResponseEntity<Map<String, Boolean>> autopilot() {
+        return ResponseEntity.ok(Map.of("on", teams.isAutopilot()));
+    }
+
+    @PutMapping("/teams/autopilot")
+    public ResponseEntity<Map<String, Boolean>> setAutopilot(@RequestBody Map<String, Boolean> body) {
+        teams.setAutopilot(Boolean.TRUE.equals(body.get("on")));
+        return autopilot();
+    }
+
+    /** Body: { damId, title, message } — raises an Evacuation Order for that dam's zones. */
     @PostMapping("/broadcast")
     public ResponseEntity<AlertResponseDTO> broadcast(@RequestBody Map<String, Object> body) {
         Long damId = body.get("damId") == null ? null : Long.valueOf(String.valueOf(body.get("damId")));

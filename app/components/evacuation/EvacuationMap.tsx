@@ -12,8 +12,8 @@ type Props = {
   height?: number;
   target?: LngLat | null;     // the SOS person (response team view)
   targetLabel?: string;
-  team?: LngLat | null;       // the response team coming to help
-  teamLabel?: string;
+  teams?: { pos: LngLat; label: string; emoji?: string }[];   // response teams coming to help
+  teamRoute?: LngLat[] | null;                                // road route of the team on the way
 };
 type LngLat = [number, number];
 
@@ -106,12 +106,14 @@ var sosSvg='<svg width="30" height="30" viewBox="0 0 24 24"><path d="M12 1.5 22 
 var teamSvg='<svg width="28" height="28" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#1D4ED8" stroke="#fff" stroke-width="1.6"/><path d="M7.2 9.3 8.4 6.6c.3-.6.9-1 1.6-1h4c.7 0 1.3.4 1.6 1l1.2 2.7c.8.2 1.4.9 1.4 1.8v3.6h-1.4v1.4a1 1 0 0 1-2 0v-1.4H9.2v1.4a1 1 0 0 1-2 0v-1.4H5.8v-3.6c0-.9.6-1.6 1.4-1.8Zm1.6-.2h6.4l-.8-1.9H9.6l-.8 1.9Z" fill="#fff"/></svg>';
 window.ddasMarks=function(m){marksL.clearLayers();
   if(m.target)L.marker([m.target[1],m.target[0]],{icon:L.divIcon({html:sosSvg,className:'pin',iconSize:[30,30],iconAnchor:[15,15]}),zIndexOffset:1100}).addTo(marksL).bindTooltip(m.targetLabel||'SOS',{permanent:true,direction:'top',offset:[0,-14],className:'wtag'});
-  if(m.team)L.marker([m.team[1],m.team[0]],{icon:L.divIcon({html:teamSvg,className:'pin',iconSize:[28,28],iconAnchor:[14,14]}),zIndexOffset:1050}).addTo(marksL).bindTooltip(m.teamLabel||'Response team',{permanent:true,direction:'top',offset:[0,-14],className:'wtag'});};
+  if(m.teamRoute&&m.teamRoute.length>1)L.polyline(m.teamRoute.map(function(c){return [c[1],c[0]];}),{interactive:false,color:'#1D4ED8',weight:4,opacity:.7,dashArray:'6 6'}).addTo(marksL);
+  (m.teams||[]).forEach(function(t){var html=t.emoji?'<div style="width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid #1D4ED8;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 4px rgba(0,0,0,.35)">'+t.emoji+'</div>':teamSvg;
+    L.marker([t.pos[1],t.pos[0]],{icon:L.divIcon({html:html,className:'pin',iconSize:[30,30],iconAnchor:[15,15]}),zIndexOffset:1050}).addTo(marksL).bindTooltip(t.label||'Response team',{permanent:true,direction:'top',offset:[0,-15],className:'wtag'});});};
 post({type:'ready'});
 </script></body></html>`;
 
 /** Live evacuation map: zones, safe high ground, shelters, my position and my route. Long-press to place yourself (demo). */
-export function EvacuationMap({ status, me, route, sos, onPick, height = 340, target, targetLabel, team, teamLabel }: Props) {
+export function EvacuationMap({ status, me, route, sos, onPick, height = 340, target, targetLabel, teams, teamRoute }: Props) {
   const ref = useRef<WebView>(null);
   const [ready, setReady] = useState(false);
   const source = useMemo(() => ({ html: HTML }), []);
@@ -153,7 +155,7 @@ export function EvacuationMap({ status, me, route, sos, onPick, height = 340, ta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, me?.[0], me?.[1], sos]);
 
-  const marks = JSON.stringify({ target: target ?? null, targetLabel, team: team ?? null, teamLabel });
+  const marks = JSON.stringify({ target: target ?? null, targetLabel, teams: teams ?? [], teamRoute: teamRoute ?? null });
   useEffect(() => {
     if (ready) run(`window.ddasMarks(${marks})`);
     // eslint-disable-next-line react-hooks/exhaustive-deps

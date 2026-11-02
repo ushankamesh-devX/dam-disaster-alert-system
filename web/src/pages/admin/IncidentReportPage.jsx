@@ -71,9 +71,6 @@ export default function IncidentReportPage() {
                     {ongoing ? `Ongoing · ${inc.zonesActive} zones active` : 'Ended'}
                 </Badge>
             </div>
-            <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                Demo system: all people, SOS calls and responder teams are simulated. Police and hospitals are map locations only.
-            </p>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <Kpi icon={Users} label="People involved" value={total} sub={`${inc.peopleOnTheMove ?? 0} on the way`} />
@@ -122,7 +119,7 @@ export default function IncidentReportPage() {
                         <Table>
                             <TableHeader><TableRow>
                                 <TableHead className="pl-6">Type</TableHead><TableHead>Person</TableHead><TableHead>Status</TableHead>
-                                <TableHead>Team (simulated)</TableHead><TableHead className="pr-6 text-right">Response</TableHead>
+                                <TableHead>Team</TableHead><TableHead className="pr-6 text-right">Response</TableHead>
                             </TableRow></TableHeader>
                             <TableBody>
                                 {(snap?.sos || []).map((s) => (

@@ -55,7 +55,6 @@ export function SosModal({ visible, onClose, onSend }: Props) {
         <Pressable onPress={send} disabled={busy} style={[styles.send, busy && { opacity: 0.6 }]}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>SEND SOS</Text>}
         </Pressable>
-        <Text style={styles.note}>Demo system: no real police or hospital is contacted.</Text>
       </View>
     </Modal>
   );

@@ -33,9 +33,16 @@ export type RouteResult = {
 };
 
 export type SosType = { code: string; name: string; defaultMessage?: string };
+export type ComingTeam = {
+  userId: number; name: string; station: string; type: string; label: string;
+  status: 'assigned' | 'on_the_way' | 'arrived' | 'rescued' | 'done';
+  lat?: number | null; lng?: number | null; km?: number; etaMin?: number; route?: [number, number][];
+};
+
 export type MySos = {
   id: number; status: string; type: string; triggeredAt: string; responseNotes?: string | null; resolvedAt?: string | null;
-  team?: string | null; teamStatus?: string | null; teamLat?: number | string | null; teamLng?: number | string | null;
+  teams?: ComingTeam[];   // newest open SOS only: the teams coming, road time and distance
+  messages?: { id: number; text: string; fromName: string }[];   // what the teams told the person
 };
 
 export const evacuationService = {

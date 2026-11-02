@@ -11,7 +11,7 @@ Run on the server (needs kubectl for the MySQL pod and the API at --url). What h
 2. Simulated residents appear inside the zones and share their location. Each asks the routing
    API for a route and moves along it (sped up by --speedup) to the shelter it was given.
 3. About 1 in 20 residents send an SOS (trapped, injured, medical). Each SOS is acknowledged,
-   given a simulated responder team near the closest police station or hospital, and resolved, then the person moves on.
+   given the recommended response team (driven by the team autopilot or a team phone), and resolved, then the person moves on.
 4. Part way through a bridge on a busy route is blocked; residents still before it are re-routed.
 5. Arrivals fill the shelters. At the end the dam goes back to its previous status, All Clear is
    raised and a summary is printed.
@@ -342,7 +342,7 @@ def run(args):
             elif r.state == 'paused' and t >= r.resume_at:
                 r.state = 'moving'
             elif r.state == 'sos':
-                progress_sos(r, admin)
+                progress_sos(r, admin, api)
             elif r.state == 'moving':
                 if r.behaviour == 'belongings' and r.resume_at is None and r.step >= len(r.path) // 4:
                     r.state, r.resume_at = 'paused', t + rng.uniform(40, 90)
@@ -475,25 +475,39 @@ def start_sos(r, rng, sos_types, dam, services, admin, kind=None):
     r.sos = {'uuid': sid, 'label': label, 'started': time.time(), 'stage': 'triggered', 'provider': nearest}
 
 
-def progress_sos(r, admin):
+def progress_sos(r, admin, api):
     s, age = r.sos, time.time() - r.sos['started']
     if s['stage'] == 'triggered' and age > 20:
         s['stage'] = 'acknowledged'
         sql(f"UPDATE sos_events SET status = 'acknowledged', acknowledged_at = NOW(), acknowledged_by = {admin} WHERE uuid = {quote(s['uuid'])}")
     elif s['stage'] == 'acknowledged' and age > 40:
         s['stage'] = 'responding'
-        p = s['provider']
-        note = f'Simulated responder team near {p["name"]}' if p else 'Simulated responder team'
-        meta = {'assignedProviderId': int(p['id']), 'assignedProviderName': p['name']} if p else {}
-        sql(f"UPDATE sos_events SET status = 'responding', responding_at = NOW(), response_notes = {quote(note)}, "
-            f"response_time_seconds = {int(age)}, metadata = {quote(meta)} WHERE uuid = {quote(s['uuid'])}")
         s['response_seconds'] = int(age)
-    elif s['stage'] == 'responding' and age > 80:
-        s['stage'] = 'resolved'
-        sql(f"UPDATE sos_events SET status = 'resolved', resolved_at = NOW(), resolved_by = {admin}, "
-            f"resolution_notes = 'Helped out and on the way to the shelter' WHERE uuid = {quote(s['uuid'])}")
-        r.state = 'moving' if r.path else 'arrived'
-
+        # Dispatch the recommended response team, as an operator would; the team autopilot (Tools tab) drives it
+        sos_id = records(f"SELECT id FROM sos_events WHERE uuid = {quote(s['uuid'])}")[0]['id']
+        try:
+            ranked = api.call('GET', f'/api/v1/command-center/sos/{sos_id}/teams') or []
+            best = next((t for t in ranked if t.get('recommended')), None)
+            if best:
+                api.call('POST', f'/api/v1/command-center/sos/{sos_id}/assign', {'providerId': best['stationId']})
+                s['team'] = best['name']
+                log(f'SOS from {r.name}: {best["name"]} dispatched (~{best["etaMin"]} min)')
+                return
+        except Exception as e:   # noqa: BLE001 - no teams yet (seed_responders.py not run): note only
+            log(f'Team dispatch failed: {e}')
+        p = s['provider']
+        note = f'Response team from {p["name"]} dispatched' if p else 'Response team dispatched'
+        sql(f"UPDATE sos_events SET status = 'responding', responding_at = NOW(), response_notes = {quote(note)}, "
+            f"response_time_seconds = {int(age)} WHERE uuid = {quote(s['uuid'])}")
+    elif s['stage'] == 'responding':
+        status = records(f"SELECT status FROM sos_events WHERE uuid = {quote(s['uuid'])}")[0]['status']
+        # A team closes it (phone or autopilot); without a team, close it after 80 s; never wait more than 6 minutes
+        if status == 'resolved' or (not s.get('team') and age > 80) or age > 360:
+            s['stage'] = 'resolved'
+            if status != 'resolved':
+                sql(f"UPDATE sos_events SET status = 'resolved', resolved_at = NOW(), resolved_by = {admin}, "
+                    f"resolution_notes = 'Helped out and on the way to the shelter' WHERE uuid = {quote(s['uuid'])}")
+            r.state = 'moving' if r.path else 'arrived'
 
 def block_busiest_road(api, url, residents, state):
     """Block the point that the most residents still have ahead of them, then re-route them."""

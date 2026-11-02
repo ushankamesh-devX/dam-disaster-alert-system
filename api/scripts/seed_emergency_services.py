@@ -227,7 +227,7 @@ def main():
             'INSERT INTO emergency_service_providers (uuid, code, name, name_si, description, service_type, location_type_id, '
             'address_text, latitude, longitude, primary_phone, emergency_phone, is_24_hours, status, is_verified, show_on_map, marker_color, metadata) VALUES ('
             + ', '.join(map(quote, [str(uuid.uuid5(NS, p['osm'])), 'OSM-' + p['osm'].replace('/', '-'), p['name'], p['name_si'],
-                                    f'{label} location from OpenStreetMap ({p["osm"]}). Shown on the map only; not connected to DDAS.',
+                                    f'{label} location from OpenStreetMap ({p["osm"]}).',
                                     stype, types.get(ltype), p['address'], p['lat'], p['lng'], '', None, 1, 'active', 0, 1, colour,  # demo: no phone numbers
                                     {'source': 'OpenStreetMap', 'osm': p['osm'], 'licence': 'ODbL'}])) + ')')
     for dam, km, p, key in shelters:

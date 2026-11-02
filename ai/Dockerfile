@@ -9,6 +9,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY app ./app
 
+RUN useradd -m -u 1000 ddas
 RUN useradd --create-home --uid 10001 ddas \
     && mkdir -p /service/artifacts \
     && chown -R ddas:ddas /service/artifacts

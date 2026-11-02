@@ -154,6 +154,19 @@ public class Dam {
 
     @Column(name = "is_ml_enabled")
     @Builder.Default
+    private Boolean isMlEnabled = true;
+
+    public Boolean getIsMlEnabled() {
+        return this.isMlEnabled;
+    }
+
+    public void setIsMlEnabled(Boolean isMlEnabled) {
+        this.isMlEnabled = isMlEnabled;
+    }
+
+    public Boolean isMlEnabled() {
+        return this.isMlEnabled;
+    }
     private Boolean isMlEnabled = false;
 
     @CreationTimestamp

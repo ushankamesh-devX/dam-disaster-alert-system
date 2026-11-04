@@ -34,7 +34,7 @@ spec:
         fsGroup: 10001   # image runs as uid 10001
       containers:
         - name: ai
-          image: ghcr.io/ushankamesh-devx/ddas-ai:latest
+          image: ghcr.io/ushankamesh-devx/ddas-ai:production   # built from the production branch; main builds :latest
           imagePullPolicy: Always
           env:
             - { name: DDAS_AI_SPRING_DATA_BASE_URL, value: "http://api:8080/api/v1/internal/ml" }

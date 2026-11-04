@@ -20,7 +20,7 @@ spec:
         - name: ghcr-pull
       containers:
         - name: mlflow
-          image: ghcr.io/ushankamesh-devx/ddas-mlflow:latest
+          image: ghcr.io/ushankamesh-devx/ddas-mlflow:production   # built from the production branch; main builds :latest
           imagePullPolicy: Always
           env:
             - name: DB_USER

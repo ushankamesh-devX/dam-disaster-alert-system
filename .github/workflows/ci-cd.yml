@@ -38,7 +38,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/ddas-api:${{ github.sha }}
-            ${{ env.REGISTRY }}/ddas-api:latest
+            ${{ env.REGISTRY }}/ddas-api:production
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
@@ -50,7 +50,7 @@ jobs:
           build-args: VITE_API_URL=/api/v1
           tags: |
             ${{ env.REGISTRY }}/ddas-web:${{ github.sha }}
-            ${{ env.REGISTRY }}/ddas-web:latest
+            ${{ env.REGISTRY }}/ddas-web:production
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
@@ -61,7 +61,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/ddas-ai:${{ github.sha }}
-            ${{ env.REGISTRY }}/ddas-ai:latest
+            ${{ env.REGISTRY }}/ddas-ai:production
           cache-from: type=gha,scope=ai
           cache-to: type=gha,mode=max,scope=ai
 
@@ -73,7 +73,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/ddas-mlflow:${{ github.sha }}
-            ${{ env.REGISTRY }}/ddas-mlflow:latest
+            ${{ env.REGISTRY }}/ddas-mlflow:production
           cache-from: type=gha,scope=mlflow
           cache-to: type=gha,mode=max,scope=mlflow
 

@@ -20,7 +20,7 @@ spec:
         - name: ghcr-pull   # only needed if the GHCR package is private
       containers:
         - name: api
-          image: ghcr.io/ushankamesh-devx/ddas-api:latest
+          image: ghcr.io/ushankamesh-devx/ddas-api:production   # built from the production branch; main builds :latest
           imagePullPolicy: Always
           env:
             - name: SPRING_DATASOURCE_URL

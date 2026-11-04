@@ -7,6 +7,7 @@ import {
     getNewsCategories, createNewsCategory, updateNewsCategory, deleteNewsCategory,
     getNewsArticles, searchNewsArticles, createNewsArticle, updateNewsArticle,
     publishNewsArticle, archiveNewsArticle, deleteNewsArticle, getArticlesByCategory,
+    uploadNewsImage,
 } from '../../services/news.service';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -160,6 +161,63 @@ function ArticleModal({ article, categories, onClose, onSaved }) {
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
     const [tab, setTab] = useState('basic'); // basic | content | media
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    const fileInputRef = useRef(null);
+
+    const resolveImageUrl = (url) => {
+        if (!url) return '';
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+            return url;
+        }
+        const cleanPath = url.startsWith('/') ? url : `/${url}`;
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {
+            try {
+                const parsed = new URL(apiUrl);
+                return `${parsed.origin}${cleanPath}`;
+            } catch {
+                return cleanPath;
+            }
+        }
+        return cleanPath;
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowed.includes(file.type.toLowerCase())) {
+            setUploadError('Unsupported format. Allowed types: JPG, PNG, WebP, GIF.');
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            setUploadError('File size exceeds the 10MB limit.');
+            return;
+        }
+
+        setUploadError('');
+        setUploading(true);
+        try {
+            const res = await uploadNewsImage(file);
+            if (res?.imageUrl) {
+                set('imageUrl', res.imageUrl);
+                toast.success('Image uploaded to MinIO successfully');
+            } else {
+                throw new Error('Upload succeeded but no image URL was returned.');
+            }
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Failed to upload image';
+            setUploadError(msg);
+            toast.error(msg);
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
 
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -257,10 +315,61 @@ function ArticleModal({ article, categories, onClose, onSaved }) {
                     )}
                     {tab === 'media' && (
                         <>
-                            <Input label="Image URL" placeholder="https://example.com/image.jpg" value={form.imageUrl} onChange={e => set('imageUrl', e.target.value)} />
+                            {/* Local Image Upload */}
+                            <div className="border border-dashed border-gray-300 rounded-xl p-5 bg-gray-50/70 hover:bg-gray-50 transition text-center mb-4">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    className="hidden"
+                                />
+                                <div className="flex flex-col items-center justify-center">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-lg mb-2">
+                                        <SymbolIcon name="upload" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-gray-800">Upload Article Image</p>
+                                    <p className="text-xs text-gray-500 mt-1 mb-3">JPG, PNG, WebP, GIF up to 10MB (stored in MinIO)</p>
+                                    <AppButton
+                                        type="button"
+                                        variant="contained"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploading}
+                                        className="text-xs"
+                                    >
+                                        {uploading ? 'Uploading to MinIO…' : 'Choose Local Image'}
+                                    </AppButton>
+                                </div>
+
+                                {uploading && (
+                                    <div className="mt-3">
+                                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                            <div className="bg-blue-600 h-1.5 rounded-full animate-pulse w-3/4" />
+                                        </div>
+                                        <p className="text-[11px] text-blue-600 font-medium mt-1">Uploading image to MinIO…</p>
+                                    </div>
+                                )}
+
+                                {uploadError && (
+                                    <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-left flex items-start gap-2">
+                                        <span className="text-red-500 text-sm">⚠</span>
+                                        <div className="flex-1 text-xs text-red-700">{uploadError}</div>
+                                        <button type="button" onClick={() => setUploadError('')} className="text-xs text-red-500 hover:text-red-700">✕</button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Divider */}
+                            <div className="relative flex py-1 items-center mb-4">
+                                <div className="flex-grow border-t border-gray-200"></div>
+                                <span className="flex-shrink mx-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Or paste image URL</span>
+                                <div className="flex-grow border-t border-gray-200"></div>
+                            </div>
+
+                            <Input label="Image URL" placeholder="https://example.com/image.jpg or /api/v1/news-articles/images/..." value={form.imageUrl} onChange={e => set('imageUrl', e.target.value)} />
                             {form.imageUrl && (
                                 <div className="rounded-lg border border-gray-200 overflow-hidden h-40">
-                                    <img src={form.imageUrl} alt="preview" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                                    <img src={resolveImageUrl(form.imageUrl)} alt="preview" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
                                 </div>
                             )}
                         </>

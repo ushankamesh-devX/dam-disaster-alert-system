@@ -1,10 +1,12 @@
 // components/pages/News/NewsCard.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 
 interface NewsCardProps {
   id: string;
-  image: string;
+  image?: string;
+  imageUrl?: string;
+  image_url?: string;
   category: string;
   title: string;
   description: string;
@@ -14,12 +16,25 @@ interface NewsCardProps {
 
 export const NewsCard: React.FC<NewsCardProps> = ({
   image,
+  imageUrl,
+  image_url,
   category,
   title,
   description,
   timeAgo,
   onPress,
 }) => {
+  const targetUri = (image || imageUrl || image_url || '').trim();
+  const [imgError, setImgError] = useState(false);
+
+  // Reset error state if the article image URL changes
+  useEffect(() => {
+    setImgError(false);
+  }, [targetUri]);
+
+  const hasImage = Boolean(targetUri);
+  const showImage = hasImage && !imgError;
+
   return (
     <TouchableOpacity 
       onPress={onPress}
@@ -27,15 +42,28 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       activeOpacity={0.7}
     >
       {/* Image Section */}
-      <View className="relative">
-        <Image 
-          source={{ uri: image }}
-          className="w-full h-48"
-          resizeMode="cover"
-        />
+      <View className="relative bg-gray-200 h-48 justify-center items-center overflow-hidden">
+        {showImage ? (
+          <Image 
+            source={{ uri: targetUri }}
+            className="w-full h-48"
+            resizeMode="cover"
+            onError={(err) => {
+              console.warn(`[NewsCard] Failed to load image from URL: "${targetUri}"`, err?.nativeEvent);
+              setImgError(true);
+            }}
+          />
+        ) : (
+          <View className="w-full h-full bg-slate-700 items-center justify-center p-4">
+            <Text className="text-3xl mb-1">📰</Text>
+            <Text className="text-white text-xs font-medium text-center" numberOfLines={1}>
+              {category}
+            </Text>
+          </View>
+        )}
        
-        {/* Dam Alert Badge */}
-        <View className="absolute bottom-3 left-3 bg-orange-500 px-3 py-1.5 rounded-md flex-row items-center">
+        {/* Category Alert Badge */}
+        <View className="absolute bottom-3 left-3 bg-orange-500 px-3 py-1.5 rounded-md flex-row items-center shadow-sm">
           <Text className="text-white text-xs font-semibold">⚠ {category}</Text>
         </View>
       </View>

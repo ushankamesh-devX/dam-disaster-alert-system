@@ -94,6 +94,7 @@ public class NewsMapper {
             response.setCategoryName(article.getCategory().getName());
             response.setCategoryIcon(article.getCategory().getIcon());
             response.setCategoryColor(article.getCategory().getColor());
+            response.setCategoryFilterKey(article.getCategory().getFilterKey());
         }
 
         response.setTitle(article.getTitle());

@@ -1,5 +1,6 @@
 package com.ddas.api.dto.response.news;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ public class NewsArticleResponse {
     private String categoryName;
     private String categoryIcon;
     private String categoryColor;
+    private String categoryFilterKey;
 
     private String title;
     private String titleSi;
@@ -23,7 +25,18 @@ public class NewsArticleResponse {
     private String content;
     private String contentSi;
 
+    @JsonProperty("imageUrl")
     private String imageUrl;
+
+    @JsonProperty("image_url")
+    public String getImageUrlSnakeCase() {
+        return this.imageUrl;
+    }
+
+    @JsonProperty("image_url")
+    public void setImageUrlSnakeCase(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
     private String imageAlt;
     private String galleryUrls;
 

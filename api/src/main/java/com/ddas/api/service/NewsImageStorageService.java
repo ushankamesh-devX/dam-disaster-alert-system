@@ -1,0 +1,313 @@
+package com.ddas.api.service;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
+@Slf4j
+@Service
+public class NewsImageStorageService {
+
+    static {
+        try {
+            String restricted = System.getProperty("jdk.httpclient.allowRestrictedHeaders");
+            if (restricted == null || restricted.isBlank()) {
+                System.setProperty("jdk.httpclient.allowRestrictedHeaders", "host,connection,content-length,expect");
+            } else if (!restricted.toLowerCase().contains("host")) {
+                System.setProperty("jdk.httpclient.allowRestrictedHeaders", restricted + ",host,connection,content-length,expect");
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+            "image/gif"
+    );
+
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+    private final String minioEndpoint;
+    private final String accessKey;
+    private final String secretKey;
+    private final String bucketName;
+    private final HttpClient httpClient;
+
+    public NewsImageStorageService(
+            @Value("${minio.endpoint:${MINIO_ENDPOINT:http://minio:9000}}") String minioEndpoint,
+            @Value("${minio.access-key:${MINIO_ACCESS_KEY:${MINIO_ROOT_USER:minioadmin}}}") String accessKey,
+            @Value("${minio.secret-key:${MINIO_SECRET_KEY:${MINIO_ROOT_PASSWORD:minioadmin}}}") String secretKey,
+            @Value("${minio.bucket-name:${MINIO_BUCKET_NAME:ddas-artifacts}}") String bucketName) {
+        String endpoint = minioEndpoint != null ? minioEndpoint.trim() : "http://minio:9000";
+        if (endpoint.endsWith("/")) {
+            endpoint = endpoint.substring(0, endpoint.length() - 1);
+        }
+        this.minioEndpoint = endpoint;
+        this.accessKey = accessKey != null ? accessKey.trim() : "minioadmin";
+        this.secretKey = secretKey != null ? secretKey.trim() : "minioadmin";
+        this.bucketName = bucketName != null ? bucketName.trim() : "ddas-artifacts";
+        this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        log.info("NewsImageStorageService initialized with endpoint='{}', bucket='{}', accessKey='{}'",
+                this.minioEndpoint, this.bucketName, this.accessKey);
+    }
+
+    public record ImageUploadResult(String fileName, String relativeUrl, String contentType, long size) {}
+
+    public ImageUploadResult uploadImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File cannot be empty");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("File size exceeds maximum allowed limit of 10MB");
+        }
+
+        String rawContentType = file.getContentType();
+        String contentType = rawContentType != null ? rawContentType.toLowerCase() : "application/octet-stream";
+        if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Unsupported file type: " + contentType + ". Allowed types: jpg, jpeg, png, webp, gif");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String sanitizedFilename = sanitizeFilename(originalFilename);
+        String uniqueFileName = UUID.randomUUID() + "_" + sanitizedFilename;
+        String objectName = "news-images/" + uniqueFileName;
+
+        try {
+            ensureBucketExists();
+            byte[] bytes = file.getBytes();
+            putObject(objectName, bytes, contentType);
+            String relativeUrl = "/api/v1/news-articles/images/" + uniqueFileName;
+            log.info("Successfully uploaded news image to MinIO bucket '{}', object: '{}'", bucketName, objectName);
+            return new ImageUploadResult(uniqueFileName, relativeUrl, contentType, file.getSize());
+        } catch (Exception e) {
+            String detailedError = extractErrorMessage(e);
+            log.error("Failed to upload news image '{}' to MinIO [endpoint={}, bucket={}]: {}",
+                    uniqueFileName, minioEndpoint, bucketName, detailedError, e);
+            throw new RuntimeException("MinIO upload failed: " + detailedError, e);
+        }
+    }
+
+    public byte[] downloadImage(String fileName) {
+        String objectName = "news-images/" + fileName;
+        try {
+            return getObject(objectName);
+        } catch (Exception e) {
+            String detailedError = extractErrorMessage(e);
+            log.error("Failed to download news image '{}' from MinIO [endpoint={}, bucket={}]: {}",
+                    objectName, minioEndpoint, bucketName, detailedError, e);
+            throw new RuntimeException("Could not read news image from storage: " + detailedError, e);
+        }
+    }
+
+    public String probeContentType(String fileName) {
+        String lower = fileName.toLowerCase();
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".gif")) return "image/gif";
+        return "application/octet-stream";
+    }
+
+    private String sanitizeFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "image.jpg";
+        }
+        String clean = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        return clean.length() > 100 ? clean.substring(clean.length() - 100) : clean;
+    }
+
+    private String extractErrorMessage(Throwable t) {
+        if (t == null) {
+            return "Unknown error";
+        }
+        Throwable root = t;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String rootName = root.getClass().getSimpleName();
+        String rootMsg = root.getMessage();
+        if (rootMsg != null && !rootMsg.isBlank() && !"null".equalsIgnoreCase(rootMsg.trim())) {
+            return rootName + ": " + rootMsg.trim();
+        }
+        String topMsg = t.getMessage();
+        if (topMsg != null && !topMsg.isBlank() && !"null".equalsIgnoreCase(topMsg.trim())) {
+            return rootName + " (" + t.getClass().getSimpleName() + ": " + topMsg.trim() + ")";
+        }
+        return rootName + " (at " + minioEndpoint + ")";
+    }
+
+    // =========================================================================
+    // S3 REST API & AWS Signature Version 4
+    // =========================================================================
+
+    private void ensureBucketExists() throws Exception {
+        try {
+            String path = "/" + bucketName;
+            HttpRequest headReq = buildS3Request("HEAD", path, null, "application/octet-stream");
+            HttpResponse<Void> headResp = httpClient.send(headReq, HttpResponse.BodyHandlers.discarding());
+            if (headResp.statusCode() == 404) {
+                log.info("MinIO bucket '{}' does not exist. Creating bucket...", bucketName);
+                HttpRequest putReq = buildS3Request("PUT", path, new byte[0], "application/octet-stream");
+                HttpResponse<String> putResp = httpClient.send(putReq, HttpResponse.BodyHandlers.ofString());
+                if (putResp.statusCode() >= 300 && putResp.statusCode() != 409) {
+                    throw new IOException("Failed to create bucket '" + bucketName + "', status: " + putResp.statusCode() + ", body: " + putResp.body());
+                }
+            } else if (headResp.statusCode() == 403) {
+                throw new IOException("MinIO access denied (status 403) for bucket '" + bucketName + "'. Check credentials or permissions.");
+            }
+        } catch (Exception e) {
+            log.error("Failed checking/creating bucket '{}' at endpoint '{}': {}",
+                    bucketName, minioEndpoint, extractErrorMessage(e), e);
+            throw e;
+        }
+    }
+
+    private void putObject(String objectName, byte[] data, String contentType) throws Exception {
+        String path = "/" + bucketName + "/" + objectName;
+        HttpRequest request = buildS3Request("PUT", path, data, contentType);
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 300) {
+            throw new IOException("MinIO PUT returned status " + response.statusCode() + ": " + response.body());
+        }
+    }
+
+    private byte[] getObject(String objectName) throws Exception {
+        String path = "/" + bucketName + "/" + objectName;
+        HttpRequest request = buildS3Request("GET", path, null, "application/octet-stream");
+        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        if (response.statusCode() == 404) {
+            throw new IOException("Object not found in MinIO: " + objectName);
+        }
+        if (response.statusCode() >= 300) {
+            String errorBody = new String(response.body(), StandardCharsets.UTF_8);
+            throw new IOException("MinIO GET returned status " + response.statusCode() + ": " + errorBody);
+        }
+        return response.body();
+    }
+
+    private HttpRequest buildS3Request(String method, String canonicalUri, byte[] payload, String contentType) throws Exception {
+        URI endpointUri = URI.create(minioEndpoint);
+        String host = endpointUri.getHost();
+        if (endpointUri.getPort() != -1 && endpointUri.getPort() != 80 && endpointUri.getPort() != 443) {
+            host = host + ":" + endpointUri.getPort();
+        }
+
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        String amzDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'"));
+        String dateStamp = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        byte[] body = payload != null ? payload : new byte[0];
+        String payloadHash = toHex(sha256(body));
+
+        Map<String, String> headers = new TreeMap<>();
+        headers.put("host", host);
+        headers.put("x-amz-content-sha256", payloadHash);
+        headers.put("x-amz-date", amzDate);
+        if (payload != null && payload.length > 0) {
+            headers.put("content-type", contentType);
+        }
+
+        StringBuilder canonicalHeaders = new StringBuilder();
+        StringBuilder signedHeaders = new StringBuilder();
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            canonicalHeaders.append(entry.getKey().toLowerCase()).append(":").append(entry.getValue().trim()).append("\n");
+            if (signedHeaders.length() > 0) signedHeaders.append(";");
+            signedHeaders.append(entry.getKey().toLowerCase());
+        }
+
+        String canonicalRequest = method + "\n"
+                + canonicalUri + "\n"
+                + "" + "\n"
+                + canonicalHeaders
+                + "\n"
+                + signedHeaders
+                + "\n"
+                + payloadHash;
+
+        String region = "us-east-1";
+        String service = "s3";
+        String credentialScope = dateStamp + "/" + region + "/" + service + "/aws4_request";
+        String stringToSign = "AWS4-HMAC-SHA256\n"
+                + amzDate + "\n"
+                + credentialScope + "\n"
+                + toHex(sha256(canonicalRequest.getBytes(StandardCharsets.UTF_8)));
+
+        byte[] signingKey = getSignatureKey(secretKey, dateStamp, region, service);
+        String signature = toHex(hmacSha256(stringToSign.getBytes(StandardCharsets.UTF_8), signingKey));
+
+        String authorizationHeader = "AWS4-HMAC-SHA256 Credential=" + accessKey + "/" + credentialScope
+                + ", SignedHeaders=" + signedHeaders
+                + ", Signature=" + signature;
+
+        URI requestUri = URI.create(minioEndpoint + canonicalUri);
+        HttpRequest.Builder builder = HttpRequest.newBuilder(requestUri)
+                .header("x-amz-date", amzDate)
+                .header("x-amz-content-sha256", payloadHash)
+                .header("Authorization", authorizationHeader);
+
+        if (payload != null && payload.length > 0) {
+            builder.header("Content-Type", contentType);
+            builder.method(method, HttpRequest.BodyPublishers.ofByteArray(payload));
+        } else if ("PUT".equalsIgnoreCase(method)) {
+            builder.method("PUT", HttpRequest.BodyPublishers.noBody());
+        } else if ("HEAD".equalsIgnoreCase(method)) {
+            builder.method("HEAD", HttpRequest.BodyPublishers.noBody());
+        } else {
+            builder.GET();
+        }
+
+        return builder.build();
+    }
+
+    private byte[] getSignatureKey(String key, String dateStamp, String regionName, String serviceName) throws Exception {
+        byte[] kSecret = ("AWS4" + key).getBytes(StandardCharsets.UTF_8);
+        byte[] kDate = hmacSha256(dateStamp.getBytes(StandardCharsets.UTF_8), kSecret);
+        byte[] kRegion = hmacSha256(regionName.getBytes(StandardCharsets.UTF_8), kDate);
+        byte[] kService = hmacSha256(serviceName.getBytes(StandardCharsets.UTF_8), kRegion);
+        return hmacSha256("aws4_request".getBytes(StandardCharsets.UTF_8), kService);
+    }
+
+    private byte[] hmacSha256(byte[] data, byte[] key) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(key, "HmacSHA256"));
+        return mac.doFinal(data);
+    }
+
+    private byte[] sha256(byte[] data) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        return md.digest(data);
+    }
+
+    private String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+}
+

@@ -87,3 +87,13 @@ export const archiveNewsArticle = async (id) => {
 export const deleteNewsArticle = async (id) => {
     await apiClient.delete(`/news-articles/${id}`);
 };
+
+/** POST /news-articles/upload-image (multipart) → { imageUrl, fileName, contentType, size } */
+export const uploadNewsImage = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const r = await apiClient.post('/news-articles/upload-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return r.data;
+};

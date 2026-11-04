@@ -40,6 +40,8 @@ html,body,#map{margin:0;width:100%;height:100%;background:#e8e0d8}
 var LEVEL={1:['#DC2626','#991B1B',.42],2:['#F97316','#C2410C',.36],3:['#EAB308','#A16207',.32],4:['#FDE047','#CA8A04',.26],5:['#22C55E','#15803D',.2]};
 var map=L.map('map',{zoomControl:false,attributionControl:false}).setView([7.25,80.85],10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+/* areas below lines and markers: zones are redrawn on every update and must not cover the route */
+map.createPane('areas').style.zIndex=350;map.createPane('water').style.zIndex=380;
 var zonesL=L.layerGroup().addTo(map),safeL=L.layerGroup().addTo(map),routeL=L.layerGroup().addTo(map),meL=L.layerGroup().addTo(map);
 var centred=false;
 function post(o){window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify(o));}
@@ -47,7 +49,7 @@ map.on('contextmenu',function(e){post({type:'pick',lat:e.latlng.lat,lng:e.latlng
 function geo(t){try{return typeof t==='string'?JSON.parse(t):t;}catch(e){return null;}}
 function zone(z,kind){var s=LEVEL[z.hazardLevel]||LEVEL[3],g=geo(z.boundaryGeojson);if(!g)return;
   var op=kind==='danger'?s[2]:kind==='watch'?s[2]*.6:.1;
-  return L.geoJSON(g,{interactive:false,style:{color:s[1],weight:kind==='planning'?.5:1.2,fillColor:s[0],fillOpacity:op,dashArray:kind==='danger'?null:'4 4'}}).addTo(zonesL);}
+  return L.geoJSON(g,{pane:'areas',interactive:false,style:{color:s[1],weight:kind==='planning'?.5:1.2,fillColor:s[0],fillOpacity:op,dashArray:kind==='danger'?null:'4 4'}}).addTo(zonesL);}
 /* ── Released water: blue band down the river to the flood front, zones it reached turn blue ── */
 var FRONT=[[0,0],[15,3],[40,8],[80,15],[140,25],[210,35]];
 function frontKm(m){if(m<=0)return 0;for(var i=1;i<FRONT.length;i++){var a=FRONT[i-1],b=FRONT[i];if(m<=b[0])return a[1]+(b[1]-a[1])*(m-a[0])/(b[0]-a[0]);}return 35;}
@@ -65,8 +67,8 @@ window.ddasWater=function(list){WATER={};waterL.clearLayers();
       if(d>=left){var f=left/d,p=[c[i-1][0]+(c[i][0]-c[i-1][0])*f,c[i-1][1]+(c[i][1]-c[i-1][1])*f];pts.push([p[1],p[0]]);front=[p[1],p[0]];left=0;}
       else{pts.push([c[i][1],c[i][0]]);left-=d;}}
     if(!front)front=pts[pts.length-1];
-    if(pts.length>1){L.polyline(pts,{interactive:false,color:'#2563EB',weight:9,opacity:.55,lineCap:'round'}).addTo(waterL);
-      L.polyline(pts,{interactive:false,color:'#BFDBFE',weight:3,dashArray:'2 12',lineCap:'round',className:'flow'}).addTo(waterL);}
+    if(pts.length>1){L.polyline(pts,{pane:'water',interactive:false,color:'#2563EB',weight:9,opacity:.55,lineCap:'round'}).addTo(waterL);
+      L.polyline(pts,{pane:'water',interactive:false,color:'#BFDBFE',weight:3,dashArray:'2 12',lineCap:'round',className:'flow'}).addTo(waterL);}
     L.marker(front,{icon:L.divIcon({html:'<div class="front"></div>',className:'pin',iconSize:[16,16],iconAnchor:[8,8]}),zIndexOffset:800}).addTo(waterL)
       .bindTooltip('Water here · '+km.toFixed(1)+' km · '+Math.round(r.minutes)+' min',{permanent:true,direction:'right',offset:[10,0],className:'wtag'});
   });
@@ -85,7 +87,7 @@ window.ddasStatus=function(s){zonesL.clearLayers();safeL.clearLayers();dangerLay
   paintFlooded();
   (s.shelters||[]).forEach(function(h){
     var hg=h.kind==='high_ground';
-    if(hg&&h.boundaryGeojson){var g=geo(h.boundaryGeojson);g&&L.geoJSON(g,{interactive:false,style:{color:'#15803D',weight:1,fillColor:'#22C55E',fillOpacity:.28}}).addTo(safeL);}
+    if(hg&&h.boundaryGeojson){var g=geo(h.boundaryGeojson);g&&L.geoJSON(g,{pane:'areas',interactive:false,style:{color:'#15803D',weight:1,fillColor:'#22C55E',fillOpacity:.28}}).addTo(safeL);}
     var bad=h.inDangerZone||h.floodSafety==='unsafe'||h.status==='closed';
     var m=L.marker([h.lat,h.lng],{icon:icon(hg?hill:house(bad?'#64748B':'#16A34A'))}).addTo(safeL);
     m.bindPopup('<b>'+h.name+'</b>'+(h.aboveFloodM!=null?'<br>'+h.aboveFloodM+' m above the flood':'')+(h.capacity?'<br>'+(h.occupancy||0)+' / '+h.capacity+' people':''));

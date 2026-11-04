@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Pane, TileLayer, GeoJSON, CircleMarker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { FileText, Route } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -302,7 +302,12 @@ export default function EvacuationPage() {
                         <LayerToggles layers={layers} onChange={setLayers} />
                         <FlyTo target={flyTarget} />
 
-                        {layers.safe && <SafeAreasLayer shelters={shelters} />}
+                        {/* Areas below lines and markers: zones are redrawn every refresh and must not cover the routes */}
+                        <Pane name="ddas-areas" style={{ zIndex: 350 }}>
+                            {layers.safe && <SafeAreasLayer shelters={shelters} />}
+                            </Pane>
+                        <Pane name="ddas-water" style={{ zIndex: 380 }}>
+                            </Pane>
                         {layers.routes && <EvacuationRoutesLayer packs={packs} mode={travelMode} />}
                         {layers.water && <WaterFlowLayer rivers={cc?.rivers || []} dams={dams} />}
                         {layers.river && <RiverFloodLayer rivers={cc?.rivers || []} />}

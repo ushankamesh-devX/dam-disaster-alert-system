@@ -74,6 +74,16 @@ public class EvacuationRouteService {
     }
 
     /** The most severe zone (lowest level number) containing the point. */
+    /** Each instruction with the route point where it starts. */
+    private static List<EvacuationRouteResponse.Turn> turns(ValhallaClient.Route r) {
+        List<EvacuationRouteResponse.Turn> out = new ArrayList<>();
+        for (int i = 0; i < r.instructions().size() && i < r.turnIndex().size(); i++) {
+            int idx = Math.min(r.turnIndex().get(i), r.shape().size() - 1);
+            out.add(new EvacuationRouteResponse.Turn(r.instructions().get(i), r.shape().get(idx), idx));
+        }
+        return out;
+    }
+
     public static Optional<ZoneShape> zoneAt(List<ZoneShape> zones, double lat, double lng) {
         return zones.stream()
                 .filter(z -> z.contains(lat, lng))
@@ -162,6 +172,7 @@ public class EvacuationRouteService {
                 .safe(floodEtaMin == null || etaMin <= floodEtaMin)
                 .routingAvailable(true)
                 .instructions(best.route().instructions())
+                .turns(turns(best.route()))
                 .alternatives(routed.stream().skip(1).map(r -> EvacuationRouteResponse.Alternative.builder()
                         .shelter(toShelter(r.candidate().shelter()))
                         .distanceKm(round(r.route().distanceKm()))

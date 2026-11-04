@@ -29,6 +29,8 @@ public class EvacuationRouteResponse {
     /** False when the routing engine was unreachable; shelter is then the nearest by straight line. */
     private boolean routingAvailable;
     private List<String> instructions;
+    /** Turn-by-turn: each instruction with the route point where it starts (for in-app navigation). */
+    private List<Turn> turns;
     private List<Alternative> alternatives;
 
     @Data
@@ -70,6 +72,18 @@ public class EvacuationRouteResponse {
         @Builder.Default
         private String type = "LineString";
         private List<double[]> coordinates;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Turn {
+        private String text;
+        /** [lng, lat] */
+        private double[] at;
+        /** index in route.coordinates */
+        private int index;
     }
 
     @Data

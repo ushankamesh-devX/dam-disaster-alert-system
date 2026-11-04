@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -290,6 +290,44 @@ export function EvacuationFlow() {
   const damInDanger = !!dam && !!status?.dangerZones.some((z) => z.damName?.startsWith(dam.name.replace(' Dam', '')));
   const arrived = phase === 'evacuating' && route?.shelter && pos && metres(pos, [route.shelter.lng, route.shelter.lat]) < 80;
 
+  // ── Navigation while evacuating (like a maps app): where am I on the route, next turn, distance left ──
+  const navigating = phase === 'evacuating' && !!route;
+  const coords = (route?.route?.coordinates || []) as LngLat[];
+  let nearestIdx = -1, offBy = Infinity;
+  if (pos && coords.length) {
+    for (let i = 0; i < coords.length; i++) {
+      const d = metres(pos, coords[i]);
+      if (d < offBy) { offBy = d; nearestIdx = i; }
+    }
+  }
+  const offRoute = navigating && coords.length > 1 && offBy > 60;
+  let leftM = 0;
+  for (let i = Math.max(nearestIdx, 0); i < coords.length - 1; i++) leftM += metres(coords[i], coords[i + 1]);
+  if (pos && nearestIdx >= 0) leftM += metres(pos, coords[nearestIdx]);
+  const realSpeed = mode === 'drive' ? 9 : 1.3;                       // m/s, real life
+  const leftMin = Math.max(1, Math.round(leftM / realSpeed / 60));
+  const nextTurn = route?.turns?.find((tn) => tn.index > nearestIdx) ?? null;
+  const toTurn = nextTurn && pos ? metres(pos, nextTurn.at) : null;
+  const fmtDist = (m: number) => (m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1)} km`);
+
+  // Off the route (real GPS): find a new one, at most every 20 s
+  const lastReroute = useRef(0);
+  useEffect(() => {
+    if (!offRoute || locMode !== 'gps' || Date.now() - lastReroute.current < 20_000) return;
+    lastReroute.current = Date.now();
+    findRoute();
+  }, [offRoute, locMode, findRoute]);
+  // Arrived: buzz once
+  const buzzed = useRef(false);
+  useEffect(() => {
+    if (arrived && !buzzed.current) { buzzed.current = true; Vibration.vibrate([0, 400, 200, 400]); }
+    if (!arrived) buzzed.current = false;
+  }, [arrived]);
+
+  const openMaps = () => route?.shelter && Linking.openURL(
+    `https://www.google.com/maps/dir/?api=1&destination=${route.shelter.lat},${route.shelter.lng}&travelmode=${mode === 'drive' ? 'driving' : 'walking'}`,
+  ).catch(() => Alert.alert('Maps not available', 'Follow the route in the app.'));
+
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 140, gap: 12 }} showsVerticalScrollIndicator={false}>
       {error && <Text style={styles.error}>{error}</Text>}
@@ -350,8 +388,38 @@ export function EvacuationFlow() {
           onChange={(v) => { setMode(v as 'walk' | 'drive'); if (route && phase !== 'evacuating') findRoute(v as 'walk' | 'drive'); }} />
       </View>
 
+      {navigating && (
+        <View style={[styles.nav, arrived && { backgroundColor: '#15803D' }]}>
+          <MaterialCommunityIcons name={arrived ? 'flag-checkered' : offRoute ? 'map-marker-alert' : 'navigation-variant'} size={30} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.navText}>
+              {arrived ? `You reached ${route?.shelter?.name}`
+                : offRoute ? 'Off the route: go back to the green line'
+                  : nextTurn ? `${toTurn != null ? `In ${fmtDist(toTurn)}: ` : ''}${nextTurn.text}` : 'Follow the green line'}
+            </Text>
+            {!arrived && (
+              <Text style={styles.navSub}>
+                {fmtDist(leftM)} · ~{leftMin} min to {route?.shelter?.kind === 'high_ground' ? 'high ground' : 'the shelter'}
+                {route?.shelter?.aboveFloodM != null ? ` · ▲ ${route.shelter.aboveFloodM} m` : ''}
+              </Text>
+            )}
+            {!arrived && waterIn != null && (
+              <Text style={[styles.navSub, { color: waterIn <= leftMin ? '#FECACA' : '#BBF7D0', fontWeight: '800' }]}>
+                {waterIn <= 0 ? '🌊 Water is here: keep going, do not stop' : `🌊 Water reaches your area in ~${waterIn} min`}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
       <EvacuationMap status={status} me={pos} route={route} sos={!!openSos} onPick={onPick}
-        teams={teamMarks} teamRoute={teamRoute} />
+        teams={teamMarks} teamRoute={teamRoute} follow={navigating} height={navigating ? 420 : 340} />
+      {navigating && (
+        <Pressable onPress={openMaps} style={styles.mapsBtn}>
+          <MaterialCommunityIcons name="google-maps" size={18} color="#1D4ED8" />
+          <Text style={styles.mapsText}>Open in Google Maps</Text>
+        </Pressable>
+      )}
       {locMode === 'demo' && phase !== 'evacuating' && (
         <>
           <Text style={styles.hint}>Demo: tap a zone below, or long-press the map to stand anywhere.</Text>
@@ -406,7 +474,7 @@ export function EvacuationFlow() {
         </View>
       )}
 
-      {arrived && <Text style={styles.arrived}>You reached {route?.shelter?.name}. Tap I'm safe.</Text>}
+      {arrived && <Text style={styles.arrived}>You reached {route?.shelter?.name}. Tap I'm safe below.</Text>}
       {sharing && <Text style={styles.sharing}>● Sharing your location with the evacuation team</Text>}
 
       {/* Actions */}
@@ -496,6 +564,12 @@ const styles = StyleSheet.create({
   teamMsgText: { fontSize: 13, color: '#1E3A8A' },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, backgroundColor: '#fff' },
   chipText: { fontSize: 12, fontWeight: '700' },
+  nav: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: '#1E3A8A', borderRadius: 18, padding: 14 },
+  navText: { color: '#fff', fontSize: 17, fontWeight: '900' },
+  navSub: { color: '#BFDBFE', fontSize: 12, marginTop: 3 },
+  mapsBtn: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#93C5FD', backgroundColor: '#EFF6FF', marginTop: -4 },
+  mapsText: { color: '#1D4ED8', fontWeight: '800' },
   arrived: { textAlign: 'center', color: '#15803D', fontWeight: '700' },
   sharing: { textAlign: 'center', color: '#1D4ED8', fontSize: 12 },
   big3: { flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16 },

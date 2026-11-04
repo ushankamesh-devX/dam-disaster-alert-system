@@ -30,6 +30,7 @@ export type RouteResult = {
   floodEtaMin?: number | null; shelter: Shelter & { freeCapacity?: number | null };
   route?: { type: "LineString"; coordinates: [number, number][] } | null;
   distanceKm: number; etaMin: number; safe: boolean; routingAvailable: boolean; instructions?: string[];
+  turns?: { text: string; at: [number, number]; index: number }[];   // turn-by-turn: where each instruction starts
 };
 
 export type SosType = { code: string; name: string; defaultMessage?: string };

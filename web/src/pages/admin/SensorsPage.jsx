@@ -99,11 +99,11 @@ function CreateSensorModal({ dams, sensorTypes, onClose, onCreated }) {
                     <AppButton iconOnly aria-label="Close" onClick={onClose} className="w-7 h-7 flex items-center justify-center"><SymbolIcon name="close" /></AppButton>
                 </div>
                 <form onSubmit={submit} className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <Inp label="Sensor UID *" placeholder="VIC-WL-001" value={form.sensorUid} onChange={e => set('sensorUid', e.target.value)} error={errors.sensorUid} />
                         <Inp label="Name *" placeholder="Water Level Sensor 1" value={form.name} onChange={e => set('name', e.target.value)} error={errors.name} />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <Sel label="Dam *" value={form.damId} onChange={e => set('damId', e.target.value)} error={errors.damId}>
                             <option value="">Select dam…</option>
                             {dams.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -114,7 +114,7 @@ function CreateSensorModal({ dams, sensorTypes, onClose, onCreated }) {
                         </Sel>
                     </div>
                     <Inp label="Description" value={form.description} onChange={e => set('description', e.target.value)} />
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <Inp label="Location on Dam" placeholder="Dam Crest - Center" value={form.locationOnDam} onChange={e => set('locationOnDam', e.target.value)} />
                         <Sel label="Status" value={form.status} onChange={e => set('status', e.target.value)}>
                             {SENSOR_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -257,10 +257,10 @@ export default function SensorsPage() {
             </div>
 
             {/* Status filter tabs */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
                 {[{ label: 'All', value: '' }, ...SENSOR_STATUSES.map(s => ({ label: s.charAt(0).toUpperCase() + s.slice(1), value: s }))].map(({ label, value }) => (
                     <AppButton key={value} onClick={() => setStatusFilter(value)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${statusFilter === value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                        className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border transition ${statusFilter === value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                         {label}
                     </AppButton>
                 ))}
@@ -268,7 +268,7 @@ export default function SensorsPage() {
 
             {/* Quick health strips */}
             {!statusFilter && !loading && (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                     {[
                         { label: 'Active', color: 'bg-emerald-500', key: 'active' },
                         { label: 'Inactive', color: 'bg-gray-400', key: 'inactive' },
@@ -277,7 +277,7 @@ export default function SensorsPage() {
                         { label: 'Calibrating', color: 'bg-blue-500', key: 'calibrating' },
                     ].map(({ label, color, key }) => (
                         <AppButton variant="outlined" key={key} onClick={() => setStatusFilter(key)}
-                            className="">
+                            className="w-full !flex-col !items-start text-left">
                             <div className="flex items-center gap-2 mb-1">
                                 <span className={`w-2 h-2 rounded-full ${color}`} />
                                 <span className="text-xs text-gray-500">{label}</span>
@@ -290,7 +290,39 @@ export default function SensorsPage() {
 
             {/* Table */}
             <Paper variant="outlined" className="bg-white border border-gray-200   overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Phone: one card per sensor */}
+                <div className="divide-y divide-gray-100 md:hidden">
+                    {loading ? Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="space-y-2 p-4"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-3 w-1/2" /></div>
+                    )) : sensors.length === 0 ? (
+                        <p className="py-14 text-center text-sm text-gray-400">No sensors found</p>
+                    ) : sensors.map(s => (
+                        <div key={s.id} role="button" tabIndex={0} onClick={() => navigate(`/admin/sensors/${s.id}`)}
+                            onKeyDown={(e) => e.key === 'Enter' && navigate(`/admin/sensors/${s.id}`)}
+                            className="space-y-2 p-4 active:bg-gray-50">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <p className="truncate font-medium text-gray-900">{s.name}</p>
+                                    <p className="truncate font-mono text-[11px] text-gray-500">{s.sensorUid}</p>
+                                </div>
+                                <Badge className={sStyle(s.status)}>{s.status ?? '—'}</Badge>
+                            </div>
+                            <p className="text-xs text-gray-500">{s.damName ?? '—'} · {s.sensorType?.name ?? '—'}{s.locationOnDam ? ` · ${s.locationOnDam}` : ''}</p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                                <span>Battery {s.batteryLevel != null ? `${Number(s.batteryLevel).toFixed(0)}%` : '—'}</span>
+                                <span>Signal {s.signalStrength != null ? `${Number(s.signalStrength).toFixed(0)}%` : '—'}</span>
+                                <span>{s.lastReadingAt ? new Date(s.lastReadingAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No reading yet'}</span>
+                            </div>
+                            <div onClick={e => e.stopPropagation()} className="flex items-center justify-between gap-2">
+                                <SensorSparkline sensorId={s.id} warningThreshold={s.warningThreshold}
+                                    criticalThreshold={s.criticalThreshold} unit={s.sensorType?.unit || ''} />
+                                <AppButton onClick={() => setDeletingSensor(s)} className="hover:underline">Delete</AppButton>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                     <Table className="w-full text-sm">
                         <TableHead>
                             <TableRow className="bg-gray-50 border-b border-gray-100 text-left">
@@ -364,9 +396,9 @@ export default function SensorsPage() {
 
                 {/* Pagination (only when not status-filtered since status filter returns an array) */}
                 {!statusFilter && totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100">
                         <p className="text-xs text-gray-500">Page {page + 1} of {totalPages} · {total} total</p>
-                        <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                             <AppButton variant="outlined" disabled={page === 0} onClick={() => load(page - 1)}
                                 className="disabled:opacity-40">← Prev</AppButton>
                             {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {

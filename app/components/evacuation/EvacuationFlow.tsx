@@ -61,7 +61,9 @@ export function EvacuationFlow() {
   const [error, setError] = useState<string | null>(null);
 
   const posRef = useRef<LngLat | null>(null);
-  const waitingRef = useRef(false);   // an SOS is open: stay where you are and wait for the response team
+  const waitingRef = useRef(false);   // SOS sent during this evacuation: stay where you are and wait for the team
+  const [waiting, setWaiting] = useState(false);
+  const locModeRef = useRef<'demo' | 'gps'>('demo');
   const speedRef = useRef(0);
   const path = useRef<{ coords: LngLat[]; step: number }>({ coords: [], step: 0 });
 
@@ -156,7 +158,8 @@ export function EvacuationFlow() {
   // ── Sharing with the command center ────────────────────────────────────────
   const openSos = sos.find((s) => OPEN_SOS.includes(s.status));
   const sharing = phase === 'evacuating' || !!openSos;
-  waitingRef.current = !!openSos;
+  waitingRef.current = waiting && !!openSos;
+  locModeRef.current = locMode;
   // The demo response team coming to help (position from the team's phone)
   const coming = openSos?.teams ?? [];
   const teamMarks = coming.filter((tm) => tm.lat != null && tm.lng != null && tm.status !== 'done')
@@ -196,7 +199,7 @@ export function EvacuationFlow() {
       setRoute(r);
       const coords = (r.route?.coordinates || []) as LngLat[];
       path.current = { coords, step: 0 };
-      if (locMode === 'demo' && coords.length > 1 && metres(p, coords[0]) < 2500) place(coords[0]);   // start on the road
+      if (locModeRef.current === 'demo' && coords.length > 1 && metres(p, coords[0]) < 2500) place(coords[0]);   // start on the road
     } catch (e: any) {
       setRoute(null);
       Alert.alert('No route', e?.response?.status === 404
@@ -232,13 +235,16 @@ export function EvacuationFlow() {
     const p = interiorPoint(z.boundaryGeojson);
     if (!p) return;
     setLocMode('demo');
+    locModeRef.current = 'demo';
     setPhase('idle');
+    setWaiting(false);
     place(p);
     AsyncStorage.setItem(DEMO_KEY, JSON.stringify(p));
     await findRoute();
   };
 
   const start = async () => {
+    setWaiting(false);                 // a fresh evacuation always starts walking
     if (!route) await findRoute();
     setPhase('evacuating');
   };
@@ -266,6 +272,7 @@ export function EvacuationFlow() {
     }
     try {
       await evacuationService.sendSos(type, p[1], p[0], message || undefined);
+      setWaiting(true);                // stop here and wait for the response team
       Vibration.vibrate(300);
       await loadSos();
     } catch {
@@ -396,10 +403,10 @@ export function EvacuationFlow() {
           <MaterialCommunityIcons name={arrived ? 'flag-checkered' : offRoute ? 'map-marker-alert' : 'navigation-variant'} size={30} color="#fff" />
           <View style={{ flex: 1 }}>
             <Text style={styles.navText}>
-              {openSos && !arrived ? 'SOS sent: stay where you are, help is coming'
+              {waiting && openSos && !arrived ? 'SOS sent: stay where you are, help is coming'
                 : arrived ? `You reached ${route?.shelter?.name}`
-                : offRoute ? 'Off the route: go back to the green line'
-                  : nextTurn ? `${toTurn != null ? `In ${fmtDist(toTurn)}: ` : ''}${nextTurn.text}` : 'Follow the green line'}
+                : offRoute ? 'Off the route: go back to the purple line'
+                  : nextTurn ? `${toTurn != null ? `In ${fmtDist(toTurn)}: ` : ''}${nextTurn.text}` : 'Follow the purple line'}
             </Text>
             {!arrived && (
               <Text style={styles.navSub}>

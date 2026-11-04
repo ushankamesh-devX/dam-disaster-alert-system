@@ -94,7 +94,8 @@ window.ddasStatus=function(s){zonesL.clearLayers();safeL.clearLayers();dangerLay
   });};
 window.ddasRoute=function(r){routeL.clearLayers();if(!r)return;
   var c=(r.route&&r.route.coordinates||[]).map(function(p){return [p[1],p[0]];});
-  if(c.length>1){L.polyline(c,{color:'#15803D',weight:7,opacity:.85,lineCap:'round'}).addTo(routeL);
+  if(c.length>1){L.polyline(c,{color:'#fff',weight:11,opacity:.9,lineCap:'round'}).addTo(routeL);
+    L.polyline(c,{color:'#7C3AED',weight:7,opacity:.95,lineCap:'round'}).addTo(routeL);
     L.polyline(c,{color:'#fff',weight:2.5,dashArray:'1 9',lineCap:'round',className:'flow'}).addTo(routeL);}
   if(r.shelter){L.marker([r.shelter.lat,r.shelter.lng],{icon:icon(hill),zIndexOffset:900}).addTo(routeL)
     .bindTooltip(r.shelter.aboveFloodM!=null?'▲ '+r.shelter.aboveFloodM+' m':'Safe place',{permanent:true,direction:'bottom',offset:[0,12],className:'tag'});}

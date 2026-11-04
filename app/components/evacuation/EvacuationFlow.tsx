@@ -18,8 +18,9 @@ type ActiveAlert = Awaited<ReturnType<typeof evacuationService.activeAlerts>>[nu
 const DEMO_KEY = 'ddas-demo-position';
 const POLL_MS = 15_000;
 const SHARE_MS = 10_000;
-const DEMO_TICK_MS = 2_000;
-const DEMO_SPEED = { walk: 6, drive: 20 };   // m/s: about 4x real life so the demo moves visibly
+const DEMO_TICK_MS = 1_000;
+// m/s in Demo location: fast enough to watch the whole route in a few minutes (the banner shows real-life minutes)
+const DEMO_SPEED = { walk: 18, drive: 35 };
 const LEVEL_COLOR: Record<number, string> = { 1: '#DC2626', 2: '#F97316', 3: '#CA8A04', 4: '#CA8A04', 5: '#16A34A' };
 const OPEN_SOS = ['triggered', 'acknowledged', 'responding'];
 const SOS_TEXT: Record<string, string> = {
@@ -60,6 +61,7 @@ export function EvacuationFlow() {
   const [error, setError] = useState<string | null>(null);
 
   const posRef = useRef<LngLat | null>(null);
+  const waitingRef = useRef(false);   // an SOS is open: stay where you are and wait for the response team
   const speedRef = useRef(0);
   const path = useRef<{ coords: LngLat[]; step: number }>({ coords: [], step: 0 });
 
@@ -131,7 +133,7 @@ export function EvacuationFlow() {
     const id = setInterval(() => {
       const p = path.current;
       let here = posRef.current;
-      if (!here || p.coords.length < 2) return;
+      if (!here || p.coords.length < 2 || waitingRef.current) return;
       let left = DEMO_SPEED[mode] * (DEMO_TICK_MS / 1000);
       while (left > 0 && p.step < p.coords.length - 1) {
         const next = p.coords[p.step + 1];
@@ -154,6 +156,7 @@ export function EvacuationFlow() {
   // ── Sharing with the command center ────────────────────────────────────────
   const openSos = sos.find((s) => OPEN_SOS.includes(s.status));
   const sharing = phase === 'evacuating' || !!openSos;
+  waitingRef.current = !!openSos;
   // The demo response team coming to help (position from the team's phone)
   const coming = openSos?.teams ?? [];
   const teamMarks = coming.filter((tm) => tm.lat != null && tm.lng != null && tm.status !== 'done')
@@ -393,7 +396,8 @@ export function EvacuationFlow() {
           <MaterialCommunityIcons name={arrived ? 'flag-checkered' : offRoute ? 'map-marker-alert' : 'navigation-variant'} size={30} color="#fff" />
           <View style={{ flex: 1 }}>
             <Text style={styles.navText}>
-              {arrived ? `You reached ${route?.shelter?.name}`
+              {openSos && !arrived ? 'SOS sent: stay where you are, help is coming'
+                : arrived ? `You reached ${route?.shelter?.name}`
                 : offRoute ? 'Off the route: go back to the green line'
                   : nextTurn ? `${toTurn != null ? `In ${fmtDist(toTurn)}: ` : ''}${nextTurn.text}` : 'Follow the green line'}
             </Text>

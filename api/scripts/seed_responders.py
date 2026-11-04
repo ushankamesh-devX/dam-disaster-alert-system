@@ -32,6 +32,10 @@ EMAIL_DOMAIN = 'responders.ddas.local'
 DAMS = {'KOT-01': 'kot', 'VIC-01': 'vic', 'RAN-01': 'ran'}
 # kind, label, units per dam
 UNITS = [('police', 'Police', 3), ('hospital', 'Ambulance', 2), ('fire_brigade', 'Fire & rescue', 2)]
+# Forward posts at the dam's high-ground assembly points (next to the danger zones, on a road):
+# kind, label, units; they reach people in the zones in about 10-15 minutes
+FORWARD = [('hospital', 'Ambulance', 2), ('fire_brigade', 'Fire & rescue', 1), ('police', 'Police', 1)]
+SERVICE_KEY = {'police': 'police', 'hospital': 'hospital', 'fire_brigade': 'fire_station'}
 
 
 def km(a, b):
@@ -79,6 +83,28 @@ def rescue_post(dam, n, base, types):
                    f'WHERE code = {quote(code)}')[0]
 
 
+def forward_post(dam, kind, n, point, types):
+    """A forward post (ambulance / fire & rescue / police) at a high-ground assembly point (upsert by code)."""
+    stype, ltype, colour, _ = SERVICES[SERVICE_KEY[kind]]
+    code = f'DDAS-FWD-{dam["code"]}-{kind}-{n}'
+    place = re.sub(r'^High ground [A-Z]:\s*(near\s+)?', '', point['name']).strip() or point['name']
+    label = {'hospital': 'Ambulance post', 'fire_brigade': 'Rescue post', 'police': 'Police post'}[kind]
+    name = f'{label} · {place}'[:200]
+    offset = {'hospital': 0.0006, 'fire_brigade': -0.0006, 'police': 0.0}[kind]     # side by side, not on top of each other
+    lat, lng = float(point['lat']) + offset, float(point['lng']) + 0.0006
+    if records(f'SELECT id FROM emergency_service_providers WHERE code = {quote(code)}'):
+        sql(f'UPDATE emergency_service_providers SET name = {quote(name)}, latitude = {lat}, longitude = {lng}, '
+            f"deleted_at = NULL, status = 'active', show_on_map = 1 WHERE code = {quote(code)}")
+    else:
+        sql('INSERT INTO emergency_service_providers (uuid, code, name, description, service_type, location_type_id, '
+            'latitude, longitude, primary_phone, is_24_hours, status, is_verified, show_on_map, marker_color, metadata) VALUES ('
+            + ', '.join(map(quote, [str(uuid.uuid5(NS, code)), code, name,
+                                    f'DDAS forward post for {dam["name"]} at {point["name"]} (training data).', stype, types.get(ltype),
+                                    lat, lng, '', 1, 'active', 0, 1, colour, {'source': 'DDAS'}])) + ')')
+    return records(f'SELECT id, name, service_type type, latitude lat, longitude lng FROM emergency_service_providers '
+                   f'WHERE code = {quote(code)}')[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--kubectl', nargs='?', const='ddas-db-0', default='ddas-db-0', metavar='POD')
@@ -110,7 +136,7 @@ def main():
     for d in dams:
         d['pt'] = (float(d['lat']), float(d['lng']))
     stations = records("SELECT id, name, service_type type, latitude lat, longitude lng FROM emergency_service_providers "
-                       "WHERE deleted_at IS NULL AND code NOT LIKE 'DDAS-POST-%'")
+                       "WHERE deleted_at IS NULL AND code NOT LIKE 'DDAS-POST-%' AND code NOT LIKE 'DDAS-FWD-%'")
     types = ensure_location_types()
 
     links = {}          # station id -> [user ids]
@@ -145,6 +171,27 @@ def main():
                     f"onboarding_completed_at = COALESCE(onboarding_completed_at, NOW()), status = 'active' WHERE id = {uid}")
                 links.setdefault(st['id'], []).append(int(uid))
                 units.append((d['name'], label, email, name, st['name'], km(d['pt'], (float(st['lat']), float(st['lng']))), state))
+
+        # Forward posts at the high-ground assembly points next to the zones (from build_safe_areas.py)
+        points = records(f"SELECT name, latitude lat, longitude lng FROM system_safe_locations WHERE code LIKE "
+                         f"{quote('HG-' + d['code'].split('-')[0] + '-%')} AND deleted_at IS NULL ORDER BY code")
+        if not points:
+            print(f'  {d["name"]}: no high-ground assembly points (run build_safe_areas.py), no forward posts')
+        base_count = {k: c for k, _, c in UNITS}
+        for kind, label, count in FORWARD if points else []:
+            for i in range(count):
+                point = points[i % len(points)] if kind == 'hospital' else points[min(1, len(points) - 1)]
+                st = forward_post(d, kind, i + 1, point, types)
+                n = base_count[kind] + i + 1
+                tag = kind.split('_')[0] + str(n)
+                email = f'{tag}-{DAMS[d["code"]]}@{EMAIL_DOMAIN}'
+                name = f'{label} {n} · {town(st["name"])}'[:100]
+                state = sign_up(args.url, name, email, args.password)
+                uid = records(f'SELECT id FROM users WHERE email = {quote(email)}')[0]['id']
+                sql(f"UPDATE users SET role_id = {role}, full_name = {quote(name)}, preferred_dam_id = {d['id']}, "
+                    f"onboarding_completed_at = COALESCE(onboarding_completed_at, NOW()), status = 'active' WHERE id = {uid}")
+                links.setdefault(st['id'], []).append(int(uid))
+                units.append((d['name'], label + ' (forward)', email, name, st['name'], km(d['pt'], (float(st['lat']), float(st['lng']))), state))
 
     for sid, uids in links.items():
         sql(f"UPDATE emergency_service_providers SET metadata = JSON_SET(COALESCE(metadata, JSON_OBJECT()), "

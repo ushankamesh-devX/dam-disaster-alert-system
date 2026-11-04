@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, Pane, TileLayer, GeoJSON, CircleMarker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { FileText, Route } from 'lucide-react';
@@ -135,6 +135,7 @@ export default function EvacuationPage() {
     const [packs, setPacks] = useState([]);           // marked evacuation routes
     const [teams, setTeams] = useState([]);           // response teams: status, live position, mission
     const [teamFocus, setTeamFocus] = useState(null);
+    const [phoneRoutes, setPhoneRoutes] = useState({});   // live phone id -> its route to safety
     const [onlyPhones, setOnlyPhones] = useState(false);
 
 
@@ -193,6 +194,24 @@ export default function EvacuationPage() {
     }, [replayFrame, shown, people, layers.people]);
 
     // Live route for the selected person (re-fetched every 15 s while "following")
+    const peopleRef = useRef(people);
+    peopleRef.current = people;
+    // Live phones still on their way: refresh their route to safety every 15 s
+    useEffect(() => {
+        const load = async () => {
+            const phones = peopleRef.current.filter((p) => p.phone && p.state !== 'safe');
+            const next = {};
+            await Promise.all(phones.map(async (p) => {
+                try { next[p.id] = { ...(await EvacuationService.route(p.lat, p.lng, p.mode)), name: p.name }; } catch { /* no route */ }
+            }));
+            setPhoneRoutes(next);
+        };
+        load();
+        const id = setInterval(load, 15000);
+        return () => clearInterval(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [people.filter((p) => p.phone).map((p) => p.id).join(',')]);
+
     const loadRoute = useCallback(async (p) => {
         if (!p) return;
         try { setPersonRoute(await EvacuationService.route(p.lat, p.lng, p.mode)); } catch { setPersonRoute(null); }
@@ -241,6 +260,9 @@ export default function EvacuationPage() {
 
     const testLine = testResult?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
     const personLine = personRoute?.route?.coordinates?.map(([lng, lat]) => [lat, lng]);
+    const phoneLines = Object.entries(phoneRoutes).filter(([id]) => Number(id) !== selectedPersonId)
+        .map(([id, r]) => ({ id, name: r.name, shelter: r.shelter?.name, km: r.distanceKm, pts: (r.route?.coordinates || []).map(([lng, lat]) => [lat, lng]) }))
+        .filter((l) => l.pts.length > 1);
     const spaceLeft = Math.max(0, Number(sm.capacity || 0) - Number(sm.occupancy || 0));
     const flyTarget = teamFocus ? [teamFocus.lat, teamFocus.lng] : selectedSos ? [Number(selectedSos.lat), Number(selectedSos.lng)]
         : selectedPerson ? [selectedPerson.lat, selectedPerson.lng] : null;
@@ -328,6 +350,11 @@ export default function EvacuationPage() {
                         {layers.teams && !replayFrame && <TeamsLayer teams={shownTeams} />}
                         {layers.sos && !replayFrame && <SosLayer sos={sos} onSelect={(x) => { setSelectedSos(x); setTeamFocus(null); setTab('sos'); }} />}
 
+                        {phoneLines.map((l) => (
+                            <Polyline key={`phone-route-${l.id}`} positions={l.pts} pathOptions={{ color: '#7C3AED', weight: 6, opacity: 0.9, className: 'ddas-flow' }}>
+                                <Tooltip sticky>{l.name}: route to {l.shelter} · {l.km} km</Tooltip>
+                            </Polyline>
+                        ))}
                         {personLine && <Polyline positions={personLine} pathOptions={{ color: '#7C3AED', weight: 5, opacity: 0.85, className: 'ddas-flow' }} />}
                         {testResult?.from && <CircleMarker center={testResult.from} radius={6} pathOptions={{ color: '#1D4ED8', fillOpacity: 1 }} />}
                         {testLine && <Polyline positions={testLine} pathOptions={{ color: '#1D4ED8', weight: 5 }} />}

@@ -40,8 +40,9 @@ def km(a, b):
 
 
 def town(name):
-    """'Teldeniya Police Station' -> 'Teldeniya'."""
-    t = re.sub(r'\b(police|station|post|divisional|crime|detective|bureau|base|hospital|divisional|rural)\b', '', name, flags=re.I)
+    """'Teldeniya Police Station' -> 'Teldeniya'; 'Fire & rescue post · Teldeniya' -> 'Teldeniya'; 'Base Hospital of Walapane' -> 'Walapane'."""
+    t = name.split('·')[-1]
+    t = re.sub(r'\b(police|station|post|divisional|crime|detective|bureau|base|hospital|rural|district|general|of)\b', '', t, flags=re.I)
     t = re.sub(r'\s+', ' ', t).strip(' -,·')
     return t or name
 

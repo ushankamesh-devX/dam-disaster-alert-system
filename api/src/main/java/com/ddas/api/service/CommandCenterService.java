@@ -161,15 +161,16 @@ public class CommandCenterService {
     }
 
     /**
-     * Clear the real phones (mobile app users) from the map: end their sharing and close their open SOS.
-     * Sessions are dated back past the 30-minute window so they drop off at once. Scenario people are untouched.
+     * Start the demo clean: end the real phones' sharing and close every SOS call (phones and scenario).
+     * Times are dated back past the 30-minute window so sessions and SOS calls drop off the map and lists at once;
+     * the units' jobs go with them. Scenario people keep moving.
      */
     @Transactional
     public Map<String, Integer> resetPhones(Long userId) {
         String phones = "SELECT id FROM users WHERE email NOT LIKE '%@scenario.ddas.local'";
-        int sos = jdbc.update("UPDATE sos_events SET status = 'resolved', resolved_at = NOW(), resolved_by = ?, " +
-                "resolution_notes = 'Reset by operator' WHERE status IN ('triggered','acknowledged','responding') " +
-                "AND user_id IN (" + phones + ")", userId);
+        int sos = jdbc.update("UPDATE sos_events SET status = 'resolved', resolved_by = COALESCE(resolved_by, ?), " +
+                "resolution_notes = COALESCE(resolution_notes, 'Reset by operator'), resolved_at = NOW() - INTERVAL 31 MINUTE " +
+                "WHERE status IN ('triggered','acknowledged','responding') OR resolved_at > NOW() - INTERVAL 31 MINUTE", userId);
         int sessions = jdbc.update("UPDATE location_sharing_sessions SET status = 'ended', " +
                 "ended_at = NOW() - INTERVAL 31 MINUTE WHERE user_id IN (" + phones + ") " +
                 "AND (status = 'active' OR ended_at > NOW() - INTERVAL 31 MINUTE)");

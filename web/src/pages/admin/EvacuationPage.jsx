@@ -249,7 +249,7 @@ export default function EvacuationPage() {
     const resetPhones = async () => {
         try {
             const r = await CommandCenterService.resetPhones();
-            toast.success(`Live phones cleared: ${r.sessions} session${r.sessions === 1 ? '' : 's'}, ${r.sos} SOS`);
+            toast.success(`Reset: ${r.sessions} phone session${r.sessions === 1 ? '' : 's'} ended, ${r.sos} SOS call${r.sos === 1 ? '' : 's'} cleared`);
             refreshAll();
             refreshPeople();
         } catch (e) {
@@ -419,8 +419,8 @@ export default function EvacuationPage() {
                                 <ScenarioPanel />
                             </Panel>
                             <Panel title="Live phones">
-                                <p className="text-muted-foreground">Clear the mobile app users (e.g. Niduk) from the map: ends their sharing and closes their SOS.</p>
-                                <Button variant="outline" size="sm" className="text-destructive" onClick={resetPhones}>Reset live phones</Button>
+                                <p className="text-muted-foreground">Start the demo clean: clears every SOS call (phones and scenario) and the units' jobs, and takes the mobile app users (e.g. Niduk) off the map.</p>
+                                <Button variant="outline" size="sm" className="text-destructive" onClick={resetPhones}>Reset phones & SOS</Button>
                             </Panel>
                             {draft && (
                                 <Panel title="New blocked road">
